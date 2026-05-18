@@ -1,26 +1,42 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useMemo, createContext, useContext } from 'react'
 import Sidebar from '@/components/layout/Sidebar'
-import { DashboardContext } from '@/context/DashboardContext'
-import { KpiScore, Region, Period } from '@/types'
+import { Region, Period } from '@/types'
+import { BrandScore, RegionScore, TrendScore, Filters } from '@/hooks/useDashboard'
 import styles from './layout.module.css'
 
-export interface Filters {
-  regionId: string
-  segment: string
-  year: string
-  quarter: string
+// Context
+interface DashboardCtx {
+  brandScores: BrandScore[]
+  regionScores: RegionScore[]
+  trendScores: TrendScore[]
+  regions: Region[]
+  periods: Period[]
+  filters: Filters
+  updateFilter: (key: keyof Filters, value: string) => void
 }
 
+export const DashboardContext = createContext<DashboardCtx>({} as DashboardCtx)
+export const useDashboardCtx = () => useContext(DashboardContext)
+
 interface Props {
-  initialScores: any[]
+  initialBrandScores: BrandScore[]
+  initialRegionScores: RegionScore[]
+  initialTrendScores: TrendScore[]
   initialRegions: Region[]
   initialPeriods: Period[]
   children: React.ReactNode
 }
 
-export default function DashboardClient({ initialScores, initialRegions, initialPeriods, children }: Props) {
+export default function DashboardClient({
+  initialBrandScores,
+  initialRegionScores,
+  initialTrendScores,
+  initialRegions,
+  initialPeriods,
+  children,
+}: Props) {
   const [filters, setFilters] = useState<Filters>({
     regionId: '', segment: '', year: '', quarter: ''
   })
@@ -29,15 +45,34 @@ export default function DashboardClient({ initialScores, initialRegions, initial
     setFilters(prev => ({ ...prev, [key]: value }))
   }
 
-  const filteredScores = useCallback(() => {
-    return initialScores.filter((s: any) => {
-      if (filters.regionId && s.regions?.id !== filters.regionId) return false
-      if (filters.segment  && s.brands?.segment !== filters.segment) return false
-      if (filters.year     && s.periods?.year !== parseInt(filters.year)) return false
-      if (filters.quarter  && s.periods?.quarter !== filters.quarter) return false
+  // Filtreleme — tümü JS'de, veri zaten agregat
+  const brandScores = useMemo(() => {
+    return initialBrandScores.filter(s => {
+      if (filters.segment && s.brand_segment !== filters.segment) return false
+      if (filters.year    && s.year !== parseInt(filters.year))   return false
+      if (filters.quarter && s.quarter !== filters.quarter)        return false
+      if (filters.regionId) {
+        const region = initialRegions.find(r => r.id === filters.regionId)
+        if (region && s.region_name !== region.name) return false
+      }
       return true
     })
-  }, [initialScores, filters])
+  }, [initialBrandScores, filters, initialRegions])
+
+  const regionScores = useMemo(() => {
+    return initialRegionScores.filter(s => {
+      if (filters.segment && !initialBrandScores.some(b => b.brand_segment === filters.segment)) return true
+      return true
+    })
+  }, [initialRegionScores, filters])
+
+  const trendScores = useMemo(() => {
+    return initialTrendScores.filter(s => {
+      if (filters.year    && s.year !== parseInt(filters.year))   return false
+      if (filters.quarter && s.quarter !== filters.quarter)        return false
+      return true
+    })
+  }, [initialTrendScores, filters])
 
   const filterUI = (
     <div className={styles.filters}>
@@ -89,10 +124,11 @@ export default function DashboardClient({ initialScores, initialRegions, initial
 
   return (
     <DashboardContext.Provider value={{
-      scores: filteredScores() as KpiScore[],
+      brandScores,
+      regionScores,
+      trendScores,
       regions: initialRegions,
       periods: initialPeriods,
-      loading: false,
       filters,
       updateFilter,
     }}>
