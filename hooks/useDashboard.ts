@@ -22,7 +22,6 @@ export function useDashboard() {
 
   const supabase = createClient()
 
-  // Referans verileri (bir kez yükle)
   useEffect(() => {
     Promise.all([
       supabase.from('regions').select('*').order('name'),
@@ -36,39 +35,58 @@ export function useDashboard() {
   const loadScores = useCallback(async () => {
     setLoading(true)
 
+    // Önce period ID'lerini bul
+    let periodIds: string[] = []
+    if (filters.year || filters.quarter) {
+      let pq = supabase.from('periods').select('id')
+      if (filters.year)    pq = pq.eq('year', parseInt(filters.year))
+      if (filters.quarter) pq = pq.eq('quarter', filters.quarter)
+      const { data: pdata } = await pq
+      periodIds = (pdata || []).map(p => p.id)
+      if (periodIds.length === 0) {
+        setScores([])
+        setLoading(false)
+        return
+      }
+    }
+
+    // Skorları çek
     let q = supabase
       .from('kpi_scores')
       .select(`
-        *,
-        brands(id, code, name, segment),
+        id, brand_id, period_id, region_id, vehicle_age_group, segment, is_masked,
+        score_operational, score_customer, score_service_capacity, score_coverage, score_overall,
+        idx_work_order_duration, idx_work_order_volume, idx_active_customer_base,
+        idx_labor_hours_per_wo, idx_customer_retention, idx_service_usage,
+        idx_periodic_maintenance, idx_wo_per_service, idx_customer_per_service,
+        idx_parts_revenue_per_cust, idx_warranty_coverage,
+        brands!inner(id, code, name, segment),
         regions(id, name),
-        periods(id, year, quarter)
+        periods!inner(id, year, quarter)
       `)
       .eq('is_masked', false)
       .limit(5000)
 
-    if (filters.year)    q = q.eq('periods.year',    parseInt(filters.year))
-    if (filters.quarter) q = q.eq('periods.quarter', filters.quarter)
+    if (periodIds.length > 0) q = q.in('period_id', periodIds)
+    if (filters.regionId)    q = q.eq('region_id', filters.regionId)
 
     const { data, error } = await q
 
     if (error) {
-      console.error('Skorlar yüklenemedi:', error)
+      console.error('Hata:', error.message)
       setLoading(false)
       return
     }
 
-    // JS tarafında filtrele
+    // Segment filtresi JS tarafında
     const filtered = (data || []).filter(s => {
-      if (!s.brands || !s.periods) return false
-      if (filters.regionId && s.regions?.id !== filters.regionId) return false
-      if (filters.segment  && s.brands?.segment !== filters.segment) return false
+      if (filters.segment && (s as any).brands?.segment !== filters.segment) return false
       return true
     })
 
-    setScores(filtered)
+    setScores(filtered as any)
     setLoading(false)
-  }, [filters, supabase])
+  }, [filters])
 
   useEffect(() => { loadScores() }, [loadScores])
 
