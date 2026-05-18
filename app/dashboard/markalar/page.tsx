@@ -1,9 +1,9 @@
 'use client'
 import { useMemo } from 'react'
-import { useDashboardCtx } from '../DashboardClient'
+import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import { fmt, scoreColor, SEGMENT_COLORS } from '@/lib/kpi'
-import styles from '../page.module.css'
+import styles from './page.module.css'
 
 function groupByBrand(scores: any[]) {
   const map: Record<string, any> = {}
