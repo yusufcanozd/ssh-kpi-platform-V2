@@ -1,12 +1,12 @@
 'use client'
 import { useMemo, useState } from 'react'
-import { useDashboardCtx } from '../DashboardClient'
+import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import { fmt, scoreColor, SEGMENT_COLORS, SEGMENT_BG } from '@/lib/kpi'
 import { KPI_CONFIG } from '@/types'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
-import styles from '../page.module.css'
+import styles from './page.module.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
