@@ -4,29 +4,26 @@ import DashboardClient from './DashboardClient'
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
 
-  const [{ data: scores }, { data: regions }, { data: periods }] = await Promise.all([
-    supabase
-      .from('kpi_scores')
-      .select(`
-        id, brand_id, period_id, region_id,
-        score_operational, score_customer, score_service_capacity, score_coverage, score_overall,
-        idx_work_order_duration, idx_work_order_volume, idx_active_customer_base,
-        idx_labor_hours_per_wo, idx_customer_retention, idx_service_usage,
-        idx_periodic_maintenance, idx_wo_per_service, idx_customer_per_service,
-        idx_parts_revenue_per_cust, idx_warranty_coverage,
-        brands(id, name, segment),
-        regions(id, name),
-        periods(id, year, quarter)
-      `)
-      .eq('is_masked', false)
-      .limit(5000),
+  // Sadece agregat sonuçları çek — ham veri yok
+  const [
+    { data: brandScores },
+    { data: regionScores },
+    { data: trendScores },
+    { data: regions },
+    { data: periods },
+  ] = await Promise.all([
+    supabase.rpc('get_dashboard_scores'),
+    supabase.rpc('get_region_scores'),
+    supabase.rpc('get_trend_scores'),
     supabase.from('regions').select('*').order('name'),
     supabase.from('periods').select('*').order('year', { ascending: false }),
   ])
 
   return (
     <DashboardClient
-      initialScores={scores || []}
+      initialBrandScores={brandScores || []}
+      initialRegionScores={regionScores || []}
+      initialTrendScores={trendScores || []}
       initialRegions={regions || []}
       initialPeriods={periods || []}
     >
