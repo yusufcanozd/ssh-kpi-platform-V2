@@ -33,7 +33,6 @@ export function useDashboard() {
     })
   }, [])
 
-  // Skorları yükle (filtreler değişince)
   const loadScores = useCallback(async () => {
     setLoading(true)
 
@@ -59,8 +58,9 @@ export function useDashboard() {
       return
     }
 
-    // JS tarafında bölge ve segment filtresi
+    // JS tarafında filtrele
     const filtered = (data || []).filter(s => {
+      if (!s.brands || !s.periods) return false
       if (filters.regionId && s.regions?.id !== filters.regionId) return false
       if (filters.segment  && s.brands?.segment !== filters.segment) return false
       return true
