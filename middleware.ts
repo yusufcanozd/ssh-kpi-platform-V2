@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
@@ -10,7 +10,7 @@ export async function middleware(request: NextRequest) {
     {
       cookies: {
         getAll() { return request.cookies.getAll() },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
@@ -24,14 +24,11 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession()
   const path = request.nextUrl.pathname
 
-  // Giriş yapılmamışsa → login
   if (!session && path !== '/login') {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Login sayfasındayken oturum varsa → yönlendir
   if (session && path === '/login') {
-    // Rolü al
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
@@ -42,7 +39,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(isAdmin ? '/admin' : '/dashboard', request.url))
   }
 
-  // Admin sayfasına erişim kontrolü
   if (session && path.startsWith('/admin')) {
     const { data: profile } = await supabase
       .from('profiles')
