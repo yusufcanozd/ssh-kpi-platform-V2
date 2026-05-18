@@ -1,9 +1,9 @@
 'use client'
-import { useDashboardCtx } from '../DashboardClient'
+import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import { fmt, scoreColor } from '@/lib/kpi'
 import { KPI_CONFIG } from '@/types'
-import styles from '../page.module.css'
+import styles from './page.module.css'
 
 export default function BolgelerPage() {
   const { regionScores } = useDashboardCtx()
