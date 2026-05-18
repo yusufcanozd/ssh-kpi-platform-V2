@@ -21,11 +21,19 @@ export function useDashboard() {
   const [regions, setRegions] = useState<Region[]>(regionsCache || [])
   const [periods, setPeriods] = useState<Period[]>(periodsCache || [])
   const [loading, setLoading] = useState(true)
+  const [ready, setReady]     = useState(false)
   const [filters, setFilters] = useState<Filters>({
     regionId: '', segment: '', year: '', quarter: ''
   })
 
   const supabase = createClient()
+
+  // Önce Supabase oturumunun hazır olmasını bekle
+  useEffect(() => {
+    supabase.auth.getSession().then(() => {
+      setReady(true)
+    })
+  }, [])
 
   const applyFilters = useCallback((data: any[]) => {
     const filtered = data.filter((s: any) => {
@@ -38,11 +46,10 @@ export function useDashboard() {
     setScores(filtered)
   }, [filters])
 
-  const fetchAll = useCallback(async (retryCount = 0) => {
+  const fetchAll = useCallback(async () => {
     setLoading(true)
 
     try {
-      // Referans verileri
       if (!regionsCache) {
         const { data } = await supabase.from('regions').select('*').order('name')
         regionsCache = data || []
@@ -54,7 +61,6 @@ export function useDashboard() {
         setPeriods(periodsCache)
       }
 
-      // Cache varsa kullan
       if (allScoresCache) {
         applyFilters(allScoresCache)
         setLoading(false)
@@ -79,37 +85,23 @@ export function useDashboard() {
 
       if (error) throw error
 
-      if (!data || data.length === 0) {
-        // Veri gelmediyse 1 saniye bekle ve tekrar dene (max 3 kez)
-        if (retryCount < 3) {
-          setTimeout(() => fetchAll(retryCount + 1), 1000)
-          return
-        }
-      }
-
       allScoresCache = data || []
       applyFilters(allScoresCache)
     } catch (err: any) {
       console.error('Veri yükleme hatası:', err?.message)
-      // Hata durumunda tekrar dene
-      if (retryCount < 3) {
-        setTimeout(() => fetchAll(retryCount + 1), 1500)
-        return
-      }
     }
 
     setLoading(false)
   }, [applyFilters])
 
+  // Sadece oturum hazır olunca fetch yap
   useEffect(() => {
-    fetchAll()
-  }, [])
+    if (ready) fetchAll()
+  }, [ready])
 
   // Filtre değişince cache'den filtrele
   useEffect(() => {
-    if (allScoresCache) {
-      applyFilters(allScoresCache)
-    }
+    if (allScoresCache) applyFilters(allScoresCache)
   }, [filters, applyFilters])
 
   const updateFilter = (key: keyof Filters, value: string) => {
