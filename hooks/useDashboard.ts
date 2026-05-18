@@ -23,67 +23,49 @@ export function useDashboard() {
   const supabase = createClient()
 
   useEffect(() => {
-    Promise.all([
-      supabase.from('regions').select('*').order('name'),
-      supabase.from('periods').select('*').order('year', { ascending: false }),
-    ]).then(([{ data: reg }, { data: per }]) => {
-      setRegions(reg || [])
-      setPeriods(per || [])
-    })
+    supabase.from('regions').select('*').order('name')
+      .then(({ data }) => setRegions(data || []))
+    supabase.from('periods').select('*').order('year', { ascending: false })
+      .then(({ data }) => setPeriods(data || []))
   }, [])
 
   const loadScores = useCallback(async () => {
     setLoading(true)
 
-    // Önce period ID'lerini bul
-    let periodIds: string[] = []
-    if (filters.year || filters.quarter) {
-      let pq = supabase.from('periods').select('id')
-      if (filters.year)    pq = pq.eq('year', parseInt(filters.year))
-      if (filters.quarter) pq = pq.eq('quarter', filters.quarter)
-      const { data: pdata } = await pq
-      periodIds = (pdata || []).map(p => p.id)
-      if (periodIds.length === 0) {
-        setScores([])
-        setLoading(false)
-        return
-      }
-    }
-
-    // Skorları çek
-    let q = supabase
+    const { data, error } = await supabase
       .from('kpi_scores')
       .select(`
-        id, brand_id, period_id, region_id, vehicle_age_group, segment, is_masked,
+        id, brand_id, period_id, region_id, is_masked,
         score_operational, score_customer, score_service_capacity, score_coverage, score_overall,
         idx_work_order_duration, idx_work_order_volume, idx_active_customer_base,
         idx_labor_hours_per_wo, idx_customer_retention, idx_service_usage,
         idx_periodic_maintenance, idx_wo_per_service, idx_customer_per_service,
         idx_parts_revenue_per_cust, idx_warranty_coverage,
-        brands!inner(id, code, name, segment),
+        brands(id, code, name, segment),
         regions(id, name),
-        periods!inner(id, year, quarter)
+        periods(id, year, quarter)
       `)
       .eq('is_masked', false)
       .limit(5000)
 
-    if (periodIds.length > 0) q = q.in('period_id', periodIds)
-    if (filters.regionId)    q = q.eq('region_id', filters.regionId)
-
-    const { data, error } = await q
-
     if (error) {
-      console.error('Hata:', error.message)
+      console.error('Supabase hatası:', error.message)
       setLoading(false)
       return
     }
 
-    // Segment filtresi JS tarafında
-    const filtered = (data || []).filter(s => {
-      if (filters.segment && (s as any).brands?.segment !== filters.segment) return false
+    console.log('Gelen veri sayısı:', data?.length)
+
+    // Tüm filtreleri JS tarafında uygula
+    const filtered = (data || []).filter((s: any) => {
+      if (filters.regionId && s.regions?.id !== filters.regionId) return false
+      if (filters.segment  && s.brands?.segment !== filters.segment) return false
+      if (filters.year     && s.periods?.year !== parseInt(filters.year)) return false
+      if (filters.quarter  && s.periods?.quarter !== filters.quarter) return false
       return true
     })
 
+    console.log('Filtrelenmiş veri:', filtered.length)
     setScores(filtered as any)
     setLoading(false)
   }, [filters])
