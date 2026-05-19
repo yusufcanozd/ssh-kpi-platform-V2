@@ -4,6 +4,14 @@ const nextConfig = {
   images: {
     domains: ['fonts.googleapis.com'],
   },
+  // JSON import desteği (kpi_data.json için)
+  webpack: (config) => {
+    config.module.rules.push({
+      test: /\.json$/,
+      type: 'json',
+    })
+    return config
+  },
 }
 
 module.exports = nextConfig
