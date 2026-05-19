@@ -47,6 +47,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (event === 'SIGNED_OUT') {
+          setProfile(null)
+          router.push('/login')
+          return
+        }
         if (session?.user) {
           const p = await fetchProfile(session.user.id)
           setProfile(p)
@@ -57,15 +62,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
 
     return () => subscription.unsubscribe()
-  }, [fetchProfile, supabase])
+  }, [fetchProfile, supabase, router])
 
+  // Çıkış — signOut çağrısı + state temizle + login'e yönlendir
   const logout = async () => {
-    await supabase.auth.signOut()
-    setProfile(null)
-    router.push('/login')
+    try {
+      await supabase.auth.signOut()
+    } catch (e) {
+      console.error('signOut error:', e)
+    } finally {
+      setProfile(null)
+      router.push('/login')
+    }
   }
 
-  const isAdmin = ['superadmin', 'admin'].includes(profile?.role || '')
+  const isAdmin      = ['superadmin', 'admin'].includes(profile?.role || '')
   const isSuperAdmin = profile?.role === 'superadmin'
 
   return (
