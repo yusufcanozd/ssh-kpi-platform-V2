@@ -30,16 +30,14 @@ export default function DashboardPage() {
   const segData = SEGMENT_KPIS
   const bolgeData = BOLGE_KPIS
 
-  // Segment ortalamaları — KPI5 işçilik tutarı (index 4) göster
   const segLabels = segData.map(s => s.segment)
-  const segKpi5   = segData.map(s => s.kpis[4])  // İE başına işçilik
-  const segKpi6   = segData.map(s => s.kpis[5])  // İE başına parça
+  const segKpi5   = segData.map(s => s.kpis[4])
+  const segKpi6   = segData.map(s => s.kpis[5])
 
-  // Toplam istatistikler
-  const totalIO    = MARKA_KPIS.reduce((a,m) => a+m.io_count, 0)
+  const totalIO     = MARKA_KPIS.reduce((a,m) => a+m.io_count, 0)
   const totalServis = MARKA_KPIS.reduce((a,m) => a+m.servis_count, 0)
-  const avgKpi4    = (MARKA_KPIS.reduce((a,m)=>a+m.kpis[3],0)/MARKA_KPIS.length).toFixed(2)
-  const avgKpi7    = (MARKA_KPIS.reduce((a,m)=>a+m.kpis[6],0)/MARKA_KPIS.length).toFixed(1)
+  const avgKpi4     = (MARKA_KPIS.reduce((a,m)=>a+m.kpis[3],0)/MARKA_KPIS.length).toFixed(2)
+  const avgKpi7     = (MARKA_KPIS.reduce((a,m)=>a+m.kpis[6],0)/MARKA_KPIS.length).toFixed(1)
 
   return (
     <div className={styles.wrap}>
@@ -53,23 +51,21 @@ export default function DashboardPage() {
       />
       <div className={styles.content}>
 
-        {/* Özet Kartlar */}
         <div className={styles.statGrid}>
-          <StatCard label="Toplam İş Emri"       value={totalIO.toLocaleString('tr-TR')}   sub="2024–2025 dönemi"           accent="blue" />
-          <StatCard label="Yetkili Servis"        value={totalServis}                        sub="Türkiye geneli"              accent="green" />
-          <StatCard label="Ort. İşçilik Saati/İE" value={avgKpi4 + ' sa'}                  sub="KPI 4 · tüm markalar"        accent="amber" />
-          <StatCard label="Ort. Servis Süresi"    value={avgKpi7 + ' gün'}                  sub="KPI 7 · açılış→fatura"      accent="purple" />
+          <StatCard label="Toplam İş Emri"        value={totalIO.toLocaleString('tr-TR')} sub="2024–2025 dönemi"      accent="blue" />
+          <StatCard label="Yetkili Servis"         value={totalServis}                      sub="Türkiye geneli"        accent="green" />
+          <StatCard label="Ort. İşçilik Saati/İE"  value={avgKpi4 + ' sa'}                 sub="KPI 4 · tüm markalar"  accent="amber" />
+          <StatCard label="Ort. Servis Süresi"     value={avgKpi7 + ' gün'}                sub="KPI 7 · açılış→fatura" accent="purple" />
         </div>
 
-        {/* Segment filtre */}
         <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
           {['', ...SEGS].map(s => (
             <button key={s} onClick={() => setSelSeg(s)}
               style={{
                 padding:'5px 14px', borderRadius:20, fontSize:11, fontWeight:600, cursor:'pointer', border:'1px solid',
-                background: selSeg===s ? (s ? SEGMENT_BG[s]||'rgba(59,130,246,.2)' : 'rgba(59,130,246,.15)') : 'var(--surf2)',
-                borderColor: selSeg===s ? (s ? SEGMENT_COLORS[s]||'var(--blue)' : 'var(--blue)') : 'var(--bd)',
-                color: selSeg===s ? (s ? SEGMENT_COLORS[s]||'var(--blue)' : 'var(--blue)') : 'var(--tx2)',
+                background:   selSeg===s ? (s ? SEGMENT_BG[s]||'rgba(59,130,246,.2)' : 'rgba(59,130,246,.15)') : 'var(--surf2)',
+                borderColor:  selSeg===s ? (s ? SEGMENT_COLORS[s]||'var(--blue)' : 'var(--blue)') : 'var(--bd)',
+                color:        selSeg===s ? (s ? SEGMENT_COLORS[s]||'var(--blue)' : 'var(--blue)') : 'var(--tx2)',
                 transition:'all .15s'
               }}>
               {s || 'Tüm Segmentler'}
@@ -78,7 +74,6 @@ export default function DashboardPage() {
         </div>
 
         <div className={styles.twoCol}>
-          {/* Segment KPI Karşılaştırma */}
           <div className={styles.card}>
             <div className={styles.cardHd}>
               <h3>Segment Karşılaştırması</h3>
@@ -104,7 +99,6 @@ export default function DashboardPage() {
                       borderColor: segLabels.map(s => SEGMENT_COLORS[s]),
                       borderWidth: 1,
                       borderRadius: 7,
-                      borderDash: [4,2],
                     }
                   ]
                 }}
@@ -121,7 +115,6 @@ export default function DashboardPage() {
                 }}
               />
             </div>
-            {/* Segment ortalama satırı */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6, marginTop:12, paddingTop:12, borderTop:'1px solid var(--bd)' }}>
               {segData.map(s => (
                 <div key={s.segment} style={{ textAlign:'center' }}>
@@ -134,7 +127,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Top 10 Marka */}
           <div className={styles.card}>
             <div className={styles.cardHd}>
               <h3>Marka Sıralaması</h3>
@@ -160,11 +152,10 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Bölge Genel */}
         <div className={styles.card}>
           <div className={styles.cardHd}>
             <h3>Bölge İş Emri Dağılımı</h3>
-            <span className={styles.hint}>Toplam iş emri sayısı · Segment ortalamaları ile karşılaştırmalı</span>
+            <span className={styles.hint}>Toplam iş emri sayısı</span>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:8 }}>
             {bolgeData.map(b => {
