@@ -6,22 +6,24 @@ import { BOLGELER, SEGMENTLER, YAS_GRUPLARI, DONEMLER, YAS_COLORS, YAS_STATS } f
 import styles from './layout.module.css'
 
 export interface DashboardCtx {
-  selSeg: string; selBolge: string; selYas: string; selDonem: string
+  selSeg: string; selBolge: string; selYas: string
+  selDonem: string; selCmpDonem: string
   setSeg:(s:string)=>void; setBolge:(b:string)=>void
-  setYas:(y:string)=>void; setDonem:(d:string)=>void
+  setYas:(y:string)=>void; setDonem:(d:string)=>void; setCmpDonem:(d:string)=>void
 }
 
 export const DashboardContext = createContext<DashboardCtx>({
-  selSeg:'',selBolge:'',selYas:'Tümü',selDonem:'',
-  setSeg:()=>{},setBolge:()=>{},setYas:()=>{},setDonem:()=>{}
+  selSeg:'',selBolge:'',selYas:'Tümü',selDonem:'',selCmpDonem:'',
+  setSeg:()=>{},setBolge:()=>{},setYas:()=>{},setDonem:()=>{},setCmpDonem:()=>{}
 })
 export const useDashboardCtx = () => useContext(DashboardContext)
 
 export default function DashboardClient({ children }: { children: React.ReactNode }) {
-  const [selSeg,   setSeg]   = useState('')
-  const [selBolge, setBolge] = useState('')
-  const [selYas,   setYas]   = useState('Tümü')
-  const [selDonem, setDonem] = useState('')
+  const [selSeg,      setSeg]      = useState('')
+  const [selBolge,    setBolge]    = useState('')
+  const [selYas,      setYas]      = useState('Tümü')
+  const [selDonem,    setDonem]    = useState('')
+  const [selCmpDonem, setCmpDonem] = useState('')
 
   const filterUI = (
     <div className={styles.filters}>
@@ -51,15 +53,23 @@ export default function DashboardClient({ children }: { children: React.ReactNod
       </div>
 
       <div className={styles.filterRow}>
-        <label>Dönem</label>
+        <label>Baz Dönem</label>
         <select value={selDonem} onChange={e=>setDonem(e.target.value)}>
           <option value="">Tüm Dönem</option>
           {DONEMLER.map(d=><option key={d} value={d}>{d}</option>)}
         </select>
       </div>
 
+      <div className={styles.filterRow}>
+        <label>Karşılaştırma Dönemi</label>
+        <select value={selCmpDonem} onChange={e=>setCmpDonem(e.target.value)}>
+          <option value="">Seçiniz</option>
+          {DONEMLER.map(d=><option key={d} value={d}>{d}</option>)}
+        </select>
+      </div>
+
       <div className={styles.filterSep}>📊 Yaş Dağılımı</div>
-      {['0-3','3-7','7+'].map(yg=>(
+      {(['0-3','3-7','7+'] as const).map(yg=>(
         <div key={yg} onClick={()=>setYas(yg===selYas?'Tümü':yg)}
           style={{display:'flex',justifyContent:'space-between',alignItems:'center',
             fontSize:10,padding:'5px 8px',borderRadius:6,marginBottom:3,cursor:'pointer',
@@ -75,7 +85,7 @@ export default function DashboardClient({ children }: { children: React.ReactNod
   )
 
   return (
-    <DashboardContext.Provider value={{selSeg,selBolge,selYas,selDonem,setSeg,setBolge,setYas,setDonem}}>
+    <DashboardContext.Provider value={{selSeg,selBolge,selYas,selDonem,selCmpDonem,setSeg,setBolge,setYas,setDonem,setCmpDonem}}>
       <div className={styles.shell}>
         <Sidebar variant="dashboard" filters={filterUI}/>
         <main className={styles.main}>{children}</main>
