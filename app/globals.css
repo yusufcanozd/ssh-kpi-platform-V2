@@ -32,9 +32,9 @@
   --seg-ev-color:      #34d399;
   --seg-ev-bg:         rgba(16,185,129,.18);
   --seg-ev-border:     rgba(16,185,129,.35);
-  --seg-tr-color:      #67e8f9;
-  --seg-tr-bg:         rgba(6,182,212,.15);
-  --seg-tr-border:     rgba(6,182,212,.3);
+  --seg-tr-color:      #fbbf24;
+  --seg-tr-bg:         rgba(251,191,36,.15);
+  --seg-tr-border:     rgba(251,191,36,.35);
 
   /* Skor renkleri */
   --skor-yesil:  #10b981;
@@ -71,9 +71,9 @@ body.light {
   --seg-ev-color:      #047857;
   --seg-ev-bg:         rgba(5,150,105,.1);
   --seg-ev-border:     rgba(5,150,105,.25);
-  --seg-tr-color:      #0e7490;
-  --seg-tr-bg:         rgba(8,145,178,.1);
-  --seg-tr-border:     rgba(8,145,178,.25);
+  --seg-tr-color:      #b45309;
+  --seg-tr-bg:         rgba(180,83,9,.1);
+  --seg-tr-border:     rgba(180,83,9,.25);
 
   --skor-yesil:  #059669;
   --skor-sari:   #d97706;
