@@ -13,11 +13,8 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType>({
-  profile: null,
-  loading: true,
-  logout: async () => {},
-  isAdmin: false,
-  isSuperAdmin: false,
+  profile: null, loading: true,
+  logout: async () => {}, isAdmin: false, isSuperAdmin: false,
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -43,20 +40,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (event === 'SIGNED_OUT') {
           setProfile(null)
-          // Sadece SIGNED_OUT'ta yönlendir
-          window.location.replace('/login')
+          // Next.js router yerine history.pushState — flash olmaz
+          if (typeof window !== 'undefined') {
+            window.history.pushState({}, '', '/login')
+            window.dispatchEvent(new PopStateEvent('popstate'))
+          }
         }
-        // SIGNED_IN'de bir şey yapma — login page zaten yönlendiriyor
       }
     )
-
     return () => subscription.unsubscribe()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const logout = async () => {
     await supabase.auth.signOut()
-    // signOut → SIGNED_OUT eventi → yukarıdaki handler /login'e yönlendirir
   }
 
   const isAdmin      = ['superadmin', 'admin'].includes(profile?.role || '')
