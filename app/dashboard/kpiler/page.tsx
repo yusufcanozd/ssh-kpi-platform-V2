@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
-  KPI_META, SEGMENTLER, SEGMENT_COLORS, SEGMENT_BG, CAT_COLORS,
+  KPI_META, SEGMENTLER, SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG, CAT_COLORS,
   fmtKpi, getKpisFromCube, isLowerBetter
 } from '@/lib/kpi'
 import { Bar } from 'react-chartjs-2'
@@ -79,8 +79,8 @@ export default function KpilerPage() {
                 datasets:[{
                   label: meta.ad,
                   data: segData.map(s=>s.kpis[selKpi]),
-                  backgroundColor: segData.map(s=>SEGMENT_BG[s.seg]),
-                  borderColor: segData.map(s=>SEGMENT_COLORS[s.seg]),
+                  backgroundColor: segData.map(s=>SEGMENT_HEX_BG[s.seg]),
+                  borderColor: segData.map(s=>SEGMENT_HEX[s.seg]),
                   borderWidth:1.5,borderRadius:8
                 }]
               }}
