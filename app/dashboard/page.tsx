@@ -293,22 +293,28 @@ function BolgeSkorGrid({ selSeg, selBolge, selYas, selDonem, selCmpDonem }:{
       </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:8}}>
         {bolgeList.map(b=>{
-          const baz  = getScore(selSeg, b, selYas, selDonem)
-          const cmp  = selCmpDonem ? getScore(selSeg, b, selYas, selCmpDonem) : null
-          const bazG = baz?.genel ?? 0
-          const cmpG = cmp?.genel ?? 0
-          const chg  = (cmp && cmpG) ? ((bazG - cmpG) / cmpG * 100) : null
+          const baz    = getScore(selSeg, b, selYas, selDonem)
+          const cmp    = selCmpDonem ? getScore(selSeg, b, selYas, selCmpDonem) : null
+          const trRef  = getScore(selSeg, '', selYas, selDonem)
+          const bazG   = baz?.genel ?? 0
+          const cmpG   = cmp?.genel ?? 0
+          const trG    = trRef?.genel ?? bazG
+          const chg    = (cmp && cmpG) ? ((bazG - cmpG) / cmpG * 100) : null
           const chgColor = chg===null?'var(--tx3)':chg>=0?'#10b981':chg>=-10?'#f59e0b':'#f87171'
+          // Renk: TR ortalamasına göre — %2 üstü yeşil, ±%2 sarı, altı kırmızı
+          const ratio    = trG > 0 ? bazG / trG : 1
+          const relColor = ratio >= 1.02 ? '#10b981' : ratio >= 0.98 ? '#f59e0b' : '#ef4444'
+          const relBg    = ratio >= 1.02 ? 'rgba(16,185,129,.1)' : ratio >= 0.98 ? 'rgba(245,158,11,.08)' : 'rgba(239,68,68,.08)'
 
           return (
             <div key={b} style={{
               padding:'10px 10px 8px',
-              background: scoreBg(bazG),
+              background: 'var(--surf2)',
               borderRadius:8,
-              border:`1px solid ${scoreColor(bazG)}44`,
+              border:`1px solid ${relColor}55`,
             }}>
               {/* Bölge adı */}
-              <div style={{fontSize:9,fontWeight:700,color:scoreColor(bazG),
+              <div style={{fontSize:9,fontWeight:700,color:relColor,
                 marginBottom:8,lineHeight:1.3}}>
                 {b}
               </div>
@@ -349,7 +355,7 @@ function BolgeSkorGrid({ selSeg, selBolge, selYas, selDonem, selCmpDonem }:{
               {/* Progress bar */}
               <div style={{background:'rgba(0,0,0,.12)',borderRadius:4,height:3,overflow:'hidden'}}>
                 <div style={{width:`${Math.min(bazG,100)}%`,height:3,borderRadius:4,
-                  background:scoreColor(bazG),transition:'width .4s'}}/>
+                  background:relColor,transition:'width .4s'}}/>
               </div>
             </div>
           )
