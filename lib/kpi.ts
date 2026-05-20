@@ -95,16 +95,17 @@ export const BOLGE_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','
 export function fmtKpi(val: number|null|undefined, fmt: string): string {
   if (val==null||isNaN(val as number)) return '—'
   const v = val as number
+  // Format — birimsiz, başlıkta parantez içinde gösterilir
   switch(fmt){
-    case 'pct4':   return `${(v*100).toFixed(2)}%`
-    case 'pct2':   return `${(v*100).toFixed(1)}%`
-    case 'ratio2': return v.toFixed(2)
-    case 'ratio1': return v.toFixed(1)
-    case 'saat1':  return `${v.toFixed(1)} sa`
-    case 'tl0':    return `₺${Math.round(v).toLocaleString('tr-TR')}`
-    case 'gun1':   return `${v.toFixed(1)} gün`
+    case 'pct4':   return (v*100).toLocaleString('tr-TR',{minimumFractionDigits:1,maximumFractionDigits:1})
+    case 'pct2':   return (v*100).toLocaleString('tr-TR',{minimumFractionDigits:1,maximumFractionDigits:1})
+    case 'ratio2': return v.toLocaleString('tr-TR',{minimumFractionDigits:1,maximumFractionDigits:1})
+    case 'ratio1': return Math.round(v).toLocaleString('tr-TR')
+    case 'saat1':  return v.toLocaleString('tr-TR',{minimumFractionDigits:1,maximumFractionDigits:1})
+    case 'tl0':    return Math.round(v).toLocaleString('tr-TR')
+    case 'gun1':   return v.toLocaleString('tr-TR',{minimumFractionDigits:1,maximumFractionDigits:1})
     case 'int':    return Math.round(v).toLocaleString('tr-TR')
-    default:       return v.toFixed(1)
+    default:       return v.toLocaleString('tr-TR',{minimumFractionDigits:1,maximumFractionDigits:1})
   }
 }
 
@@ -236,14 +237,15 @@ export function chgBg(chg: number | null): string {
   return 'rgba(239,68,68,.1)'
 }
 
-// KPI birim etiketi (parantez içi)
+// KPI birim etiketi (başlık yanında parantez içi)
 export function kpiUnit(fmt: string): string {
   switch(fmt) {
     case 'pct4': case 'pct2': return '%'
-    case 'saat1': return 'sa'
+    case 'saat1': return 'saat'
     case 'tl0':   return '₺'
-    case 'gun1':  return 'gün'
+    case 'gun1':  return 'saat'
     case 'int':   return 'adet'
+    case 'ratio1': return '%'
     default:      return ''
   }
 }
