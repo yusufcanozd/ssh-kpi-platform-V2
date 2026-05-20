@@ -21,29 +21,32 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { user } } = await supabase.auth.getUser()
   const path = request.nextUrl.pathname
 
-  if (!session && path !== '/login') {
+  // Login değilse → /login'e yönlendir
+  if (!user && path !== '/login') {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  if (session && path === '/login') {
+  // Login olmuş, /login'e gelirse → role'e göre yönlendir
+  if (user && path === '/login') {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
 
     const isAdmin = ['superadmin', 'admin'].includes(profile?.role || '')
-    return NextResponse.redirect(new URL(isAdmin ? '/admin' : '/dashboard', request.url))
+    return NextResponse.redirect(new URL(isAdmin ? '/admin/users' : '/dashboard', request.url))
   }
 
-  if (session && path.startsWith('/admin')) {
+  // Admin sayfasına admin olmayan girmesin
+  if (user && path.startsWith('/admin')) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
 
     const isAdmin = ['superadmin', 'admin'].includes(profile?.role || '')
