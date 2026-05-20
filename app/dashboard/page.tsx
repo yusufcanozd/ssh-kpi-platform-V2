@@ -3,11 +3,12 @@
 import { useMemo } from 'react'
 import { useDashboardCtx } from './DashboardClient'
 import Topbar from '@/components/layout/Topbar'
-import StatCard from '@/components/ui/StatCard'
 import {
   KPI_META, BOLGELER, SEGMENTLER, YAS_STATS, TOTAL_IO, TOTAL_SERVIS,
-  SEGMENT_COLORS, SEGMENT_BG, YAS_COLORS,
-  fmtKpi, getKpisFromCube, getN, getServisCount, overallScoreFromKpis, getMarkaList, heatColor, isLowerBetter, getSegAvg
+  SEGMENT_COLORS, SEGMENT_BG, CAT_COLORS,
+  fmtKpi, getKpisFromCube, getN, getMarkaList,
+  overallScoreFromKpis, heatColor, isLowerBetter,
+  getScore, scoreColor, scoreBg, changePct, SegmentScore
 } from '@/lib/kpi'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
@@ -15,34 +16,31 @@ import styles from './page.module.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
+const KAT_LIST = ['musteri','ticari','operasyonel','bayi','kapsam'] as const
+const KAT_LABELS: Record<string,string> = {
+  musteri:'Müşteri',ticari:'Ticari',operasyonel:'Operasyonel',bayi:'Bayi Ağı',kapsam:'Kapsam'
+}
+
 export default function DashboardPage() {
-  const { selSeg, selBolge, selYas, selDonem } = useDashboardCtx()
+  const { selSeg, selBolge, selYas, selDonem, selCmpDonem } = useDashboardCtx()
 
-  // Seçili filtre KPI'ları
-  const kpis = useMemo(() =>
-    getKpisFromCube(selSeg, selBolge, selYas, selDonem),
-    [selSeg, selBolge, selYas, selDonem])
-
-  const n        = useMemo(() => getN(selSeg, selBolge, selYas, selDonem), [selSeg, selBolge, selYas, selDonem])
-  const servisN  = useMemo(() => getServisCount(selSeg, selBolge, selYas, selDonem), [selSeg, selBolge, selYas, selDonem])
-
-  // Segment karşılaştırma — seçili bölge/yaş/dönem'e göre
-  const segKpis = useMemo(() =>
+  // Baz dönem skorları — her segment için
+  const segScores = useMemo(() =>
     SEGMENTLER.map(s => ({
       seg: s,
-      kpis: getKpisFromCube(s, selBolge, selYas, selDonem)
+      baz: getScore(s, selBolge, selYas, selDonem),
+      cmp: selCmpDonem ? getScore(s, selBolge, selYas, selCmpDonem) : null,
     })),
-    [selBolge, selYas, selDonem])
+    [selBolge, selYas, selDonem, selCmpDonem])
 
-  // Bölge dağılımı — seçili seg/yas/donem'e göre
-  const bolgeData = useMemo(() =>
-    BOLGELER.map(b => ({
-      bolge: b,
-      n: getN(selSeg, b, selYas, selDonem)
-    })),
-    [selSeg, selYas, selDonem])
+  // Tüm Türkiye skoru
+  const trBaz = useMemo(() => getScore('', selBolge, selYas, selDonem), [selBolge, selYas, selDonem])
+  const trCmp = useMemo(() => selCmpDonem ? getScore('', selBolge, selYas, selCmpDonem) : null, [selBolge, selYas, selCmpDonem])
 
-  // Marka sıralaması
+  // Seçili segmente göre filtre
+  const visibleSegs = selSeg ? segScores.filter(s=>s.seg===selSeg) : segScores
+
+  // Marka sıralaması — dönem dahil tüm filtreler
   const markalar = useMemo(() => {
     const list = getMarkaList(selBolge, selYas)
     return list
@@ -51,82 +49,101 @@ export default function DashboardPage() {
       .sort((a,b) => b.ov - a.ov)
   }, [selSeg, selBolge, selYas])
 
+  // Bölge dağılımı
+  const bolgeData = useMemo(() =>
+    BOLGELER.map(b => ({ bolge:b, n:getN(selSeg, b, selYas, selDonem) })),
+    [selSeg, selYas, selDonem])
   const maxBolgeN = Math.max(...bolgeData.map(b=>b.n), 1)
 
+  // Segment bar grafik (skor bazlı)
+  const segBarData = visibleSegs.map(s=>s.baz?.genel??0)
+  const segCmpData = visibleSegs.map(s=>s.cmp?.genel??0)
+
   const filterLabel = [
-    selBolge||'Tüm Türkiye', selSeg||'Tüm Seg.', selYas==='Tümü'?'Tüm Yaş':selYas+' yıl', selDonem||'Tüm Dönem'
+    selBolge||'Tüm TR', selSeg||'Tüm Seg.',
+    selYas==='Tümü'?'Tüm Yaş':selYas+'y',
+    selDonem||'Tüm Dönem'
   ].join(' · ')
 
   return (
     <div className={styles.wrap}>
       <Topbar title="SSH KPI Rekabet Skorkartı" subtitle={filterLabel}
-        pills={[{label:'● Canlı',variant:'green'},{label:`${n.toLocaleString('tr-TR')} İE`,variant:'amber'}]}/>
+        pills={[{label:'● Canlı',variant:'green'},{label:selDonem||'Tüm Dönem',variant:'amber'}]}/>
       <div className={styles.content}>
 
-        {/* Yaş özet kartları */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:8}}>
-          {(['0-3','3-7','7+'] as const).map(yg=>(
-            <div key={yg} style={{background:selYas===yg?`${YAS_COLORS[yg]}18`:'var(--surf2)',
-              border:`1px solid ${selYas===yg?YAS_COLORS[yg]:'var(--bd)'}`,borderRadius:8,padding:'10px 14px',textAlign:'center'}}>
-              <div style={{fontSize:9,fontWeight:700,color:YAS_COLORS[yg],marginBottom:3}}>{yg} YIL</div>
-              <div style={{fontSize:16,fontWeight:700,fontFamily:'var(--font-dm-mono)',color:'var(--tx)'}}>
-                {YAS_STATS[yg].toLocaleString('tr-TR')}
-              </div>
-              <div style={{fontSize:9,color:'var(--tx3)'}}>%{((YAS_STATS[yg]/TOTAL_IO)*100).toFixed(1)}</div>
-            </div>
+        {/* ── Üst 4 kutu: Segment Skor Kartları ── */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:10}}>
+          {/* Tüm Türkiye */}
+          <SkorKutu
+            label="🇹🇷 Tüm Türkiye"
+            baz={trBaz} cmp={trCmp}
+            color="#3b82f6" bg="rgba(59,130,246,.12)"
+            bazDonem={selDonem||'Tüm Dönem'}
+            cmpDonem={selCmpDonem}
+          />
+          {visibleSegs.slice(0,3).map(s=>(
+            <SkorKutu key={s.seg}
+              label={s.seg}
+              baz={s.baz} cmp={s.cmp}
+              color={SEGMENT_COLORS[s.seg]}
+              bg={SEGMENT_BG[s.seg].replace('.35',',.15)')}
+              bazDonem={selDonem||'Tüm Dönem'}
+              cmpDonem={selCmpDonem}
+            />
           ))}
-          <StatCard label="Seçili İş Emri" value={n.toLocaleString('tr-TR')} sub={filterLabel} accent="blue"/>
         </div>
 
-        {/* Özet kartlar */}
-        <div className={styles.statGrid}>
-          <StatCard label="Toplam İş Emri"      value={TOTAL_IO.toLocaleString('tr-TR')} sub="Tüm dönem"         accent="blue"/>
-          <StatCard label="Yetkili Servis"       value={TOTAL_SERVIS.toLocaleString('tr-TR')} sub="Türkiye geneli" accent="green"/>
-          <StatCard label="İşçilik Saati/İE"     value={fmtKpi(kpis[3],'saat1')} sub="KPI 4 · seçili filtre"     accent="amber"/>
-          <StatCard label="Servis Süresi"        value={fmtKpi(kpis[6],'gun1')}  sub="KPI 7 · seçili filtre"     accent="purple"/>
+        {/* ── 2. Satır: Kategori kırılım detayları ── */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:14}}>
+          <KatDetayKutu label="🇹🇷 Tüm Türkiye" score={trBaz} color="#3b82f6"/>
+          {visibleSegs.slice(0,3).map(s=>(
+            <KatDetayKutu key={s.seg} label={s.seg} score={s.baz} color={SEGMENT_COLORS[s.seg]}/>
+          ))}
         </div>
 
         <div className={styles.twoCol}>
-          {/* Segment karşılaştırma */}
+          {/* Segment skor bar grafik */}
           <div className={styles.card}>
             <div className={styles.cardHd}>
-              <h3>Segment Karşılaştırması</h3>
-              <span className={styles.hint}>İE başına tutar · {selYas==='Tümü'?'Tüm yaşlar':selYas+' yıl'}</span>
+              <h3>Segment Skor Karşılaştırması</h3>
+              <span className={styles.hint}>
+                {selDonem||'Tüm Dönem'}{selCmpDonem?` vs ${selCmpDonem}`:''}
+              </span>
             </div>
             <div className={styles.chartWrap}>
               <Bar data={{
-                labels: segKpis.map(s=>s.seg),
+                labels: ['Tüm TR', ...visibleSegs.map(s=>s.seg)],
                 datasets:[
-                  {label:'İşçilik (₺)',data:segKpis.map(s=>s.kpis[4]),
-                    backgroundColor:segKpis.map(s=>SEGMENT_BG[s.seg]),
-                    borderColor:segKpis.map(s=>SEGMENT_COLORS[s.seg]),borderWidth:1.5,borderRadius:7},
-                  {label:'Parça (₺)',data:segKpis.map(s=>s.kpis[5]),
-                    backgroundColor:segKpis.map(s=>SEGMENT_BG[s.seg].replace('.35',',.12)')),
-                    borderColor:segKpis.map(s=>SEGMENT_COLORS[s.seg]),borderWidth:1,borderRadius:7}
+                  {
+                    label: selDonem||'Baz Dönem',
+                    data: [trBaz?.genel??0, ...segBarData],
+                    backgroundColor: ['rgba(59,130,246,.4)',...visibleSegs.map(s=>SEGMENT_BG[s.seg])],
+                    borderColor: ['#3b82f6',...visibleSegs.map(s=>SEGMENT_COLORS[s.seg])],
+                    borderWidth:1.5,borderRadius:8
+                  },
+                  ...(selCmpDonem ? [{
+                    label: selCmpDonem,
+                    data: [trCmp?.genel??0, ...segCmpData],
+                    backgroundColor: ['rgba(59,130,246,.15)',...visibleSegs.map(s=>SEGMENT_BG[s.seg].replace('.35',',.12)'))],
+                    borderColor: ['#3b82f688',...visibleSegs.map(s=>SEGMENT_COLORS[s.seg]+'88')],
+                    borderWidth:1,borderRadius:8,borderDash:[4,2]
+                  }] : [])
                 ]
-              }} options={{responsive:true,maintainAspectRatio:false,
-                plugins:{legend:{display:true,position:'top',labels:{color:'#8496b0',font:{size:10},boxWidth:10}},
-                  tooltip:{callbacks:{label:(ctx)=>`₺${Math.round(ctx.parsed.y as number).toLocaleString('tr-TR')}`}}},
-                scales:{y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8496b0',font:{size:9},callback:(v)=>`₺${Number(v).toLocaleString('tr-TR')}`}},
+              }} options={{
+                responsive:true,maintainAspectRatio:false,
+                plugins:{legend:{display:!!selCmpDonem,position:'top',labels:{color:'#8496b0',font:{size:10},boxWidth:10}},
+                  tooltip:{callbacks:{label:(ctx)=>`${ctx.dataset.label}: ${ctx.parsed.y} puan`}}},
+                scales:{
+                  y:{min:0,max:105,grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8496b0',font:{size:9}}},
                   x:{grid:{display:false},ticks:{color:'#8496b0',font:{size:11}}}}}}/>
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6,marginTop:10,paddingTop:10,borderTop:'1px solid var(--bd)'}}>
-              {segKpis.map(s=>(
-                <div key={s.seg} style={{textAlign:'center'}}>
-                  <div style={{fontSize:9,color:SEGMENT_COLORS[s.seg],fontWeight:700,marginBottom:3}}>{s.seg}</div>
-                  <div style={{fontSize:10,color:'var(--tx2)'}}>İşçilik: <b style={{color:'var(--tx)'}}>{fmtKpi(s.kpis[4],'tl0')}</b></div>
-                  <div style={{fontSize:10,color:'var(--tx2)'}}>Parça: <b style={{color:'var(--tx)'}}>{fmtKpi(s.kpis[5],'tl0')}</b></div>
-                  <div style={{fontSize:10,color:'var(--tx2)'}}>Süre: <b style={{color:'var(--tx)'}}>{fmtKpi(s.kpis[6],'gun1')}</b></div>
-                </div>
-              ))}
             </div>
           </div>
 
-          {/* Marka sıralaması */}
+          {/* Marka sıralaması — tüm filtreler dahil */}
           <div className={styles.card}>
             <div className={styles.cardHd}>
               <h3>Marka Sıralaması</h3>
-              <span className={styles.hint}>{selBolge||'Tüm Türkiye'} · {selYas==='Tümü'?'Tüm yaşlar':selYas+' yıl'}</span>
+              <span className={styles.hint}>{selBolge||'Tüm TR'} · {selYas==='Tümü'?'Tüm Yaş':selYas+'y'}</span>
             </div>
             <div className={styles.hbarChart}>
               {markalar.slice(0,12).map((m,i)=>{
@@ -148,15 +165,15 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Bölge dağılımı — tüm filtreler uygulanmış */}
+        {/* Bölge dağılımı */}
         <div className={styles.card}>
           <div className={styles.cardHd}>
             <h3>Bölge İş Emri Dağılımı</h3>
-            <span className={styles.hint}>{selSeg||'Tüm Seg.'} · {selYas==='Tümü'?'Tüm yaşlar':selYas+' yıl'} · {selDonem||'Tüm Dönem'}</span>
+            <span className={styles.hint}>{selSeg||'Tüm Seg.'} · {selYas==='Tümü'?'Tüm Yaş':selYas+'y'} · {selDonem||'Tüm Dönem'}</span>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:8}}>
             {bolgeData.map(b=>{
-              const pct = (b.n/maxBolgeN*100).toFixed(0)
+              const pct=(b.n/maxBolgeN*100).toFixed(0)
               return (
                 <div key={b.bolge} style={{textAlign:'center',padding:'10px 6px',
                   background:selBolge===b.bolge?'rgba(59,130,246,.08)':'var(--surf2)',
@@ -175,6 +192,91 @@ export default function DashboardPage() {
         </div>
 
       </div>
+    </div>
+  )
+}
+
+// ── Skor Kutusu ──────────────────────────────────────────────
+function SkorKutu({ label, baz, cmp, color, bg, bazDonem, cmpDonem }:{
+  label:string; baz:SegmentScore|null; cmp:SegmentScore|null
+  color:string; bg:string; bazDonem:string; cmpDonem:string
+}) {
+  const bazG = baz?.genel ?? 0
+  const cmpG = cmp?.genel ?? 0
+  const chg  = cmp ? parseFloat(changePct(bazG, cmpG)) : null
+
+  return (
+    <div style={{background:bg,border:`1px solid ${color}44`,borderRadius:10,padding:'12px 14px'}}>
+      <div style={{fontSize:11,fontWeight:700,color,marginBottom:8}}>{label}</div>
+
+      <div style={{display:'flex',gap:8,alignItems:'flex-end',marginBottom:8}}>
+        <div>
+          <div style={{fontSize:8,color:'var(--tx3)',marginBottom:2}}>{bazDonem}</div>
+          <div style={{fontSize:28,fontWeight:800,fontFamily:'var(--font-dm-mono)',
+            color:scoreColor(bazG),lineHeight:1}}>
+            {bazG}
+          </div>
+          <div style={{fontSize:8,color:'var(--tx3)'}}>puan</div>
+        </div>
+        {cmp && (
+          <div style={{flex:1}}>
+            <div style={{fontSize:8,color:'var(--tx3)',marginBottom:2}}>{cmpDonem}</div>
+            <div style={{fontSize:18,fontWeight:700,fontFamily:'var(--font-dm-mono)',color:'var(--tx2)'}}>{cmpG}</div>
+            <div style={{fontSize:9,fontWeight:700,marginTop:4,
+              color:chg!==null?chg>=0?'#10b981':'#f87171':'var(--tx3)'}}>
+              {chg!==null?(chg>=0?'▲ +':'▼ ')+chg+'%':'—'}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Mini progress */}
+      <div style={{background:'var(--surf3)',borderRadius:6,height:4,overflow:'hidden'}}>
+        <div style={{width:`${Math.min(bazG,100)}%`,height:4,borderRadius:6,
+          background:scoreColor(bazG),transition:'width .4s'}}/>
+      </div>
+    </div>
+  )
+}
+
+// ── Kategori Detay Kutusu ─────────────────────────────────────
+function KatDetayKutu({ label, score, color }:{
+  label:string; score:SegmentScore|null; color:string
+}) {
+  if (!score) return (
+    <div style={{background:'var(--surf2)',border:'1px solid var(--bd)',borderRadius:10,padding:'12px 14px'}}>
+      <div style={{fontSize:11,fontWeight:700,color,marginBottom:8}}>{label}</div>
+      <div style={{fontSize:10,color:'var(--tx3)'}}>Veri yok</div>
+    </div>
+  )
+
+  const cats = [
+    {key:'musteri',   label:'Müşteri'},
+    {key:'ticari',    label:'Ticari'},
+    {key:'operasyonel',label:'Operasyonel'},
+    {key:'bayi',      label:'Bayi Ağı'},
+    {key:'kapsam',    label:'Kapsam'},
+  ]
+
+  return (
+    <div style={{background:'var(--surf2)',border:`1px solid ${color}22`,borderRadius:10,padding:'12px 14px'}}>
+      <div style={{fontSize:10,fontWeight:700,color,marginBottom:10}}>{label} — Kategori Kırılımı</div>
+      {cats.map(c=>{
+        const val = score[c.key as keyof SegmentScore] as number
+        return (
+          <div key={c.key} style={{marginBottom:7}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+              <span style={{fontSize:9,color:'var(--tx3)'}}>{c.label}</span>
+              <span style={{fontSize:10,fontWeight:700,fontFamily:'var(--font-dm-mono)',
+                color:scoreColor(val)}}>{val}</span>
+            </div>
+            <div style={{background:'var(--surf3)',borderRadius:4,height:4,overflow:'hidden'}}>
+              <div style={{width:`${Math.min(val,100)}%`,height:4,borderRadius:4,
+                background:scoreColor(val),transition:'width .3s'}}/>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
