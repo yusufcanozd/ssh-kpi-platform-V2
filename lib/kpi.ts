@@ -67,11 +67,28 @@ export function getSegAvg(seg: string, kpiIdx: number, bolge='', yas='Tümü', d
 }
 
 // ── Renkler ───────────────────────────────────────────────────
+// CSS değişkenleri ile dinamik tema desteği
 export const SEGMENT_COLORS: Record<string,string> = {
-  Premium:'#8b5cf6', Mass:'#3b82f6', EV:'#10b981'
+  Premium: 'var(--seg-premium-color)',
+  Mass:    'var(--seg-mass-color)',
+  EV:      'var(--seg-ev-color)',
 }
 export const SEGMENT_BG: Record<string,string> = {
-  Premium:'rgba(139,92,246,.35)', Mass:'rgba(59,130,246,.35)', EV:'rgba(16,185,129,.35)'
+  Premium: 'var(--seg-premium-bg)',
+  Mass:    'var(--seg-mass-bg)',
+  EV:      'var(--seg-ev-bg)',
+}
+export const SEGMENT_BORDER: Record<string,string> = {
+  Premium: 'var(--seg-premium-border)',
+  Mass:    'var(--seg-mass-border)',
+  EV:      'var(--seg-ev-border)',
+}
+// Fallback hex (Chart.js için — CSS var kabul etmez)
+export const SEGMENT_HEX: Record<string,string> = {
+  Premium: '#c084fc', Mass: '#60a5fa', EV: '#34d399',
+}
+export const SEGMENT_HEX_BG: Record<string,string> = {
+  Premium: 'rgba(192,132,252,.25)', Mass: 'rgba(96,165,250,.25)', EV: 'rgba(52,211,153,.25)',
 }
 export const CAT_COLORS: Record<string,string> = {
   'Müşteri':'#10b981','Ticari':'#3b82f6','Operasyonel':'#f59e0b','Bayi Ağı':'#8b5cf6','Kapsam':'#ef4444'
