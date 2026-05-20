@@ -85,39 +85,37 @@ export default function MarkalarsPage() {
 
         {/* ── Marka KPI Tablosu ── */}
         <div className={styles.card} style={{padding:0,overflow:'hidden'}}>
-          <div style={{overflowX:'auto'}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+          {/* overflowX + sticky header: wrapper scroll, thead sticky */}
+          <div style={{overflowX:'auto',overflowY:'auto',maxHeight:490,position:'relative'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,tableLayout:'auto'}}>
               <thead>
-                <tr style={{background:'var(--surf2)',position:'sticky',top:0,zIndex:2}}>
+                <tr style={{background:'var(--surf2)',position:'sticky',top:0,zIndex:3}}>
                   <th style={thS}>#</th>
                   <th style={thS}>Marka</th>
                   <th style={thS}>Seg.</th>
-                  {/* KPI kolonları — tıklanınca sırala */}
                   {KPI_META.map((k,i)=>(
                     <th key={i} onClick={()=>setSortKpi(i)}
-                      style={{...thS,cursor:'pointer',minWidth:70,textAlign:'center',
+                      style={{...thS,cursor:'pointer',minWidth:68,maxWidth:90,textAlign:'center',
                         color:sortKpi===i?'var(--blue)':'var(--tx3)',
                         background:sortKpi===i?'rgba(59,130,246,.06)':'var(--surf2)'}}>
-                      <div style={{fontSize:8,lineHeight:1.3,whiteSpace:'normal',wordBreak:'keep-all'}}>
+                      <div style={{fontSize:8,lineHeight:1.3,whiteSpace:'normal',wordBreak:'break-word'}}>
                         {k.ad}
                       </div>
-                      {sortKpi===i&&<div style={{fontSize:7,marginTop:2}}>↓</div>}
+                      {sortKpi===i&&<span style={{fontSize:7}}>↓</span>}
                     </th>
                   ))}
-                  {/* Genel Skor */}
                   <th onClick={()=>setSortKpi('ov')}
-                    style={{...thS,cursor:'pointer',minWidth:80,
+                    style={{...thS,cursor:'pointer',minWidth:80,position:'sticky',right:0,
                       color:sortKpi==='ov'?'var(--blue)':'var(--tx3)',
                       background:sortKpi==='ov'?'rgba(59,130,246,.08)':'var(--surf2)'}}>
                     Skor{sortKpi==='ov'?' ↓':''}
-                    {selCmpDonem && <div style={{fontSize:7,fontWeight:400,color:'var(--tx3)'}}>{selCmpDonem}</div>}
+                    {selCmpDonem&&<div style={{fontSize:7,fontWeight:400,color:'var(--tx3)'}}>{selCmpDonem}</div>}
                   </th>
-                  {selCmpDonem && <th style={thS}>Δ Sıra</th>}
+                  {selCmpDonem&&<th style={{...thS,position:'sticky',right:80,background:'var(--surf2)'}}>Δ Sıra</th>}
                 </tr>
               </thead>
               <tbody>
                 {markalar.map((m,i)=>{
-                  // Markanın KPI değerleri — segment küp'den çek
                   const mKpis    = getKpisFromCube(m.segment, selBolge, selYas, selDonem)
                   const segAvg   = segAvgs.find(s=>s.seg===m.segment)?.kpis ?? []
                   const cmpM     = marklarCmp.find(x=>x.marka===m.marka)
@@ -125,15 +123,10 @@ export default function MarkalarsPage() {
                   const rankDiff = cmpRank>0 ? cmpRank-(i+1) : null
                   const scoreDiff= cmpM ? m.score-cmpM.score : null
                   const sc       = scoreColor(m.score)
-
                   return (
                     <tr key={m.marka} style={{borderBottom:'1px solid var(--bd)'}}>
-                      <td style={tdS}>
-                        <span style={{color:'var(--tx3)',fontFamily:'var(--font-dm-mono)',fontSize:9}}>{i+1}</span>
-                      </td>
-                      <td style={{...tdS,fontWeight:600,fontSize:11,color:SEGMENT_HEX[m.segment]||'var(--tx)',whiteSpace:'nowrap'}}>
-                        {m.marka}
-                      </td>
+                      <td style={tdS}><span style={{color:'var(--tx3)',fontFamily:'var(--font-dm-mono)',fontSize:9}}>{i+1}</span></td>
+                      <td style={{...tdS,fontWeight:600,fontSize:11,color:SEGMENT_HEX[m.segment]||'var(--tx)',whiteSpace:'nowrap'}}>{m.marka}</td>
                       <td style={tdS}>
                         <span style={{background:SEGMENT_BG[m.segment],color:SEGMENT_COLORS[m.segment],
                           padding:'1px 6px',borderRadius:20,fontSize:8,fontWeight:700,textTransform:'uppercase',
@@ -141,45 +134,34 @@ export default function MarkalarsPage() {
                           {m.segment}
                         </span>
                       </td>
-
-                      {/* 12 KPI değeri — ısı rengi segment ortalamasına göre */}
                       {mKpis.map((v,ki)=>{
-                        const ref = segAvg[ki] ?? 0
-                        const {bg, color} = heatColor(v, ref, !isLowerBetter(ki))
+                        const ref = segAvg[ki]??0
+                        const {bg,color} = heatColor(v,ref,!isLowerBetter(ki))
                         return (
-                          <td key={ki} style={{
-                            ...tdS, textAlign:'center',
-                            background: bg,
-                            color, fontFamily:'var(--font-dm-mono)',
-                            fontSize:10, fontWeight:500,
-                            outline: sortKpi===ki ? `2px solid ${color}55` : 'none',
-                            outlineOffset:-1
-                          }}>
+                          <td key={ki} style={{...tdS,textAlign:'center',background:bg,color,
+                            fontFamily:'var(--font-dm-mono)',fontSize:10,fontWeight:500,
+                            outline:sortKpi===ki?`2px solid ${color}55`:'none',outlineOffset:-1}}>
                             {fmtKpi(v,KPI_META[ki].fmt)}
                           </td>
                         )
                       })}
-
-                      {/* Genel skor */}
-                      <td style={tdS}>
-                        <div style={{display:'flex',alignItems:'center',gap:5}}>
-                          <div style={{flex:1,background:'var(--surf3)',borderRadius:4,height:4,overflow:'hidden',minWidth:36}}>
+                      <td style={{...tdS,position:'sticky',right:selCmpDonem?80:0,background:'var(--surf)'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:4}}>
+                          <div style={{flex:1,background:'var(--surf3)',borderRadius:4,height:4,overflow:'hidden',minWidth:32}}>
                             <div style={{width:`${m.score}%`,height:4,borderRadius:4,background:sc}}/>
                           </div>
-                          <span style={{fontFamily:'var(--font-dm-mono)',fontSize:11,fontWeight:700,color:sc,minWidth:22,textAlign:'right'}}>
-                            {m.score}
-                          </span>
-                          {selCmpDonem && cmpM && (
-                            <span style={{fontSize:9,color: scoreDiff!==null&&scoreDiff>0?'#10b981':scoreDiff!==null&&scoreDiff<0?'#f87171':'var(--tx3)',fontWeight:600}}>
+                          <span style={{fontFamily:'var(--font-dm-mono)',fontSize:11,fontWeight:700,color:sc,minWidth:20,textAlign:'right'}}>{m.score}</span>
+                          {selCmpDonem&&cmpM&&(
+                            <span style={{fontSize:9,fontWeight:600,
+                              color:scoreDiff!==null&&scoreDiff>0?'#10b981':scoreDiff!==null&&scoreDiff<0?'#f87171':'var(--tx3)'}}>
                               {scoreDiff!==null&&scoreDiff>0?`+${scoreDiff}`:scoreDiff}
                             </span>
                           )}
                         </div>
                       </td>
-
-                      {/* Sıra farkı */}
-                      {selCmpDonem && (
+                      {selCmpDonem&&(
                         <td style={{...tdS,fontFamily:'var(--font-dm-mono)',fontSize:10,fontWeight:700,textAlign:'center',
+                          position:'sticky',right:0,background:'var(--surf)',
                           color:rankDiff===null?'var(--tx3)':rankDiff>0?'#10b981':rankDiff<0?'#f87171':'var(--tx3)'}}>
                           {rankDiff===null?'—':rankDiff>0?`▲${rankDiff}`:rankDiff<0?`▼${Math.abs(rankDiff)}`:'—'}
                         </td>
