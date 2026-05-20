@@ -156,7 +156,7 @@ export default function DashboardPage() {
               <span className={styles.hint}>{selBolge||'Tüm TR'} · {selDonem||'Tüm Dönem'}{selCmpDonem?' vs '+selCmpDonem:''}</span>
             </div>
             {/* Scrollable — tüm 42 marka */}
-            <div style={{overflowY:'auto',maxHeight:420,paddingRight:4}}>
+            <div style={{overflowY:'auto',maxHeight:'none',paddingRight:4}}>
               {markalar.map((m,i)=>{
                 const cmpM    = marklarCmp.find(x=>x.marka===m.marka)
                 const cmpRank = selCmpDonem ? marklarCmp.findIndex(x=>x.marka===m.marka)+1 : null
