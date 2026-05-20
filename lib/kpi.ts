@@ -235,3 +235,15 @@ export function chgBg(chg: number | null): string {
   if (chg >= -10)  return 'rgba(245,158,11,.08)'
   return 'rgba(239,68,68,.1)'
 }
+
+// KPI birim etiketi (parantez içi)
+export function kpiUnit(fmt: string): string {
+  switch(fmt) {
+    case 'pct4': case 'pct2': return '%'
+    case 'saat1': return 'sa'
+    case 'tl0':   return '₺'
+    case 'gun1':  return 'gün'
+    case 'int':   return 'adet'
+    default:      return ''
+  }
+}
