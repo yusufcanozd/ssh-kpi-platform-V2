@@ -40,7 +40,7 @@ export default function DashboardPage() {
   // Seçili segmente göre filtre
   const visibleSegs = selSeg ? segScores.filter(s=>s.seg===selSeg) : segScores
 
-  // Marka sıralaması — dönem dahil tüm filtreler
+  // Marka sıralaması — baz dönem
   const markalar = useMemo(() => {
     const list = getMarkaList(selBolge, selYas)
     return list
@@ -48,6 +48,16 @@ export default function DashboardPage() {
       .map(m => ({ ...m, ov: overallScoreFromKpis(m.kpis, m.segment, selBolge, selYas) }))
       .sort((a,b) => b.ov - a.ov)
   }, [selSeg, selBolge, selYas])
+
+  // Marka sıralaması — karşılaştırma dönem (sıra farkı için)
+  const marklarCmp = useMemo(() => {
+    if (!selCmpDonem) return []
+    const list = getMarkaList(selBolge, selYas)
+    return list
+      .filter(m => !selSeg || m.segment===selSeg)
+      .map(m => ({ ...m, ov: overallScoreFromKpis(m.kpis, m.segment, selBolge, selYas) }))
+      .sort((a,b) => b.ov - a.ov)
+  }, [selSeg, selBolge, selYas, selCmpDonem])
 
   // Bölge dağılımı
   const bolgeData = useMemo(() =>
@@ -77,7 +87,7 @@ export default function DashboardPage() {
           <SkorKutu
             label="🇹🇷 Tüm Türkiye"
             baz={trBaz} cmp={trCmp}
-            color="#3b82f6" bg="rgba(59,130,246,.12)"
+            color="var(--seg-tr-color)" bg="var(--seg-tr-bg)"
             bazDonem={selDonem||'Tüm Dönem'}
             cmpDonem={selCmpDonem}
           />
@@ -86,7 +96,7 @@ export default function DashboardPage() {
               label={s.seg}
               baz={s.baz} cmp={s.cmp}
               color={SEGMENT_COLORS[s.seg]}
-              bg={SEGMENT_BG[s.seg].replace('.35',',.15)')}
+              bg={SEGMENT_BG[s.seg]}
               bazDonem={selDonem||'Tüm Dönem'}
               cmpDonem={selCmpDonem}
             />
@@ -95,9 +105,9 @@ export default function DashboardPage() {
 
         {/* ── 2. Satır: Kategori kırılım detayları ── */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:14}}>
-          <KatDetayKutu label="🇹🇷 Tüm Türkiye" score={trBaz} color="#3b82f6"/>
+          <KatDetayKutu label="🇹🇷 Tüm Türkiye" score={trBaz} color="var(--seg-tr-color)" bg="var(--seg-tr-bg)"/>
           {visibleSegs.slice(0,3).map(s=>(
-            <KatDetayKutu key={s.seg} label={s.seg} score={s.baz} color={SEGMENT_COLORS[s.seg]}/>
+            <KatDetayKutu key={s.seg} label={s.seg} score={s.baz} color={SEGMENT_COLORS[s.seg]} bg={SEGMENT_BG[s.seg]}/>
           ))}
         </div>
 
@@ -117,7 +127,7 @@ export default function DashboardPage() {
                   {
                     label: selDonem||'Baz Dönem',
                     data: [trBaz?.genel??0, ...segBarData],
-                    backgroundColor: ['rgba(251,191,36,.08)',...visibleSegs.map(s=>SEGMENT_HEX_BG[s.seg].replace('.25','.08)'))], 
+                    backgroundColor: ['rgba(251,191,36,.06)',...visibleSegs.map(()=>'rgba(0,0,0,0)')],
                     borderColor: ['#fbbf24',...visibleSegs.map(s=>SEGMENT_HEX[s.seg])],
                     borderWidth:2,borderRadius:8
                   },
@@ -126,6 +136,7 @@ export default function DashboardPage() {
                     data: [trCmp?.genel??0, ...segCmpData],
                     backgroundColor: ['rgba(251,191,36,.65)',...visibleSegs.map(s=>SEGMENT_HEX_BG[s.seg].replace('.25','.65)'))],
                     borderColor: ['#fbbf24',...visibleSegs.map(s=>SEGMENT_HEX[s.seg])],
+                    borderSkipped: false,
                     borderWidth:1.5,borderRadius:8,
                   }] : [])
                 ]
@@ -147,17 +158,47 @@ export default function DashboardPage() {
             </div>
             <div className={styles.hbarChart}>
               {markalar.slice(0,12).map((m,i)=>{
-                const color = m.ov>=70?'#10b981':m.ov>=55?'#3b82f6':m.ov>=40?'#f59e0b':'#ef4444'
+                // Karşılaştırma dönem sıralaması
+                const cmpRank = selCmpDonem
+                  ? marklarCmp.findIndex(x=>x.marka===m.marka) + 1
+                  : null
+                const rankDiff = cmpRank ? cmpRank - (i+1) : null
                 return (
                   <div key={m.marka} className={styles.hbarRow}>
+                    {/* Sıra + isim */}
                     <div style={{display:'flex',alignItems:'center',gap:4,minWidth:110}}>
                       <span style={{color:'var(--tx3)',fontSize:9,fontFamily:'var(--font-dm-mono)',width:14}}>{i+1}</span>
-                      <span style={{color:SEGMENT_COLORS[m.segment],fontSize:11,fontWeight:600}}>{m.marka}</span>
+                      <span style={{color:SEGMENT_HEX[m.segment],fontSize:11,fontWeight:600}}>{m.marka}</span>
                     </div>
-                    <div className={styles.hbarTrack}>
-                      <div className={styles.hbarFill} style={{width:`${m.ov}%`,background:`${color}44`,borderRight:`3px solid ${color}`}}/>
+                    {/* Çift bar — baz (içi boş) + cmp (içi dolu) */}
+                    <div className={styles.hbarTrack} style={{position:'relative'}}>
+                      {/* Baz dönem bar — içi boş */}
+                      <div style={{position:'absolute',top:0,left:0,height:'100%',
+                        width:`${m.ov}%`,border:`2px solid ${SEGMENT_HEX[m.segment]}`,
+                        borderRadius:4,boxSizing:'border-box'}}/>
+                      {/* Karşılaştırma bar — içi dolu, daha ince */}
+                      {selCmpDonem && (()=>{
+                        const cmpM = marklarCmp.find(x=>x.marka===m.marka)
+                        const cmpOv = cmpM?.ov ?? 0
+                        return (
+                          <div style={{position:'absolute',top:'25%',left:0,height:'50%',
+                            width:`${cmpOv}%`,background:`${SEGMENT_HEX[m.segment]}66`,
+                            borderRadius:3}}/>
+                        )
+                      })()}
                     </div>
-                    <div className={styles.hbarScore} style={{color}}>{m.ov}</div>
+                    {/* Skorlar */}
+                    <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1,minWidth:48}}>
+                      <span style={{fontFamily:'var(--font-dm-mono)',fontSize:12,fontWeight:700,
+                        color:SEGMENT_HEX[m.segment]}}>{m.ov}</span>
+                      {selCmpDonem && (()=>{
+                        const cmpM = marklarCmp.find(x=>x.marka===m.marka)
+                        const diff = rankDiff ?? 0
+                        return <span style={{fontSize:9,color: diff>0?'#10b981':diff<0?'#f87171':'var(--tx3)'}}>
+                          {diff>0?`▲${diff}`:diff<0?`▼${Math.abs(diff)}`:'—'}
+                        </span>
+                      })()}
+                    </div>
                   </div>
                 )
               })}
@@ -235,11 +276,11 @@ function SkorKutu({ label, baz, cmp, color, bg, bazDonem, cmpDonem }:{
 }
 
 // ── Kategori Detay Kutusu ─────────────────────────────────────
-function KatDetayKutu({ label, score, color }:{
-  label:string; score:SegmentScore|null; color:string
+function KatDetayKutu({ label, score, color, bg }:{
+  label:string; score:SegmentScore|null; color:string; bg?:string
 }) {
   if (!score) return (
-    <div style={{background:'var(--surf2)',border:'1px solid var(--bd)',borderRadius:10,padding:'12px 14px'}}>
+    <div style={{background:bg||'var(--surf2)',border:`1px solid ${color}22`,borderRadius:10,padding:'12px 14px'}}>
       <div style={{fontSize:11,fontWeight:700,color,marginBottom:8}}>{label}</div>
       <div style={{fontSize:10,color:'var(--tx3)'}}>Veri yok</div>
     </div>
@@ -254,7 +295,7 @@ function KatDetayKutu({ label, score, color }:{
   ]
 
   return (
-    <div style={{background:'var(--surf2)',border:`1px solid ${color}22`,borderRadius:10,padding:'12px 14px'}}>
+    <div style={{background:bg||'var(--surf2)',border:`1px solid ${color}33`,borderRadius:10,padding:'12px 14px'}}>
       <div style={{fontSize:10,fontWeight:700,color,marginBottom:10}}>{label} — Kategori Kırılımı</div>
       {cats.map(c=>{
         const val = score[c.key as keyof SegmentScore] as number
