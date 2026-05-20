@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
-  KPI_META, SEGMENTLER, SEGMENT_COLORS, SEGMENT_BG, CAT_COLORS,
+  KPI_META, SEGMENTLER, SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG, CAT_COLORS,
   fmtKpi, getKpisFromCube, DONEMLER
 } from '@/lib/kpi'
 import { Line, Bar } from 'react-chartjs-2'
