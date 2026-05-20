@@ -241,11 +241,12 @@ export function chgBg(chg: number | null): string {
 export function kpiUnit(fmt: string): string {
   switch(fmt) {
     case 'pct4': case 'pct2': return '%'
-    case 'saat1': return 'saat'
-    case 'tl0':   return '₺'
-    case 'gun1':  return 'saat'
-    case 'int':   return 'adet'
-    case 'ratio1': return '%'
-    default:      return ''
+    case 'ratio2': return '%'   // Müşteri Tutundurma, Servis Kullanım
+    case 'ratio1': return '%'   // Servis başına oranlar
+    case 'saat1':  return 'saat'
+    case 'tl0':    return '₺'
+    case 'gun1':   return 'saat'
+    case 'int':    return 'adet'
+    default:       return ''
   }
 }
