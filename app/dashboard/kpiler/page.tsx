@@ -1,196 +1,127 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
-  MARKA_KPIS, SEGMENT_KPIS, KPI_META, CAT_COLORS,
-  SEGMENT_COLORS, SEGMENT_BG, fmtKpi, isLowerBetter
+  MARKA_KPIS, SEGMENT_KPIS, KPI_META,
+  SEGMENT_COLORS, SEGMENT_BG, YAS_COLORS,
+  fmtKpi, overallScore, heatColor, isLowerBetter, segmentAvg, getKpis
 } from '@/lib/kpi'
-import { Bar } from 'react-chartjs-2'
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
 import styles from './page.module.css'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
-
-export default function KpilerPage() {
-  const [selKpi, setSelKpi] = useState(0)
-  const [selSeg, setSelSeg] = useState('')
-
-  const meta = KPI_META[selKpi]
-  const lob  = isLowerBetter(selKpi)
+export default function MarkalarsPage() {
+  const { selSeg, selYas } = useDashboardCtx()
+  const [sortKpi, setSortKpi] = useState<number | 'ov'>('ov')
 
   const markalar = useMemo(() => {
-    let list = MARKA_KPIS.filter(m => !selSeg || m.segment === selSeg)
-    return [...list].sort((a, b) => lob ? a.kpis[selKpi] - b.kpis[selKpi] : b.kpis[selKpi] - a.kpis[selKpi])
-  }, [selKpi, selSeg, lob])
+    let list = MARKA_KPIS.map(m => ({ ...m, ov: overallScore(m, selYas), kpis: getKpis(m, selYas) }))
+    if (selSeg) list = list.filter(m => m.segment === selSeg)
+    if (sortKpi === 'ov') return list.sort((a,b) => b.ov - a.ov)
+    const idx = sortKpi as number
+    const lob = isLowerBetter(idx)
+    return list.sort((a,b) => lob ? a.kpis[idx] - b.kpis[idx] : b.kpis[idx] - a.kpis[idx])
+  }, [selSeg, selYas, sortKpi])
 
-  const segAvgLines = SEGMENT_KPIS.map(s => ({
-    segment: s.segment,
-    avg: s.kpis[selKpi],
-    color: SEGMENT_COLORS[s.segment],
-  })).filter(s => !selSeg || s.segment === selSeg)
-
-  const chartLabels  = markalar.map(m => m.marka)
-  const chartData    = markalar.map(m => m.kpis[selKpi])
-  const chartColors  = markalar.map(m => SEGMENT_BG[m.segment] || 'rgba(100,100,100,.35)')
-  const chartBorders = markalar.map(m => SEGMENT_COLORS[m.segment] || '#aaa')
-
-  const maxVal = Math.max(...chartData, ...segAvgLines.map(s => s.avg), 0.001)
+  const spBg = (s: string) => SEGMENT_BG[s] || 'rgba(100,100,100,.15)'
 
   return (
     <div className={styles.wrap}>
-      <Topbar title="KPI Detay"
-        subtitle="12 KPI · Tıklayarak marka dağılımını görün · Kesik çizgi = segment ortalaması" />
+      <Topbar title="Marka Sıralaması"
+        subtitle={`${markalar.length} marka · ${selYas === 'Tümü' ? 'Tüm yaşlar' : selYas + ' yıl'} · ${selSeg || 'Tüm segmentler'}`} />
       <div className={styles.content}>
 
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:14 }}>
-          {KPI_META.map((k, i) => {
-            const allAvg = MARKA_KPIS.reduce((a, m) => a + m.kpis[i], 0) / MARKA_KPIS.length
+        {/* Segment ortalamaları — seçili yaşa göre */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:14 }}>
+          {SEGMENT_KPIS.filter(s => !selSeg || s.segment===selSeg).map(s => {
+            const kpis = getKpis(s, selYas)
             return (
-              <div key={k.no} onClick={() => setSelKpi(i)}
-                style={{
-                  background: selKpi===i ? 'rgba(59,130,246,.06)' : 'var(--surf)',
-                  border: `1px solid ${selKpi===i ? 'var(--blue)' : 'var(--bd)'}`,
-                  borderRadius:9, padding:'10px 12px', cursor:'pointer', transition:'all .12s'
-                }}>
-                <div style={{ fontSize:9, fontWeight:700, color: CAT_COLORS[k.kat]||'var(--tx3)', marginBottom:3, textTransform:'uppercase', letterSpacing:'.05em' }}>
-                  {k.kat}
+              <div key={s.segment} style={{ background:'var(--surf2)', border:`1px solid ${SEGMENT_COLORS[s.segment]}44`, borderRadius:8, padding:'10px 14px' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
+                  <span style={{ fontSize:11, fontWeight:700, color: SEGMENT_COLORS[s.segment] }}>{s.segment} Ort.</span>
+                  <span style={{ fontSize:9, color:'var(--tx3)' }}>
+                    {selYas === 'Tümü' ? 'Tüm yaşlar' : selYas + ' yıl'} · {s.marka_count} marka
+                  </span>
                 </div>
-                <div style={{ fontSize:11, fontWeight:600, color:'var(--tx)', marginBottom:4, lineHeight:1.3 }}>
-                  KPI {k.no} · {k.ad}
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:4 }}>
+                  {[0,3,4,6].map(i => (
+                    <div key={i} style={{ textAlign:'center' }}>
+                      <div style={{ fontSize:8, color:'var(--tx3)', marginBottom:1 }}>KPI {i+1}</div>
+                      <div style={{ fontSize:10, fontWeight:600, color:'var(--tx)', fontFamily:'var(--font-dm-mono)' }}>
+                        {fmtKpi(kpis[i], KPI_META[i].fmt)}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div style={{ fontSize:14, fontWeight:700, fontFamily:'var(--font-dm-mono)', color: selKpi===i ? 'var(--blue)' : 'var(--tx)' }}>
-                  {fmtKpi(allAvg, k.fmt)}
+                {/* Yaş kırılımı mini */}
+                <div style={{ display:'flex', gap:6, marginTop:8, paddingTop:6, borderTop:'1px solid var(--bd)' }}>
+                  {['0-3','3-7','7+'].map(yg => (
+                    <div key={yg} style={{ flex:1, textAlign:'center' }}>
+                      <div style={{ fontSize:8, color: YAS_COLORS[yg], fontWeight:600 }}>{yg}y</div>
+                      <div style={{ fontSize:9, color:'var(--tx2)', fontFamily:'var(--font-dm-mono)' }}>
+                        {fmtKpi(getKpis(s, yg)[4], 'tl0')}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div style={{ fontSize:9, color:'var(--tx3)', marginTop:2 }}>Genel Ort.</div>
               </div>
             )
           })}
         </div>
 
-        <div className={styles.card}>
-          <div className={styles.cardHd}>
-            <h3>KPI {meta.no}: {meta.ad} — Marka Dağılımı</h3>
-            <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-              {['', 'Mass', 'Premium', 'EV'].map(s => (
-                <button key={s} onClick={() => setSelSeg(s)}
-                  style={{
-                    padding:'3px 10px', borderRadius:20, fontSize:10, fontWeight:600, cursor:'pointer',
-                    border:`1px solid ${selSeg===s ? (s ? SEGMENT_COLORS[s] : 'var(--blue)') : 'var(--bd)'}`,
-                    background: selSeg===s ? (s ? SEGMENT_BG[s] : 'rgba(59,130,246,.12)') : 'var(--surf2)',
-                    color: selSeg===s ? (s ? SEGMENT_COLORS[s] : 'var(--blue)') : 'var(--tx2)',
-                  }}>
-                  {s || 'Tümü'}
-                </button>
-              ))}
-              {lob && <span style={{ fontSize:9, padding:'2px 7px', borderRadius:4, background:'rgba(16,185,129,.12)', color:'#10b981' }}>↓ Düşük daha iyi</span>}
-            </div>
-          </div>
-
-          <div style={{ display:'flex', gap:16, marginBottom:10, flexWrap:'wrap' }}>
-            {segAvgLines.map(s => (
-              <div key={s.segment} style={{ display:'flex', alignItems:'center', gap:6 }}>
-                <div style={{ width:22, borderTop:`2px dashed ${s.color}` }}/>
-                <span style={{ fontSize:10, color:s.color, fontWeight:600 }}>
-                  {s.segment} ort: {fmtKpi(s.avg, meta.fmt)}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ position:'relative' }}>
-            <div className={styles.chartWrap} style={{ height:280 }}>
-              <Bar
-                data={{
-                  labels: chartLabels,
-                  datasets: [{
-                    label: meta.ad,
-                    data: chartData,
-                    backgroundColor: chartColors,
-                    borderColor: chartBorders,
-                    borderWidth: 1,
-                    borderRadius: 3,
-                  }]
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                      callbacks: {
-                        label: (ctx) => `${ctx.label}: ${fmtKpi(ctx.parsed.y as number, meta.fmt)}`
-                      }
-                    }
-                  },
-                  scales: {
-                    y: {
-                      min: 0,
-                      max: maxVal * 1.15,
-                      grid: { color:'rgba(255,255,255,.05)' },
-                      ticks: { color:'#8496b0', font:{size:9}, callback:(v) => fmtKpi(Number(v), meta.fmt) }
-                    },
-                    x: {
-                      grid: { display:false },
-                      ticks: { color:'#8496b0', font:{size:8}, maxRotation:45, autoSkip:false }
-                    }
-                  }
-                }}
-              />
-            </div>
-
-            {segAvgLines.map(s => {
-              const pct = maxVal > 0 ? (1 - s.avg / (maxVal * 1.15)) * 100 : 50
-              return (
-                <div key={s.segment} style={{
-                  position:'absolute',
-                  top: `${pct}%`,
-                  left: 40,
-                  right: 0,
-                  borderTop: `1.5px dashed ${s.color}`,
-                  pointerEvents: 'none',
-                  zIndex: 10,
-                }}>
-                  <span style={{
-                    position:'absolute', right:4, top:-10,
-                    fontSize:9, color:s.color, fontWeight:700,
-                    background:'var(--surf)', padding:'1px 4px', borderRadius:3,
-                  }}>
-                    {s.segment}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className={styles.card}>
-          <div className={styles.cardHd}><h3>Segment × KPI Özet</h3></div>
+        {/* Tablo */}
+        <div className={styles.card} style={{ padding:0, overflow:'hidden' }}>
           <div style={{ overflowX:'auto' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
               <thead>
                 <tr style={{ background:'var(--surf2)' }}>
-                  <th style={{ padding:'8px 12px', textAlign:'left', fontSize:9, fontWeight:700, color:'var(--tx3)', borderBottom:'1px solid var(--bd)' }}>Segment</th>
-                  {KPI_META.map(k => (
-                    <th key={k.no} style={{ padding:'8px 8px', textAlign:'center', fontSize:8, fontWeight:700, color:'var(--tx3)', borderBottom:'1px solid var(--bd)', whiteSpace:'nowrap' }}>
-                      KPI {k.no}
+                  <th style={thS}>#</th>
+                  <th style={thS}>Marka</th>
+                  <th style={thS}>Segment</th>
+                  {KPI_META.map((k,i) => (
+                    <th key={i} onClick={() => setSortKpi(i)}
+                      style={{ ...thS, cursor:'pointer', color: sortKpi===i?'var(--blue)':'var(--tx3)',
+                        background: sortKpi===i?'rgba(59,130,246,.06)':'var(--surf2)', whiteSpace:'nowrap' }}>
+                      KPI {k.no}{sortKpi===i?' ↓':''}
                     </th>
                   ))}
+                  <th onClick={() => setSortKpi('ov')}
+                    style={{ ...thS, cursor:'pointer', color: sortKpi==='ov'?'var(--blue)':'var(--tx3)',
+                      background: sortKpi==='ov'?'rgba(59,130,246,.08)':'var(--surf2)' }}>
+                    Skor{sortKpi==='ov'?' ↓':''}
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {SEGMENT_KPIS.map(s => (
-                  <tr key={s.segment} style={{ borderBottom:'1px solid var(--bd)' }}>
-                    <td style={{ padding:'8px 12px', fontWeight:700, color: SEGMENT_COLORS[s.segment] }}>
-                      <span style={{ background:SEGMENT_BG[s.segment], padding:'2px 8px', borderRadius:20, fontSize:10 }}>
-                        {s.segment}
+                {markalar.map((b, i) => (
+                  <tr key={b.marka} style={{ borderBottom:'1px solid var(--bd)' }}>
+                    <td style={tdS}><span style={{ color:'var(--tx3)', fontFamily:'var(--font-dm-mono)' }}>{i+1}</span></td>
+                    <td style={{ ...tdS, fontWeight:600, fontSize:12 }}>{b.marka}</td>
+                    <td style={tdS}>
+                      <span style={{ background:spBg(b.segment), color:SEGMENT_COLORS[b.segment],
+                        padding:'2px 7px', borderRadius:20, fontSize:9, fontWeight:700, textTransform:'uppercase' }}>
+                        {b.segment}
                       </span>
                     </td>
-                    {s.kpis.map((v, i) => (
-                      <td key={i} style={{ padding:'7px 8px', textAlign:'center', fontFamily:'var(--font-dm-mono)', fontSize:10, color:'var(--tx)' }}>
-                        {fmtKpi(v, KPI_META[i].fmt)}
-                      </td>
-                    ))}
+                    {b.kpis.map((v, ki) => {
+                      const avg = segmentAvg(b.segment, ki, selYas)
+                      const { bg, color } = heatColor(v, avg, !isLowerBetter(ki))
+                      return (
+                        <td key={ki} style={{ ...tdS, background:bg, color, fontFamily:'var(--font-dm-mono)', fontWeight:500 }}>
+                          {fmtKpi(v, KPI_META[ki].fmt)}
+                        </td>
+                      )
+                    })}
+                    <td style={tdS}>
+                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                        <div style={{ flex:1, background:'var(--surf3)', borderRadius:10, height:4, overflow:'hidden', minWidth:36 }}>
+                          <div style={{ width:`${b.ov}%`, height:4, borderRadius:10,
+                            background: b.ov>=70?'#10b981':b.ov>=55?'#3b82f6':b.ov>=40?'#f59e0b':'#ef4444' }}/>
+                        </div>
+                        <span style={{ fontFamily:'var(--font-dm-mono)', fontSize:11, width:24, textAlign:'right',
+                          color: b.ov>=70?'#10b981':b.ov>=55?'#3b82f6':b.ov>=40?'#f59e0b':'#ef4444' }}>{b.ov}</span>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -198,7 +129,25 @@ export default function KpilerPage() {
           </div>
         </div>
 
+        {/* Renk açıklaması */}
+        <div style={{ display:'flex', gap:12, marginTop:10, flexWrap:'wrap' }}>
+          {[
+            { c:'#10b981', bg:'rgba(16,185,129,.18)', label:'≥%15 segment üstü' },
+            { c:'#60a5fa', bg:'rgba(59,130,246,.14)', label:'%5–15 üstü' },
+            { c:'#fbbf24', bg:'rgba(245,158,11,.12)', label:'Ortalama' },
+            { c:'#f87171', bg:'rgba(239,68,68,.14)',  label:'Segment altı' },
+          ].map(x => (
+            <div key={x.label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:9, color:'var(--tx3)' }}>
+              <div style={{ width:12, height:10, borderRadius:3, background:x.bg, border:`1px solid ${x.c}` }}/>
+              {x.label}
+            </div>
+          ))}
+        </div>
+
       </div>
     </div>
   )
 }
+
+const thS: React.CSSProperties = { padding:'9px 10px', textAlign:'left', fontSize:9, fontWeight:700, letterSpacing:'.07em', textTransform:'uppercase', color:'var(--tx3)', borderBottom:'1px solid var(--bd)', whiteSpace:'nowrap' }
+const tdS: React.CSSProperties = { padding:'7px 10px', borderBottom:'1px solid var(--bd)' }
