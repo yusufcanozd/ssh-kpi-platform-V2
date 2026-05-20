@@ -5,7 +5,7 @@ import { useDashboardCtx } from './DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, BOLGELER, SEGMENTLER, YAS_STATS, TOTAL_IO, TOTAL_SERVIS,
-  SEGMENT_COLORS, SEGMENT_BG, CAT_COLORS,
+  SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG, CAT_COLORS,
   fmtKpi, getKpisFromCube, getN, getMarkaList,
   overallScoreFromKpis, heatColor, isLowerBetter,
   getScore, scoreColor, scoreBg, changePct, SegmentScore
@@ -117,15 +117,15 @@ export default function DashboardPage() {
                   {
                     label: selDonem||'Baz Dönem',
                     data: [trBaz?.genel??0, ...segBarData],
-                    backgroundColor: ['rgba(59,130,246,.4)',...visibleSegs.map(s=>SEGMENT_BG[s.seg])],
-                    borderColor: ['#3b82f6',...visibleSegs.map(s=>SEGMENT_COLORS[s.seg])],
+                    backgroundColor: ['var(--seg-tr-bg)',...visibleSegs.map(s=>SEGMENT_HEX_BG[s.seg])],
+                    borderColor: ['var(--seg-tr-color)',...visibleSegs.map(s=>SEGMENT_HEX[s.seg])],
                     borderWidth:1.5,borderRadius:8
                   },
                   ...(selCmpDonem ? [{
                     label: selCmpDonem,
                     data: [trCmp?.genel??0, ...segCmpData],
-                    backgroundColor: ['rgba(59,130,246,.15)',...visibleSegs.map(s=>SEGMENT_BG[s.seg].replace('.35',',.12)'))],
-                    borderColor: ['#3b82f688',...visibleSegs.map(s=>SEGMENT_COLORS[s.seg]+'88')],
+                    backgroundColor: ['var(--seg-tr-bg)',...visibleSegs.map(s=>SEGMENT_BG[s.seg].replace('.35',',.12)'))],
+                    borderColor: ['var(--seg-tr-color)',...visibleSegs.map(s=>SEGMENT_COLORS[s.seg]+'88')],
                     borderWidth:1,borderRadius:8
                   }] : [])
                 ]
