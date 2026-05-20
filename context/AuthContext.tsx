@@ -27,7 +27,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = supabaseRef.current
 
   useEffect(() => {
-    // İlk yükleme
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
         const { data } = await supabase
@@ -40,31 +39,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
     })
 
-    // Auth değişikliklerini dinle
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_OUT' || !session) {
+        if (event === 'SIGNED_OUT') {
           setProfile(null)
+          // Sadece SIGNED_OUT'ta yönlendir
           window.location.replace('/login')
-          return
         }
-        if (event === 'SIGNED_IN' && session.user) {
-          const { data } = await supabase
-            .from('profiles')
-            .select('*, brands(id, code, name, segment)')
-            .eq('id', session.user.id)
-            .single()
-          setProfile(data as Profile | null)
-        }
+        // SIGNED_IN'de bir şey yapma — login page zaten yönlendiriyor
       }
     )
 
     return () => subscription.unsubscribe()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Boş array — sadece bir kere çalışır
+  }, [])
 
   const logout = async () => {
     await supabase.auth.signOut()
+    // signOut → SIGNED_OUT eventi → yukarıdaki handler /login'e yönlendirir
   }
 
   const isAdmin      = ['superadmin', 'admin'].includes(profile?.role || '')
