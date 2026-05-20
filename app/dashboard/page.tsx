@@ -139,6 +139,17 @@ export default function DashboardPage() {
                   y:{min:0,max:105,grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8496b0',font:{size:9}}},
                   x:{grid:{display:false},ticks:{color:'#8496b0',font:{size:11}}}}}}/>
             </div>
+
+            {/* Trend çizgi — bar kartının altında */}
+            <div style={{borderTop:'1px solid var(--bd)',marginTop:14,paddingTop:12}}>
+              <div style={{fontSize:10,fontWeight:600,color:'var(--tx3)',marginBottom:8}}>
+                Son 4 Çeyrek Trendi
+                <span style={{fontSize:9,fontWeight:400,marginLeft:8}}>
+                  — kesik = önceki yıl · {selBolge||'Tüm TR'}
+                </span>
+              </div>
+              <SegmentTrendChart selSeg={selSeg} selBolge={selBolge} selYas={selYas} selDonem={selDonem}/>
+            </div>
           </div>
 
           {/* Marka sıralaması — tüm filtreler dahil */}
@@ -204,9 +215,6 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-
-        {/* Son 4 Çeyrek Trend */}
-        <SegmentTrendChart selSeg={selSeg} selBolge={selBolge} selYas={selYas} selDonem={selDonem}/>
 
         {/* Bölge Skor Dağılımı */}
         <BolgeSkorGrid selSeg={selSeg} selBolge={selBolge} selYas={selYas} selDonem={selDonem} selCmpDonem={selCmpDonem}/>
@@ -497,14 +505,7 @@ function SegmentTrendChart({ selSeg, selBolge, selYas, selDonem }:{
   const labels = last4Q.map((q,i) => `${q}\n${prev4Q[i]}`)
 
   return (
-    <div className={styles.card}>
-      <div className={styles.cardHd}>
-        <h3>Dönemsel Skor Trendi</h3>
-        <span className={styles.hint}>
-          Son 4 çeyrek · Kesik = önceki yıl · {selBolge||'Tüm TR'} · {selYas==='Tümü'?'Tüm Yaş':selYas+'y'}
-        </span>
-      </div>
-      <div className={styles.chartWrap} style={{height:220}}>
+    <div className={styles.chartWrap} style={{height:180}}>
         <Line
           data={{ labels, datasets: datasets as any }}
           options={{
@@ -513,7 +514,7 @@ function SegmentTrendChart({ selSeg, selBolge, selYas, selDonem }:{
             plugins:{
               legend:{
                 display: true, position:'top',
-                labels:{color:'#8496b0',font:{size:9},boxWidth:20,
+                labels:{color:'#8496b0',font:{size:9},boxWidth:16,padding:8,
                   filter:(item:any)=>!item.text.includes('önceki yıl')}
               },
               tooltip:{
@@ -525,10 +526,9 @@ function SegmentTrendChart({ selSeg, selBolge, selYas, selDonem }:{
             scales:{
               y:{min:40,max:105,grid:{color:'rgba(255,255,255,.05)'},
                 ticks:{color:'#8496b0',font:{size:9},callback:(v)=>`${v}`}},
-              x:{grid:{display:false},ticks:{color:'#8496b0',font:{size:10}}}
+              x:{grid:{display:false},ticks:{color:'#8496b0',font:{size:9}}}
             }
           }}/>
-      </div>
     </div>
   )
 }
