@@ -180,37 +180,55 @@ function SkorKutu({ label, baz, cmp, color, bg, bazDonem, cmpDonem }:{
 }) {
   const bazG = baz?.genel ?? 0
   const cmpG = cmp?.genel ?? 0
-  const chg  = cmp ? parseFloat(changePct(bazG, cmpG)) : null
+  const chg  = (cmp && cmpG) ? ((bazG - cmpG) / cmpG * 100) : null
+
+  const chgColor = chg===null ? 'var(--tx3)'
+    : chg >= 0  ? '#10b981'
+    : chg >= -10 ? '#f59e0b'
+    : '#f87171'
 
   return (
-    <div style={{background:bg,border:`1px solid ${color}44`,borderRadius:10,padding:'12px 14px'}}>
-      <div style={{fontSize:11,fontWeight:700,color,marginBottom:8}}>{label}</div>
+    <div style={{background:bg, border:`1px solid ${color}44`, borderRadius:10, padding:'14px 16px', minHeight:110}}>
+      {/* Başlık */}
+      <div style={{fontSize:11, fontWeight:700, color, marginBottom:10}}>{label}</div>
 
-      <div style={{display:'flex',gap:8,alignItems:'flex-end',marginBottom:8}}>
+      {/* Dönem etiketleri + skorlar */}
+      <div style={{display:'flex', alignItems:'flex-end', gap:12, marginBottom:10}}>
+        {/* Baz dönem */}
         <div>
-          <div style={{fontSize:8,color:'var(--tx3)',marginBottom:2}}>{bazDonem}</div>
-          <div style={{fontSize:28,fontWeight:800,fontFamily:'var(--font-dm-mono)',
-            color:scoreColor(bazG),lineHeight:1}}>
-            {bazG}
+          <div style={{fontSize:9, color:'var(--tx3)', marginBottom:3, fontWeight:500}}>{bazDonem}</div>
+          <div style={{fontSize:32, fontWeight:800, fontFamily:'var(--font-dm-mono)',
+            color:scoreColor(bazG), lineHeight:1}}>
+            {bazG || '—'}
           </div>
-          <div style={{fontSize:8,color:'var(--tx3)'}}>puan</div>
+          <div style={{fontSize:9, color:'var(--tx3)', marginTop:2}}>puan</div>
         </div>
+
+        {/* Karşılaştırma dönem */}
         {cmp && (
-          <div style={{flex:1}}>
-            <div style={{fontSize:8,color:'var(--tx3)',marginBottom:2}}>{cmpDonem}</div>
-            <div style={{fontSize:18,fontWeight:700,fontFamily:'var(--font-dm-mono)',color:'var(--tx2)'}}>{cmpG}</div>
-            <div style={{fontSize:9,fontWeight:700,marginTop:4,
-              color:chg!==null?chg>=0?'#10b981':'#f87171':'var(--tx3)'}}>
-              {chg!==null?(chg>=0?'▲ +':'▼ ')+chg+'%':'—'}
+          <div style={{paddingBottom:4}}>
+            <div style={{fontSize:9, color:'var(--tx3)', marginBottom:3, fontWeight:500}}>{cmpDonem}</div>
+            <div style={{fontSize:22, fontWeight:700, fontFamily:'var(--font-dm-mono)',
+              color:'var(--tx2)', lineHeight:1}}>
+              {cmpG}
+            </div>
+          </div>
+        )}
+
+        {/* Değişim */}
+        {chg !== null && (
+          <div style={{paddingBottom:6, marginLeft:'auto'}}>
+            <div style={{fontSize:13, fontWeight:700, color:chgColor}}>
+              {chg >= 0 ? '▲ +' : '▼ '}{Math.abs(chg).toFixed(1)}%
             </div>
           </div>
         )}
       </div>
 
-      {/* Mini progress */}
-      <div style={{background:'var(--surf3)',borderRadius:6,height:4,overflow:'hidden'}}>
-        <div style={{width:`${Math.min(bazG,100)}%`,height:4,borderRadius:6,
-          background:scoreColor(bazG),transition:'width .4s'}}/>
+      {/* Progress bar */}
+      <div style={{background:'rgba(0,0,0,.12)', borderRadius:6, height:4, overflow:'hidden'}}>
+        <div style={{width:`${Math.min(bazG, 100)}%`, height:4, borderRadius:6,
+          background:scoreColor(bazG), transition:'width .4s'}}/>
       </div>
     </div>
   )
