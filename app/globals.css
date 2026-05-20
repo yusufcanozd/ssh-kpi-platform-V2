@@ -177,3 +177,10 @@ select:focus, input:focus {
   outline: none;
   border-color: var(--blue);
 }
+
+/* Tema flash önleme */
+html.light-pre body,
+html.light-pre {
+  background: #f0f4f8 !important;
+  color: #0f172a !important;
+}

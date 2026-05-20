@@ -3,31 +3,27 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
 type Theme = 'dark' | 'light'
+interface ThemeContextType { theme: Theme; toggleTheme: () => void }
 
-interface ThemeContextType {
-  theme: Theme
-  toggleTheme: () => void
-}
-
-const ThemeContext = createContext<ThemeContextType>({
-  theme: 'dark',
-  toggleTheme: () => {},
-})
+const ThemeContext = createContext<ThemeContextType>({ theme: 'dark', toggleTheme: () => {} })
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark')
+  // İlk değeri localStorage'dan al — flash yok
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'dark'
+    return (localStorage.getItem('ssh-theme') as Theme) || 'dark'
+  })
 
   useEffect(() => {
-    const saved = (localStorage.getItem('ssh-theme') as Theme) || 'dark'
-    setTheme(saved)
-    document.body.classList.toggle('light', saved === 'light')
-  }, [])
+    // light-pre class'ını kaldır, body class'ını ayarla
+    document.documentElement.classList.remove('light-pre')
+    document.body.classList.toggle('light', theme === 'light')
+  }, [theme])
 
   const toggleTheme = () => {
     const next: Theme = theme === 'dark' ? 'light' : 'dark'
     setTheme(next)
     localStorage.setItem('ssh-theme', next)
-    document.body.classList.toggle('light', next === 'light')
   }
 
   return (

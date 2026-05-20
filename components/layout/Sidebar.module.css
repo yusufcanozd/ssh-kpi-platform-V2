@@ -140,3 +140,52 @@
   font-family: var(--font-dm-sans), sans-serif;
 }
 .logoutBtn:hover { background: rgba(239,68,68,.1); color: var(--red); border-color: rgba(239,68,68,.3); }
+
+/* ── Collapsed state ── */
+.collapsed {
+  width: 52px;
+  min-width: 52px;
+}
+.collapsed .navBtn {
+  justify-content: center;
+  padding: 10px 0;
+}
+.collapsed .brand {
+  padding: 14px 8px;
+  text-align: center;
+}
+.collapsed .brandTag {
+  font-size: 7px;
+  letter-spacing: .06em;
+}
+.collapsed .footer {
+  padding: 8px;
+}
+.collapsed .footerActions {
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Toggle butonu */
+.toggleBtn {
+  position: absolute;
+  right: -12px;
+  top: 56px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--bd2);
+  background: var(--surf2);
+  color: var(--tx2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: all .15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+}
+.toggleBtn:hover {
+  background: var(--surf3);
+  color: var(--tx);
+}

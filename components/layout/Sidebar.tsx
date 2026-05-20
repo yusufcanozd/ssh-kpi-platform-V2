@@ -2,21 +2,21 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import clsx from 'clsx'
 import styles from './Sidebar.module.css'
 
 const DASHBOARD_NAV = [
-  { href: '/dashboard',          label: 'Genel Bakış',      icon: <GridIcon /> },
-  { href: '/dashboard/markalar', label: 'Marka Sıralaması', icon: <BarIcon /> },
-  { href: '/dashboard/kpiler',   label: 'KPI Detay',        icon: <ActivityIcon /> },
-  { href: '/dashboard/bolgeler', label: 'Bölge Analizi',    icon: <MapIcon /> },
-  { href: '/dashboard/trend',    label: 'Dönemsel Trend',   icon: <TrendIcon /> },
+  { href:'/dashboard',          label:'Genel Bakış',      icon:<GridIcon/> },
+  { href:'/dashboard/markalar', label:'Marka Sıralaması', icon:<BarIcon/> },
+  { href:'/dashboard/kpiler',   label:'KPI Detay',        icon:<ActivityIcon/> },
+  { href:'/dashboard/bolgeler', label:'Bölge Analizi',    icon:<MapIcon/> },
+  { href:'/dashboard/trend',    label:'Dönemsel Trend',   icon:<TrendIcon/> },
 ]
-
 const ADMIN_NAV = [
-  { href: '/admin/users', label: 'Kullanıcılar', icon: <UsersIcon /> },
+  { href:'/admin/users', label:'Kullanıcılar', icon:<UsersIcon/> },
 ]
 
 interface SidebarProps {
@@ -29,79 +29,97 @@ export default function Sidebar({ variant, filters }: SidebarProps) {
   const router   = useRouter()
   const { profile, isAdmin, loading, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const [collapsed, setCollapsed] = useState(false)
 
   const nav = variant === 'admin' ? ADMIN_NAV : DASHBOARD_NAV
 
-  const handleLogout = async () => {
-    await logout()
-  }
+  const handleLogout = async () => { await logout() }
 
   return (
-    <aside className={styles.sidebar}>
+    <aside className={clsx(styles.sidebar, collapsed && styles.collapsed)}>
+      {/* Toggle butonu */}
+      <button
+        className={styles.toggleBtn}
+        onClick={() => setCollapsed(v => !v)}
+        title={collapsed ? 'Menüyü aç' : 'Menüyü gizle'}
+      >
+        {collapsed ? <ChevronRightIcon/> : <ChevronLeftIcon/>}
+      </button>
+
+      {/* Logo */}
       <div className={styles.brand}>
         <div className={styles.brandTag}>SSH · {variant === 'admin' ? 'Admin' : 'KPI'}</div>
-        <div className={styles.brandName}>
-          {variant === 'admin' ? 'Yönetim Merkezi' : 'Rekabet Skorkartı'}
-        </div>
-        <div className={styles.brandSub}>Türkiye Otomotiv Sektörü</div>
+        {!collapsed && (
+          <>
+            <div className={styles.brandName}>
+              {variant === 'admin' ? 'Yönetim Merkezi' : 'Rekabet Skorkartı'}
+            </div>
+            <div className={styles.brandSub}>Türkiye Otomotiv Sektörü</div>
+          </>
+        )}
       </div>
 
+      {/* Nav */}
       <nav className={styles.nav}>
-        <div className={styles.navGrp}>
-          {variant === 'admin' ? 'Yönetim' : 'Görünümler'}
-        </div>
-
+        {!collapsed && (
+          <div className={styles.navGrp}>
+            {variant === 'admin' ? 'Yönetim' : 'Görünümler'}
+          </div>
+        )}
         {nav.map(item => {
           const isActive = pathname === item.href ||
             (item.href !== '/dashboard' && item.href !== '/admin' && pathname.startsWith(item.href))
           return (
             <Link key={item.href} href={item.href}
-              className={clsx(styles.navBtn, isActive && styles.navBtnActive)}>
-              {item.icon}{item.label}
+              className={clsx(styles.navBtn, isActive && styles.navBtnActive)}
+              title={collapsed ? item.label : undefined}>
+              {item.icon}
+              {!collapsed && item.label}
             </Link>
           )
         })}
 
-        {/* Geçiş linkleri — loading bitmeden gösterme */}
         {!loading && (
           <>
-            <div className={styles.navGrp} style={{ marginTop: 12 }}>Geçiş</div>
+            {!collapsed && (
+              <div className={styles.navGrp} style={{marginTop:12}}>Geçiş</div>
+            )}
             {variant === 'admin' ? (
-              <Link href="/dashboard" className={styles.navBtn}>
-                <GridIcon />KPI Dashboard
+              <Link href="/dashboard" className={styles.navBtn} title={collapsed?'KPI Dashboard':undefined}>
+                <GridIcon/>{!collapsed && 'KPI Dashboard'}
               </Link>
             ) : isAdmin ? (
-              <Link href="/admin/users" className={styles.navBtn}>
-                <ShieldIcon />Admin Paneli
+              <Link href="/admin/users" className={styles.navBtn} title={collapsed?'Admin Paneli':undefined}>
+                <ShieldIcon/>{!collapsed && 'Admin Paneli'}
               </Link>
             ) : null}
           </>
         )}
       </nav>
 
-      {filters && <div className={styles.filters}>{filters}</div>}
+      {/* Filtreler — sadece açıkken */}
+      {filters && !collapsed && <div className={styles.filters}>{filters}</div>}
 
+      {/* Footer */}
       <div className={styles.footer}>
-        {profile && (
+        {profile && !collapsed && (
           <div className={styles.userBlock}>
             <div className={styles.userName}>{profile.full_name}</div>
             <div className={styles.userRole}>
-              {profile.role === 'superadmin' ? 'Süper Admin' :
-               profile.role === 'admin'      ? 'Admin' :
-               profile.role === 'analyst'    ? 'Analist' : 'İzleyici'}
+              {profile.role==='superadmin'?'Süper Admin':profile.role==='admin'?'Admin':profile.role==='analyst'?'Analist':'İzleyici'}
             </div>
-            {profile.brands && (
-              <div className={styles.userBrand}>{profile.brands.name}</div>
-            )}
+            {profile.brands && <div className={styles.userBrand}>{profile.brands.name}</div>}
           </div>
         )}
         <div className={styles.footerActions}>
           <button className={styles.themeBtn} onClick={toggleTheme} title="Tema">
-            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+            {theme==='dark'?<SunIcon/>:<MoonIcon/>}
           </button>
-          <button className={styles.logoutBtn} onClick={handleLogout} type="button">
-            Çıkış Yap
-          </button>
+          {!collapsed && (
+            <button className={styles.logoutBtn} onClick={handleLogout} type="button">
+              Çıkış Yap
+            </button>
+          )}
         </div>
       </div>
     </aside>
@@ -117,3 +135,5 @@ function TrendIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24"
 function ShieldIcon()   { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> }
 function SunIcon()      { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> }
 function MoonIcon()     { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> }
+function ChevronLeftIcon()  { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg> }
+function ChevronRightIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg> }
