@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Profile } from '@/types'
 
@@ -23,47 +23,48 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
-
-  const fetchProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*, brands(id, code, name, segment)')
-      .eq('id', userId)
-      .single()
-    return data as Profile | null
-  }, [supabase])
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   useEffect(() => {
+    // İlk yükleme
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
-        const p = await fetchProfile(user.id)
-        setProfile(p)
+        const { data } = await supabase
+          .from('profiles')
+          .select('*, brands(id, code, name, segment)')
+          .eq('id', user.id)
+          .single()
+        setProfile(data as Profile | null)
       }
       setLoading(false)
     })
 
+    // Auth değişikliklerini dinle
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_OUT' || !session) {
           setProfile(null)
-          setLoading(false)
-          // Sayfayı yenile — middleware /login'e yönlendirecek
-          window.location.href = '/login'
+          window.location.replace('/login')
           return
         }
-        if (session?.user) {
-          const p = await fetchProfile(session.user.id)
-          setProfile(p)
+        if (event === 'SIGNED_IN' && session.user) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*, brands(id, code, name, segment)')
+            .eq('id', session.user.id)
+            .single()
+          setProfile(data as Profile | null)
         }
       }
     )
+
     return () => subscription.unsubscribe()
-  }, [fetchProfile, supabase])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Boş array — sadece bir kere çalışır
 
   const logout = async () => {
     await supabase.auth.signOut()
-    // onAuthStateChange SIGNED_OUT eventi tetiklenecek ve /login'e yönlendirecek
   }
 
   const isAdmin      = ['superadmin', 'admin'].includes(profile?.role || '')
