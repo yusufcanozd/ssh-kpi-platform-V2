@@ -62,7 +62,7 @@ export default function LoginPage() {
       }
     })
     if (err) { setError(err.message); setLoading(false); return }
-    setSuccess('Kayıt talebiniz alındı. E-posta adresinizi onaylayın, ardından yöneticiniz hesabınızı aktifleştirecektir.')
+    setSuccess('Kayıt talebiniz alındı. E-posta adresinizi onaylayın. Süper admin hesabınızı inceleyip aktifleştirdikten sonra giriş yapabileceksiniz.')
     setLoading(false)
   }
 
