@@ -119,8 +119,7 @@ export default function DashboardPage() {
                     data: [trBaz?.genel??0, ...segBarData],
                     backgroundColor: ['rgba(251,191,36,.08)',...visibleSegs.map(s=>SEGMENT_HEX_BG[s.seg].replace('.25','.08)'))], 
                     borderColor: ['#fbbf24',...visibleSegs.map(s=>SEGMENT_HEX[s.seg])],
-                    borderWidth:2,
-                    borderWidth:1.5,borderRadius:8
+                    borderWidth:2,borderRadius:8
                   },
                   ...(selCmpDonem ? [{
                     label: selCmpDonem,
