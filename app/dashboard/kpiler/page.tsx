@@ -161,31 +161,34 @@ export default function KpilerPage() {
                         <span>{k.ad}</span>
                         {u && <span style={{fontSize:8,fontWeight:400,color:'var(--tx3)',marginTop:1}}>({u})</span>}
                       </div>
-                      {/* Baz değer */}
-                      <div style={{display:'flex',alignItems:'flex-end',gap:5,justifyContent:'center',flexWrap:'wrap'}}>
-                        <div>
-                          {selDonem&&<div style={{fontSize:7,color:'var(--tx3)',marginBottom:1}}>{selDonem}</div>}
-                          <div style={{fontSize:17,fontWeight:800,fontFamily:'var(--font-dm-mono)',
-                            color:SEGMENT_COLORS[s.seg],lineHeight:1}}>
+                      {/* Baz + cmp değer — tek satırda, overflow yok */}
+                      <div style={{display:'flex',alignItems:'flex-end',gap:4,justifyContent:'center'}}>
+                        <div style={{minWidth:0,flex:'0 1 auto'}}>
+                          {selDonem&&<div style={{fontSize:6,color:'var(--tx3)',marginBottom:1,lineHeight:1}}>{selDonem}</div>}
+                          <div style={{fontSize:15,fontWeight:800,fontFamily:'var(--font-dm-mono)',
+                            color:SEGMENT_COLORS[s.seg],lineHeight:1,
+                            overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                             {fmtKpi(bazV,k.fmt)}
                           </div>
                         </div>
                         {cmpV!==null&&(
-                          <div style={{paddingBottom:3}}>
-                            {selCmpDonem&&<div style={{fontSize:7,color:'var(--tx3)',marginBottom:1}}>{selCmpDonem}</div>}
-                            <div style={{fontSize:12,fontWeight:600,fontFamily:'var(--font-dm-mono)',color:'var(--tx2)',lineHeight:1}}>
+                          <div style={{paddingBottom:2,minWidth:0,flex:'0 1 auto'}}>
+                            {selCmpDonem&&<div style={{fontSize:6,color:'var(--tx3)',marginBottom:1,lineHeight:1}}>{selCmpDonem}</div>}
+                            <div style={{fontSize:10,fontWeight:600,fontFamily:'var(--font-dm-mono)',
+                              color:'var(--tx2)',lineHeight:1,
+                              overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                               {fmtKpi(cmpV,k.fmt)}
                             </div>
                           </div>
                         )}
-                        {chg!==null&&(
-                          <div style={{paddingBottom:4,marginLeft:'auto'}}>
-                            <div style={{fontSize:9,fontWeight:700,color:chgColor(lob?-chg:chg)}}>
-                              {chg>=0?'▲ +':'▼ '}{Math.abs(chg)}%
-                            </div>
-                          </div>
-                        )}
                       </div>
+                      {chg!==null&&(
+                        <div style={{marginTop:3,textAlign:'center'}}>
+                          <span style={{fontSize:8,fontWeight:700,color:chgColor(lob?-chg:chg)}}>
+                            {chg>=0?'▲ +':'▼ '}{Math.abs(chg)}%
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
