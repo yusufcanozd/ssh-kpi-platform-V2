@@ -27,7 +27,11 @@ export default function LoginPage() {
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // reset sadece yeni submit başladığında çağrılır
   const reset = () => { setError(''); setSuccess('') }
+
+  // Error'ı kalıcı göster — sadece kullanıcı bir şey değiştirince temizle
+  const clearOnChange = () => { if (error) setError('') }
 
   // ── Giriş ──────────────────────────────────────────────────
   async function handleLogin(e: React.FormEvent) {
@@ -130,12 +134,12 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className={styles.form}>
             <div className={styles.field}>
               <label>E-posta</label>
-              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="ornek@marka.com" required autoFocus/>
+              <input type="email" value={email} onChange={e=>{setEmail(e.target.value);clearOnChange()}} placeholder="ornek@marka.com" required autoFocus/>
             </div>
             <div className={styles.field}>
               <label>Şifre</label>
               <div className={styles.pwWrap}>
-                <input type={showPw?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" required/>
+                <input type={showPw?'text':'password'} value={password} onChange={e=>{setPassword(e.target.value);clearOnChange()}} placeholder="••••••••" required/>
                 <button type="button" className={styles.eyeBtn} onClick={()=>setShowPw(v=>!v)}>
                   {showPw?<EyeOffIcon/>:<EyeIcon/>}
                 </button>
@@ -175,7 +179,7 @@ export default function LoginPage() {
             <div className={styles.field}>
               <label>Şifre</label>
               <div className={styles.pwWrap}>
-                <input type={showPw?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" required/>
+                <input type={showPw?'text':'password'} value={password} onChange={e=>{setPassword(e.target.value);clearOnChange()}} placeholder="••••••••" required/>
                 <button type="button" className={styles.eyeBtn} onClick={()=>setShowPw(v=>!v)}>
                   {showPw?<EyeOffIcon/>:<EyeIcon/>}
                 </button>
@@ -201,7 +205,7 @@ export default function LoginPage() {
             </div>
             <div className={styles.field}>
               <label>E-posta</label>
-              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="ornek@marka.com" required autoFocus/>
+              <input type="email" value={email} onChange={e=>{setEmail(e.target.value);clearOnChange()}} placeholder="ornek@marka.com" required autoFocus/>
             </div>
             <button type="submit" className={styles.submitBtn} disabled={loading}>
               {loading ? 'Gönderiliyor...' : 'Kod Gönder'}
