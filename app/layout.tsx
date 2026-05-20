@@ -11,8 +11,8 @@ export const metadata: Metadata = {
   title: 'SSH KPI Platform | Türkiye Otomotiv Sektörü',
   description: 'Satış Sonrası Hizmetler Rekabet Analizi Platformu',
   icons: {
-    icon: '/favicon.svg',
-    shortcut: '/favicon.svg',
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
   },
 }
 
