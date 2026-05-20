@@ -310,7 +310,8 @@ function SkorKutu({ label, baz, cmp, color, bg, bazDonem, cmpDonem }:{
       {/* Progress bar */}
       <div style={{background:'rgba(0,0,0,.12)', borderRadius:6, height:4, overflow:'hidden'}}>
         <div style={{width:`${Math.min(bazG, 100)}%`, height:4, borderRadius:6,
-          background:scoreColor(bazG), transition:'width .4s'}}/>
+          background:bazG>=100?'rgba(16,185,129,.5)':bazG>=90?'rgba(245,158,11,.5)':'rgba(239,68,68,.45)',
+          transition:'width .4s'}}/>
       </div>
     </div>
   )
@@ -347,9 +348,10 @@ function KatDetayKutu({ label, score, color, bg }:{
               <span style={{fontSize:10,fontWeight:700,fontFamily:'var(--font-dm-mono)',
                 color:scoreColor(val)}}>{val}</span>
             </div>
-            <div style={{background:'var(--surf3)',borderRadius:4,height:4,overflow:'hidden'}}>
-              <div style={{width:`${Math.min(val,100)}%`,height:4,borderRadius:4,
-                background:scoreColor(val),transition:'width .3s'}}/>
+            <div style={{background:'var(--surf3)',borderRadius:4,height:5,overflow:'hidden'}}>
+              <div style={{width:`${Math.min(val,100)}%`,height:5,borderRadius:4,
+                background:val>=100?'rgba(16,185,129,.55)':val>=90?'rgba(245,158,11,.55)':'rgba(239,68,68,.55)',
+                transition:'width .3s'}}/>
             </div>
           </div>
         )
@@ -435,9 +437,9 @@ function BolgeSkorGrid({ selSeg, selBolge, selYas, selDonem, selCmpDonem }:{
               </div>
 
               {/* Progress bar */}
-              <div style={{background:'rgba(0,0,0,.12)',borderRadius:4,height:3,overflow:'hidden'}}>
+              <div style={{background:'rgba(0,0,0,.10)',borderRadius:4,height:3,overflow:'hidden'}}>
                 <div style={{width:`${Math.min(bazG,100)}%`,height:3,borderRadius:4,
-                  background:relColor,transition:'width .4s'}}/>
+                  background:relColor+'99',transition:'width .4s'}}/>
               </div>
             </div>
           )
