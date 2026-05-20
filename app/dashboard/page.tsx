@@ -140,16 +140,13 @@ export default function DashboardPage() {
                   x:{grid:{display:false},ticks:{color:'#8496b0',font:{size:11}}}}}}/>
             </div>
 
-            {/* Trend çizgi — bar kartının altında */}
-            <div style={{borderTop:'1px solid var(--bd)',marginTop:14,paddingTop:12}}>
-              <div style={{fontSize:10,fontWeight:600,color:'var(--tx3)',marginBottom:8}}>
-                Son 4 Çeyrek Trendi
-                <span style={{fontSize:9,fontWeight:400,marginLeft:8}}>
-                  — kesik = önceki yıl · {selBolge||'Tüm TR'}
-                </span>
-              </div>
-              <SegmentTrendChart selSeg={selSeg} selBolge={selBolge} selYas={selYas} selDonem={selDonem}/>
-            </div>
+            {/* Kategori Skor Karşılaştırması — bar kartının altında */}
+            <KategoriSkorChart
+              visibleSegs={visibleSegs}
+              trBaz={trBaz} trCmp={trCmp}
+              selDonem={selDonem} selCmpDonem={selCmpDonem}
+              selBolge={selBolge} selYas={selYas}
+            />
           </div>
 
           {/* Marka sıralaması — tüm filtreler dahil */}
@@ -356,6 +353,237 @@ function KatDetayKutu({ label, score, color, bg }:{
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ── Bölge Skor Grid ──────────────────────────────────────────
+function BolgeSkorGrid({ selSeg, selBolge, selYas, selDonem, selCmpDonem }:{
+  selSeg:string; selBolge:string; selYas:string; selDonem:string; selCmpDonem:string
+}) {
+  const bolgeList = selBolge ? [selBolge] : BOLGELER
+
+  return (
+    <div className={styles.card}>
+      <div className={styles.cardHd}>
+        <h3>Bölge Skor Dağılımı</h3>
+        <span className={styles.hint}>
+          {selSeg||'Tüm Seg.'} · {selYas==='Tümü'?'Tüm Yaş':selYas+'y'} ·{' '}
+          {selDonem||'Tüm Dönem'}{selCmpDonem?` vs ${selCmpDonem}`:''}
+        </span>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:8}}>
+        {bolgeList.map(b=>{
+          const baz    = getScore(selSeg, b, selYas, selDonem)
+          const cmp    = selCmpDonem ? getScore(selSeg, b, selYas, selCmpDonem) : null
+          const trRef  = getScore(selSeg, '', selYas, selDonem)
+          const bazG   = baz?.genel ?? 0
+          const cmpG   = cmp?.genel ?? 0
+          const trG    = trRef?.genel ?? bazG
+          const chg    = (cmp && cmpG) ? ((bazG - cmpG) / cmpG * 100) : null
+          const chgColor = chg===null?'var(--tx3)':chg>=0?'#10b981':chg>=-10?'#f59e0b':'#f87171'
+          // Renk: TR ortalamasına göre — %2 üstü yeşil, ±%2 sarı, altı kırmızı
+          const ratio    = trG > 0 ? bazG / trG : 1
+          const relColor = ratio >= 1.02 ? '#10b981' : ratio >= 0.98 ? '#f59e0b' : '#ef4444'
+          const relBg    = ratio >= 1.02 ? 'rgba(16,185,129,.1)' : ratio >= 0.98 ? 'rgba(245,158,11,.08)' : 'rgba(239,68,68,.08)'
+
+          return (
+            <div key={b} style={{
+              padding:'10px 10px 8px',
+              background: 'var(--surf2)',
+              borderRadius:8,
+              border:`1px solid ${relColor}55`,
+            }}>
+              {/* Bölge adı */}
+              <div style={{fontSize:9,fontWeight:700,color:relColor,
+                marginBottom:8,lineHeight:1.3}}>
+                {b}
+              </div>
+
+              {/* Skorlar — SkorKutu ile aynı layout */}
+              <div style={{display:'flex',alignItems:'flex-end',gap:6,marginBottom:6}}>
+                {/* Baz */}
+                <div>
+                  <div style={{fontSize:8,color:'var(--tx3)',marginBottom:2,fontWeight:500}}>
+                    {selDonem||'Tüm'}
+                  </div>
+                  <div style={{fontSize:22,fontWeight:800,fontFamily:'var(--font-dm-mono)',
+                    color:scoreColor(bazG),lineHeight:1}}>
+                    {bazG||'—'}
+                  </div>
+                  <div style={{fontSize:8,color:'var(--tx3)',marginTop:1}}>puan</div>
+                </div>
+                {/* Karşılaştırma */}
+                {cmp && (
+                  <div style={{paddingBottom:3}}>
+                    <div style={{fontSize:8,color:'var(--tx3)',marginBottom:2,fontWeight:500}}>
+                      {selCmpDonem}
+                    </div>
+                    <div style={{fontSize:15,fontWeight:700,fontFamily:'var(--font-dm-mono)',
+                      color:'var(--tx2)',lineHeight:1}}>
+                      {cmpG}
+                    </div>
+                  </div>
+                )}
+                {/* Değişim */}
+                {chg !== null && (
+                  <div style={{marginLeft:'auto',paddingBottom:3,fontSize:11,fontWeight:700,color:chgColor}}>
+                    {chg>=0?'▲ +':'▼ '}{Math.abs(chg).toFixed(1)}%
+                  </div>
+                )}
+              </div>
+
+              {/* Progress bar */}
+              <div style={{background:'rgba(0,0,0,.10)',borderRadius:4,height:3,overflow:'hidden'}}>
+                <div style={{width:`${Math.min(bazG,100)}%`,height:3,borderRadius:4,
+                  background:relColor+'99',transition:'width .4s'}}/>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Kategori Skor Karşılaştırması ────────────────────────────
+// Her kategori (Müşteri, Ticari, Operasyonel, Bayi Ağı, Kapsam) için
+// segment + TR skorları — baz ve cmp dönem ortalama çizgileriyle
+function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, selBolge, selYas }:{
+  visibleSegs: {seg:string; baz:SegmentScore|null; cmp:SegmentScore|null}[]
+  trBaz: SegmentScore|null; trCmp: SegmentScore|null
+  selDonem: string; selCmpDonem: string
+  selBolge: string; selYas: string
+}) {
+  const KATS = [
+    {key:'musteri',    label:'Müşteri'},
+    {key:'ticari',     label:'Ticari'},
+    {key:'operasyonel',label:'Operasyonel'},
+    {key:'bayi',       label:'Bayi Ağı'},
+    {key:'kapsam',     label:'Kapsam'},
+  ]
+
+  // Segment renkleri hex (Chart.js canvas)
+  const segHexMap: Record<string,string> = {Mass:'#60a5fa',Premium:'#c084fc',EV:'#34d399'}
+  const trHex = '#fbbf24'
+
+  // Tüm aktörlerin isimleri (TR + segmentler)
+  const actors = ['Tüm TR', ...visibleSegs.map(s=>s.seg)]
+
+  // Her kategori için baz ve cmp değerleri
+  const bazData  = KATS.map(k => [
+    trBaz?.[k.key as keyof SegmentScore] as number ?? 0,
+    ...visibleSegs.map(s => s.baz?.[k.key as keyof SegmentScore] as number ?? 0)
+  ])
+  const cmpData  = KATS.map(k => [
+    trCmp?.[k.key as keyof SegmentScore] as number ?? 0,
+    ...visibleSegs.map(s => s.cmp?.[k.key as keyof SegmentScore] as number ?? 0)
+  ])
+
+  // Baz dönem ortalama (TR + tüm segmentler ortalaması)
+  const bazAvg = KATS.map((_,ki) => {
+    const vals = bazData[ki].filter(v=>v>0)
+    return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0
+  })
+  const cmpAvg = KATS.map((_,ki) => {
+    const vals = cmpData[ki].filter(v=>v>0)
+    return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0
+  })
+
+  const actorColors = [trHex, ...visibleSegs.map(s=>segHexMap[s.seg]||'#aaa')]
+  const actorBgColors = [
+    'rgba(251,191,36,.12)',
+    ...visibleSegs.map(s=>segHexMap[s.seg]+'22')
+  ]
+
+  // Kategori avg çizgisi plugin kullan
+  const avgLinesBaz = KATS.map((_,ki) => ({
+    value: bazAvg[ki],
+    color: '#ffffff',
+    lineWidth: 2.5,
+    dash: [6,4],
+    label: `Ort. ${selDonem||'Baz'}: ${bazAvg[ki]}`
+  }))
+  const avgLinesCmp = selCmpDonem ? KATS.map((_,ki) => ({
+    value: cmpAvg[ki],
+    color: '#ffffff99',
+    lineWidth: 2,
+    dash: [3,3],
+    label: `Ort. ${selCmpDonem}: ${cmpAvg[ki]}`
+  })) : []
+
+  return (
+    <div style={{borderTop:'1px solid var(--bd)',marginTop:14,paddingTop:12}}>
+      {/* Başlık + legend */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,flexWrap:'wrap',gap:8}}>
+        <div style={{fontSize:10,fontWeight:600,color:'var(--tx3)'}}>
+          Kategori Skor Karşılaştırması
+        </div>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          {/* Ortalama çizgi legend */}
+          <div style={{display:'flex',alignItems:'center',gap:5,fontSize:9,color:'var(--tx3)'}}>
+            <svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#fff" strokeWidth="2.5" strokeDasharray="6,4"/></svg>
+            {`Ort. ${selDonem||'Baz'}`}
+          </div>
+          {selCmpDonem && (
+            <div style={{display:'flex',alignItems:'center',gap:5,fontSize:9,color:'var(--tx3)'}}>
+              <svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#ffffff99" strokeWidth="2" strokeDasharray="3,3"/></svg>
+              {`Ort. ${selCmpDonem}`}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 5 kategori için grouped bar grid */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:6}}>
+        {KATS.map((k,ki)=>(
+          <div key={k.key} style={{background:'rgba(0,0,0,.08)',borderRadius:6,padding:'8px 6px',textAlign:'center'}}>
+            <div style={{fontSize:9,fontWeight:600,color:'var(--tx3)',marginBottom:6}}>{k.label}</div>
+            {/* Aktörler */}
+            {actors.map((actor,ai)=>{
+              const bazV = bazData[ki][ai]
+              const cmpV = selCmpDonem ? cmpData[ki][ai] : null
+              const color = actorColors[ai]
+              const chg = cmpV && cmpV>0 ? Math.round((bazV-cmpV)/cmpV*100*10)/10 : null
+              return (
+                <div key={actor} style={{marginBottom:5}}>
+                  {/* Baz bar */}
+                  <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:cmpV?2:0}}>
+                    <div style={{flex:1,background:'rgba(255,255,255,.08)',borderRadius:3,height:5,overflow:'hidden'}}>
+                      <div style={{width:`${Math.min(bazV,100)}%`,height:5,borderRadius:3,
+                        background:color+'55',borderRight:`2px solid ${color}`}}/>
+                    </div>
+                    <span style={{fontSize:8,fontFamily:'var(--font-dm-mono)',fontWeight:700,
+                      color,minWidth:22,textAlign:'right'}}>{bazV}</span>
+                  </div>
+                  {/* Cmp bar */}
+                  {cmpV!==null && (
+                    <div style={{display:'flex',alignItems:'center',gap:4}}>
+                      <div style={{flex:1,background:'rgba(255,255,255,.05)',borderRadius:3,height:4,overflow:'hidden'}}>
+                        <div style={{width:`${Math.min(cmpV,100)}%`,height:4,borderRadius:3,
+                          background:color+'88'}}/>
+                      </div>
+                      <span style={{fontSize:7,fontFamily:'var(--font-dm-mono)',color:'var(--tx3)',minWidth:22,textAlign:'right'}}>{cmpV}</span>
+                    </div>
+                  )}
+                  {/* Aktör etiketi */}
+                  <div style={{fontSize:7,color:'var(--tx3)',marginTop:1,
+                    overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                    {actor}{chg!==null?` ${chg>=0?'▲':'▼'}${Math.abs(chg)}%`:''}
+                  </div>
+                </div>
+              )
+            })}
+            {/* Ortalama çizgi göstergesi */}
+            <div style={{marginTop:4,paddingTop:4,borderTop:'1px dashed rgba(255,255,255,.2)'}}>
+              <div style={{fontSize:8,color:'#fff',fontWeight:700}}>
+                Ort: {bazAvg[ki]}
+                {selCmpDonem && <span style={{color:'rgba(255,255,255,.6)',fontWeight:400,marginLeft:4}}>/ {cmpAvg[ki]}</span>}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
