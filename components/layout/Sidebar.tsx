@@ -37,17 +37,8 @@ export default function Sidebar({ variant, filters }: SidebarProps) {
 
   return (
     <aside className={clsx(styles.sidebar, collapsed && styles.collapsed)}>
-      {/* Toggle butonu */}
-      <button
-        className={styles.toggleBtn}
-        onClick={() => setCollapsed(v => !v)}
-        title={collapsed ? 'Menüyü aç' : 'Menüyü gizle'}
-      >
-        {collapsed ? <ChevronRightIcon/> : <ChevronLeftIcon/>}
-      </button>
-
-      {/* Logo */}
-      <div className={styles.brand}>
+      {/* Logo + Toggle */}
+      <div className={styles.brand} style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'nowrap'}}>
         <div className={styles.brandTag}>SSH · {variant === 'admin' ? 'Admin' : 'KPI'}</div>
         {!collapsed && (
           <>
@@ -57,6 +48,14 @@ export default function Sidebar({ variant, filters }: SidebarProps) {
             <div className={styles.brandSub}>Türkiye Otomotiv Sektörü</div>
           </>
         )}
+        <button
+          className={styles.toggleBtn}
+          onClick={() => setCollapsed(v => !v)}
+          title={collapsed ? 'Menüyü aç' : 'Menüyü gizle'}
+          style={{flexShrink:0,marginTop:2}}
+        >
+          {collapsed ? <ChevronRightIcon/> : <ChevronLeftIcon/>}
+        </button>
       </div>
 
       {/* Nav */}
