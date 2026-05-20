@@ -84,32 +84,39 @@ export default function MarkalarsPage() {
                       borderRadius:6, padding:'6px 8px', textAlign:'center'
                     }}>
                       {/* KPI adı */}
-                      <div style={{fontSize:7,color:'var(--tx3)',lineHeight:1.3,marginBottom:4,
+                      <div style={{fontSize:7,color:'var(--tx3)',lineHeight:1.3,marginBottom:6,
                         minHeight:20,display:'flex',alignItems:'center',justifyContent:'center'}}>
                         {k.ad}
                       </div>
-                      {/* Baz puan */}
-                      <div style={{fontSize:14,fontWeight:800,fontFamily:'var(--font-dm-mono)',
-                        color:kpiScoreColor(bazP),lineHeight:1}}>
-                        {bazP}
-                      </div>
-                      {/* Karşılaştırma ve değişim */}
-                      {cmpP !== null && (
-                        <div style={{marginTop:4,display:'flex',alignItems:'center',
-                          justifyContent:'center',gap:4,flexWrap:'wrap'}}>
-                          <span style={{fontSize:9,color:'var(--tx3)',fontFamily:'var(--font-dm-mono)'}}>
-                            {cmpP}
-                          </span>
-                          {chg !== null && (
-                            <span style={{
-                              fontSize:8,fontWeight:700,padding:'1px 4px',borderRadius:3,
-                              background:chgBg(chg),color:chgColor(chg)
-                            }}>
-                              {chg>=0?'+':''}{chg}%
-                            </span>
-                          )}
+                      {/* Baz + cmp + değişim — ekran görüntüsündeki format */}
+                      <div style={{display:'flex',alignItems:'flex-end',gap:6,justifyContent:'center',flexWrap:'wrap'}}>
+                        {/* Baz puan — büyük */}
+                        <div>
+                          {selDonem && <div style={{fontSize:7,color:'var(--tx3)',marginBottom:1}}>{selDonem}</div>}
+                          <div style={{fontSize:20,fontWeight:800,fontFamily:'var(--font-dm-mono)',
+                            color:kpiScoreColor(bazP),lineHeight:1}}>
+                            {bazP}
+                          </div>
+                          <div style={{fontSize:7,color:'var(--tx3)',marginTop:1}}>puan</div>
                         </div>
-                      )}
+                        {/* Cmp puan + değişim */}
+                        {cmpP !== null && (
+                          <div style={{paddingBottom:4}}>
+                            {selCmpDonem && <div style={{fontSize:7,color:'var(--tx3)',marginBottom:1}}>{selCmpDonem}</div>}
+                            <div style={{fontSize:13,fontWeight:700,fontFamily:'var(--font-dm-mono)',
+                              color:'var(--tx2)',lineHeight:1}}>
+                              {cmpP}
+                            </div>
+                          </div>
+                        )}
+                        {chg !== null && (
+                          <div style={{paddingBottom:5,marginLeft:'auto'}}>
+                            <div style={{fontSize:10,fontWeight:700,color:chgColor(chg)}}>
+                              {chg>=0?'▲ +':'▼ '}{Math.abs(chg)}%
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
