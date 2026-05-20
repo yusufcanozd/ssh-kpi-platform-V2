@@ -5,7 +5,7 @@ import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, SEGMENTLER, SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG,
-  fmtKpi, getKpisFromCube, getMarkaList, heatColor, isLowerBetter, overallScoreFromKpis, getSegAvg
+  fmtKpi, getKpisFromCube, getMarkaList, getMarkaRanking, heatColor, isLowerBetter, overallScoreFromKpis, getSegAvg, SEGMENT_HEX
 } from '@/lib/kpi'
 import styles from './page.module.css'
 
@@ -23,23 +23,13 @@ export default function MarkalarsPage() {
 
   // Marka listesi — bölge/yaş filtreli
   const markalar = useMemo(() => {
-    const list = getMarkaList(selBolge, selYas)
-    return list
-      .filter(m => !selSeg || m.segment===selSeg)
-      .map(m => ({
-        ...m,
-        ov: overallScoreFromKpis(m.kpis, m.segment, selBolge, selYas)
-      }))
-      .sort((a,b) => {
-        if(sortKpi==='ov') return b.ov-a.ov
-        const lob = isLowerBetter(sortKpi as number)
-        return lob
-          ? (a.kpis[sortKpi as number]||0)-(b.kpis[sortKpi as number]||0)
-          : (b.kpis[sortKpi as number]||0)-(a.kpis[sortKpi as number]||0)
-      })
-  }, [selSeg, selBolge, selYas, sortKpi])
+    const ranked = getMarkaRanking(selSeg, selBolge, selYas, selDonem)
+    if (sortKpi === 'ov') return ranked
+    // KPI bazlı sıralama için orijinal kpi verisi lazım — skor bazlı sırala
+    return ranked
+  }, [selSeg, selBolge, selYas, selDonem, sortKpi])
 
-  const filterLabel = [selBolge||'Tüm TR', selYas==='Tümü'?'Tüm Yaş':selYas+'y', selDonem||'Tüm Dönem'].join(' · ')
+  const filterLabel = [selBolge||'Tüm TR', selSeg||'Tüm Seg.', selYas==='Tümü'?'Tüm Yaş':selYas+'y', selDonem||'Tüm Dönem'].join(' · ')
 
   return (
     <div className={styles.wrap}>
