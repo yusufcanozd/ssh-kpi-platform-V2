@@ -124,9 +124,10 @@ export default function DashboardPage() {
                   ...(selCmpDonem ? [{
                     label: selCmpDonem,
                     data: [trCmp?.genel??0, ...segCmpData],
-                    backgroundColor: ['var(--seg-tr-bg)',...visibleSegs.map(s=>SEGMENT_BG[s.seg].replace('.35',',.12)'))],
-                    borderColor: ['var(--seg-tr-color)',...visibleSegs.map(s=>SEGMENT_COLORS[s.seg]+'88')],
-                    borderWidth:1,borderRadius:8
+                    backgroundColor: ['rgba(251,191,36,.25)',...visibleSegs.map(s=>SEGMENT_HEX_BG[s.seg].replace('.25',',.12)'))],
+                    borderColor: ['rgba(251,191,36,.6)',...visibleSegs.map(s=>SEGMENT_HEX[s.seg]+'99')],
+                    borderWidth:1.5,borderRadius:8,
+                    borderDash:[],
                   }] : [])
                 ]
               }} options={{
