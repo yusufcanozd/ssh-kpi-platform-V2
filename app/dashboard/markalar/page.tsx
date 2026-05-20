@@ -8,6 +8,9 @@ import {
   fmtKpi, getKpisFromCube, getMarkaRanking, heatColor, isLowerBetter
 } from '@/lib/kpi'
 import styles from './page.module.css'
+import { Bar } from 'react-chartjs-2'
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 export default function MarkalarsPage() {
   const { selSeg, selBolge, selYas, selDonem, selCmpDonem } = useDashboardCtx()
@@ -175,7 +178,7 @@ export default function MarkalarsPage() {
         </div>
 
         {/* Renk açıklaması */}
-        <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:12,marginTop:10,marginBottom:20,flexWrap:'wrap'}}>
           {[
             {c:'#10b981',bg:'rgba(16,185,129,.2)',label:'≥%15 segment üstü'},
             {c:'#60a5fa',bg:'rgba(59,130,246,.15)',label:'%5–15 üstü'},
@@ -187,6 +190,88 @@ export default function MarkalarsPage() {
               {x.label}
             </div>
           ))}
+        </div>
+
+        {/* ── Marka Skor Bar Grafiği ── */}
+        <div className={styles.card}>
+          <div className={styles.cardHd}>
+            <h3>Marka Skor Karşılaştırması</h3>
+            <span className={styles.hint}>
+              {selDonem||'Tüm Dönem'}{selCmpDonem ? ` vs ${selCmpDonem}` : ''} · {selSeg||'Tüm Segmentler'}
+            </span>
+          </div>
+          <div style={{overflowX:'auto'}}>
+            <div style={{minWidth: markalar.length * 52, height:320}}>
+              <Bar
+                data={{
+                  labels: markalar.map(m=>m.marka),
+                  datasets:[
+                    {
+                      label: selDonem||'Baz Dönem',
+                      data: markalar.map(m=>m.score),
+                      backgroundColor: markalar.map(m=>SEGMENT_HEX[m.segment]+'22'),
+                      borderColor: markalar.map(m=>SEGMENT_HEX[m.segment]),
+                      borderWidth: 2,
+                      borderRadius: 5,
+                    },
+                    ...(selCmpDonem ? [{
+                      label: selCmpDonem,
+                      data: markalar.map(m=>marklarCmp.find(x=>x.marka===m.marka)?.score??0),
+                      backgroundColor: markalar.map(m=>SEGMENT_HEX[m.segment]+'66'),
+                      borderColor: markalar.map(m=>SEGMENT_HEX[m.segment]),
+                      borderWidth: 1,
+                      borderRadius: 5,
+                    }] : [])
+                  ]
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins:{
+                    legend:{
+                      display: !!selCmpDonem,
+                      position:'top',
+                      labels:{color:'#8496b0',font:{size:10},boxWidth:12}
+                    },
+                    tooltip:{
+                      callbacks:{
+                        title: (items) => {
+                          const m = markalar[items[0].dataIndex]
+                          return `${m.marka} (${m.segment})`
+                        },
+                        label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y} puan`
+                      }
+                    }
+                  },
+                  scales:{
+                    y:{
+                      min:40, max:105,
+                      grid:{color:'rgba(255,255,255,.05)'},
+                      ticks:{color:'#8496b0',font:{size:9}}
+                    },
+                    x:{
+                      grid:{display:false},
+                      ticks:{
+                        color:'#8496b0',
+                        font:{size:8},
+                        maxRotation:45,
+                        autoSkip:false
+                      }
+                    }
+                  }
+                }}
+              />
+            </div>
+          </div>
+          {/* Segment renk açıklaması */}
+          <div style={{display:'flex',gap:14,marginTop:10,paddingTop:8,borderTop:'1px solid var(--bd)',flexWrap:'wrap'}}>
+            {['Mass','Premium','EV'].filter(s=>!selSeg||s===selSeg).map(s=>(
+              <div key={s} style={{display:'flex',alignItems:'center',gap:5,fontSize:9,color:'var(--tx3)'}}>
+                <div style={{width:12,height:10,borderRadius:2,background:SEGMENT_HEX[s]+'44',border:`1px solid ${SEGMENT_HEX[s]}`}}/>
+                {s}
+              </div>
+            ))}
+          </div>
         </div>
 
       </div>
