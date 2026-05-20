@@ -67,11 +67,9 @@ export default function MarkalarsPage() {
                         background:'rgba(0,0,0,.12)',
                         borderRadius:6, padding:'6px 8px', textAlign:'center'
                       }}>
-                        <div style={{fontSize:8,color:cssClr,fontWeight:700,marginBottom:2,opacity:.8}}>
-                          KPI {k.no}
-                        </div>
-                        <div style={{fontSize:9,color:'var(--tx3)',marginBottom:3,lineHeight:1.2,minHeight:18}}>
-                          {k.ad.length>12 ? k.ad.substring(0,11)+'…' : k.ad}
+                        <div style={{fontSize:8,color:'var(--tx3)',lineHeight:1.3,marginBottom:3,minHeight:22,
+                          display:'flex',alignItems:'center',justifyContent:'center'}}>
+                          {k.ad}
                         </div>
                         <div style={{fontSize:11,fontWeight:700,fontFamily:'var(--font-dm-mono)',color:'var(--tx)'}}>
                           {fmtKpi(v,k.fmt)}
@@ -97,14 +95,13 @@ export default function MarkalarsPage() {
                   {/* KPI kolonları — tıklanınca sırala */}
                   {KPI_META.map((k,i)=>(
                     <th key={i} onClick={()=>setSortKpi(i)}
-                      style={{...thS,cursor:'pointer',minWidth:56,textAlign:'center',
+                      style={{...thS,cursor:'pointer',minWidth:70,textAlign:'center',
                         color:sortKpi===i?'var(--blue)':'var(--tx3)',
                         background:sortKpi===i?'rgba(59,130,246,.06)':'var(--surf2)'}}>
-                      <div style={{fontSize:8}}>KPI {k.no}</div>
-                      <div style={{fontSize:7,fontWeight:400,color:'var(--tx3)',lineHeight:1.2,marginTop:1}}>
-                        {k.kat}
+                      <div style={{fontSize:8,lineHeight:1.3,whiteSpace:'normal',wordBreak:'keep-all'}}>
+                        {k.ad}
                       </div>
-                      {sortKpi===i&&<div style={{fontSize:7}}>↓</div>}
+                      {sortKpi===i&&<div style={{fontSize:7,marginTop:2}}>↓</div>}
                     </th>
                   ))}
                   {/* Genel Skor */}
