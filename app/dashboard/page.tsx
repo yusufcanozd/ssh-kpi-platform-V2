@@ -10,11 +10,11 @@ import {
   overallScoreFromKpis, heatColor, isLowerBetter,
   getScore, scoreColor, scoreBg, changePct, SegmentScore
 } from '@/lib/kpi'
-import { Bar } from 'react-chartjs-2'
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
+import { Bar, Line } from 'react-chartjs-2'
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend, Filler } from 'chart.js'
 import styles from './page.module.css'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend, Filler)
 
 const KAT_LIST = ['musteri','ticari','operasyonel','bayi','kapsam'] as const
 const KAT_LABELS: Record<string,string> = {
@@ -118,7 +118,7 @@ export default function DashboardPage() {
                   {
                     label: selDonem||'Baz Dönem',
                     data: [trBaz?.genel??0, ...segBarData],
-                    backgroundColor: ['rgba(251,191,36,.06)',...visibleSegs.map(()=>'rgba(0,0,0,0)')],
+                    backgroundColor: ['rgba(251,191,36,.15)',...visibleSegs.map(s=>SEGMENT_HEX_BG[s.seg].replace('.25','.30)'))], 
                     borderColor: ['#fbbf24',...visibleSegs.map(s=>SEGMENT_HEX[s.seg])],
                     borderWidth:2,borderRadius:8
                   },
@@ -183,15 +183,14 @@ export default function DashboardPage() {
                     </div>
                     {/* Skor + rank diff */}
                     <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1,minWidth:52}}>
-                      <span style={{fontFamily:'var(--font-dm-mono)',fontSize:12,fontWeight:700,
-                        color:SEGMENT_HEX[m.segment]}}>
-                        {m.score}
+                      <div style={{display:'flex',alignItems:'baseline',gap:4}}>
+                        <span style={{fontFamily:'var(--font-dm-mono)',fontSize:13,fontWeight:800,
+                          color:SEGMENT_HEX[m.segment]}}>{m.score}</span>
                         {selCmpDonem && cmpM && (
-                          <span style={{fontSize:9,color:'var(--tx3)',fontWeight:400,marginLeft:3}}>
-                            / {cmpM.score}
-                          </span>
+                          <span style={{fontFamily:'var(--font-dm-mono)',fontSize:10,
+                            color:'var(--tx3)',fontWeight:500}}>/ {cmpM.score}</span>
                         )}
-                      </span>
+                      </div>
                       {selCmpDonem && rankDiff !== null && (
                         <span style={{fontSize:9,fontWeight:600,
                           color:rankDiff>0?'#10b981':rankDiff<0?'#f87171':'var(--tx3)'}}>
@@ -205,6 +204,9 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Son 4 Çeyrek Trend */}
+        <SegmentTrendChart selSeg={selSeg} selBolge={selBolge} selYas={selYas} selDonem={selDonem}/>
 
         {/* Bölge Skor Dağılımı */}
         <BolgeSkorGrid selSeg={selSeg} selBolge={selBolge} selYas={selYas} selDonem={selDonem} selCmpDonem={selCmpDonem}/>
@@ -401,6 +403,125 @@ function BolgeSkorGrid({ selSeg, selBolge, selYas, selDonem, selCmpDonem }:{
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+// ── Segment Trend Çizgi Grafik ────────────────────────────────
+// Son 4 çeyrek + önceki yıl aynı dönemler
+function SegmentTrendChart({ selSeg, selBolge, selYas, selDonem }:{
+  selSeg:string; selBolge:string; selYas:string; selDonem:string
+}) {
+  // Seçili dönemden son 4 çeyreği hesapla
+  const getLastFourQ = (donem: string): string[] => {
+    // Eğer FY veya boş ise son 4 Q'yu al
+    const allQ = ['2024-Q1','2024-Q2','2024-Q3','2024-Q4','2025-Q1','2025-Q2','2025-Q3','2025-Q4']
+    if (!donem || donem.includes('FY')) {
+      return allQ.slice(-4)
+    }
+    const idx = allQ.indexOf(donem)
+    if (idx < 0) return allQ.slice(-4)
+    return allQ.slice(Math.max(0, idx-3), idx+1)
+  }
+
+  // Önceki yıl aynı dönemleri
+  const getPrevYearQ = (quarters: string[]): string[] =>
+    quarters.map(q => {
+      const [y, qn] = q.split('-Q')
+      return `${parseInt(y)-1}-Q${qn}`
+    })
+
+  const last4Q   = getLastFourQ(selDonem)
+  const prev4Q   = getPrevYearQ(last4Q)
+
+  const visibleSegs = SEGMENTLER.filter(s => !selSeg || s===selSeg)
+
+  // Her segment için son 4Q + önceki yıl skorları
+  const datasets = [
+    ...visibleSegs.map(seg => ({
+      label: `${seg} (${last4Q[0].split('-Q')[0]})`,
+      data: last4Q.map(q => getScore(seg, selBolge, selYas, q)?.genel ?? null),
+      borderColor: SEGMENT_HEX[seg],
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      pointRadius: 4,
+      pointBackgroundColor: SEGMENT_HEX[seg],
+      tension: 0.35,
+      fill: false,
+    })),
+    ...visibleSegs.map(seg => ({
+      label: `${seg} (${prev4Q[0].split('-Q')[0]})`,
+      data: prev4Q.map(q => getScore(seg, selBolge, selYas, q)?.genel ?? null),
+      borderColor: SEGMENT_HEX[seg],
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderDash: [5,4],
+      pointRadius: 3,
+      pointBackgroundColor: SEGMENT_HEX[seg]+'88',
+      tension: 0.35,
+      fill: false,
+    })),
+    // Tüm TR
+    {
+      label: `Tüm TR (${last4Q[0].split('-Q')[0]})`,
+      data: last4Q.map(q => getScore('', selBolge, selYas, q)?.genel ?? null),
+      borderColor: '#fbbf24',
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      pointRadius: 4,
+      pointBackgroundColor: '#fbbf24',
+      tension: 0.35,
+      fill: false,
+    },
+    {
+      label: `Tüm TR (${prev4Q[0].split('-Q')[0]})`,
+      data: prev4Q.map(q => getScore('', selBolge, selYas, q)?.genel ?? null),
+      borderColor: '#fbbf2488',
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderDash: [5,4],
+      pointRadius: 3,
+      tension: 0.35,
+      fill: false,
+    },
+  ]
+
+  // X ekseni etiketleri — Q1, Q2 gibi kısa
+  const labels = last4Q.map(q => q.replace('20','').replace('-','·'))
+
+  return (
+    <div className={styles.card}>
+      <div className={styles.cardHd}>
+        <h3>Dönemsel Skor Trendi</h3>
+        <span className={styles.hint}>
+          Son 4 çeyrek · Kesik = önceki yıl · {selBolge||'Tüm TR'} · {selYas==='Tümü'?'Tüm Yaş':selYas+'y'}
+        </span>
+      </div>
+      <div className={styles.chartWrap} style={{height:220}}>
+        <Line
+          data={{ labels, datasets: datasets as any }}
+          options={{
+            responsive: true, maintainAspectRatio: false,
+            spanGaps: true,
+            plugins:{
+              legend:{
+                display: true, position:'top',
+                labels:{color:'#8496b0',font:{size:9},boxWidth:20,
+                  filter:(item)=>!item.text.includes('önceki')}
+              },
+              tooltip:{
+                callbacks:{
+                  label:(ctx)=>`${ctx.dataset.label}: ${ctx.parsed.y} puan`
+                }
+              }
+            },
+            scales:{
+              y:{min:40,max:105,grid:{color:'rgba(255,255,255,.05)'},
+                ticks:{color:'#8496b0',font:{size:9},callback:(v)=>`${v}`}},
+              x:{grid:{display:false},ticks:{color:'#8496b0',font:{size:10}}}
+            }
+          }}/>
       </div>
     </div>
   )
