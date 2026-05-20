@@ -26,6 +26,7 @@
   grid-template-columns: 1fr 1fr;
   gap: 14px;
   margin-bottom: 14px;
+  align-items: stretch;
 }
 .card {
   background: var(--surf);
