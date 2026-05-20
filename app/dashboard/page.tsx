@@ -6,7 +6,7 @@ import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, BOLGELER, SEGMENTLER, YAS_STATS, TOTAL_IO, TOTAL_SERVIS,
   SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG, CAT_COLORS,
-  fmtKpi, getKpisFromCube, getN, getMarkaList,
+  fmtKpi, getKpisFromCube, getN, getMarkaList, getMarkaRanking,
   overallScoreFromKpis, heatColor, isLowerBetter,
   getScore, scoreColor, scoreBg, changePct, SegmentScore
 } from '@/lib/kpi'
@@ -40,35 +40,15 @@ export default function DashboardPage() {
   // Seçili segmente göre filtre
   const visibleSegs = selSeg ? segScores.filter(s=>s.seg===selSeg) : segScores
 
-  // Marka sıralaması — baz dönem (cube'den marka × bölge × yaş)
-  const markalar = useMemo(() => {
-    const list = getMarkaList(selBolge, selYas)
-    return list
-      .filter(m => !selSeg || m.segment===selSeg)
-      .map(m => ({ ...m, ov: overallScoreFromKpis(m.kpis, m.segment, selBolge, selYas) }))
-      .sort((a,b) => b.ov - a.ov)
-  }, [selSeg, selBolge, selYas])
+  // Marka sıralaması — gerçek marka×dönem×yaş verisi
+  const markalar = useMemo(() =>
+    getMarkaRanking(selSeg, selBolge, selYas, selDonem),
+    [selSeg, selYas, selDonem])
 
-  // Marka sıralaması — karşılaştırma dönem
-  // Dönem bazlı marka skoru: segment ortalamasının cmp dönem değerine göre normalize
-  const marklarCmp = useMemo(() => {
-    if (!selCmpDonem) return [] as typeof markalar
-    // Baz listeyi al, cmp dönem segment ortalamalarına göre skor hesapla
-    const list = getMarkaList(selBolge, selYas)
-    return list
-      .filter(m => !selSeg || m.segment===selSeg)
-      .map(m => {
-        // Cmp dönem segment referansı
-        const segCmpKpis = getKpisFromCube(m.segment, selBolge, selYas, selCmpDonem)
-        // Marka kpis değişmiyor (dönem filtreli marka verisi yok) — segment ortalama farkını uygula
-        const ov = overallScoreFromKpis(m.kpis, m.segment, selBolge, selYas)
-        // Cmp dönem segment skoru farkını ekleyerek yaklaşık cmp sırası üret
-        const segBazKpis = getKpisFromCube(m.segment, selBolge, selYas, selDonem)
-        const adjFactor  = segBazKpis[4] > 0 ? segCmpKpis[4] / segBazKpis[4] : 1
-        return { ...m, ov: Math.round(ov * adjFactor) }
-      })
-      .sort((a,b) => b.ov - a.ov)
-  }, [selSeg, selBolge, selYas, selCmpDonem, selDonem])
+  // Karşılaştırma dönem sıralaması
+  const marklarCmp = useMemo(() =>
+    selCmpDonem ? getMarkaRanking(selSeg, selBolge, selYas, selCmpDonem) : [],
+    [selSeg, selYas, selCmpDonem])
 
   // Bölge dağılımı
   const bolgeData = useMemo(() =>
@@ -185,15 +165,15 @@ export default function DashboardPage() {
                     <div className={styles.hbarTrack} style={{position:'relative'}}>
                       {/* Baz dönem bar — içi boş */}
                       <div style={{position:'absolute',top:0,left:0,height:'100%',
-                        width:`${m.ov}%`,border:`2px solid ${SEGMENT_HEX[m.segment]}`,
+                        width:`${m.score}%`,border:`2px solid ${SEGMENT_HEX[m.segment]}`,
                         borderRadius:4,boxSizing:'border-box'}}/>
                       {/* Karşılaştırma bar — içi dolu, daha ince */}
                       {selCmpDonem && (()=>{
                         const cmpM = marklarCmp.find(x=>x.marka===m.marka)
-                        const cmpOv = cmpM?.ov ?? 0
+                        // cmpM.score kullan
                         return (
                           <div style={{position:'absolute',top:'25%',left:0,height:'50%',
-                            width:`${cmpOv}%`,background:`${SEGMENT_HEX[m.segment]}66`,
+                            width:`${cmpM?.score ?? 0}%`,background:`${SEGMENT_HEX[m.segment]}66`,
                             borderRadius:3}}/>
                         )
                       })()}
@@ -201,7 +181,7 @@ export default function DashboardPage() {
                     {/* Skorlar */}
                     <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1,minWidth:48}}>
                       <span style={{fontFamily:'var(--font-dm-mono)',fontSize:12,fontWeight:700,
-                        color:SEGMENT_HEX[m.segment]}}>{m.ov}</span>
+                        color:SEGMENT_HEX[m.segment]}}>{m.score}</span>
                       {selCmpDonem && (()=>{
                         const cmpM = marklarCmp.find(x=>x.marka===m.marka)
                         const diff = rankDiff ?? 0
