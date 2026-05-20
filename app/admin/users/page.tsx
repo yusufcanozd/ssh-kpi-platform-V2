@@ -68,27 +68,39 @@ export default function AdminUsersPage() {
 
   async function toggleActive(userId: string, current: boolean) {
     setSaving(userId)
+    // Önce UI'ı anında güncelle (optimistic update)
+    setUsers(prev => prev.map(u => u.id === userId ? {...u, is_active: !current} : u))
     const supabase = createClient()
     const { error } = await supabase
       .from('profiles')
       .update({ is_active: !current })
       .eq('id', userId)
-    if (error) setError(error.message)
-    await fetchUsers()
+    if (error) {
+      // Hata olursa geri al
+      setUsers(prev => prev.map(u => u.id === userId ? {...u, is_active: current} : u))
+      setError(error.message)
+    }
     setSaving(null)
   }
 
   async function changeRole(userId: string, role: string) {
     setSaving(userId)
+    // Önce UI'ı anında güncelle
+    setUsers(prev => prev.map(u => u.id === userId ? {...u, role} : u))
     const supabase = createClient()
     const { error } = await supabase
       .from('profiles')
       .update({ role })
       .eq('id', userId)
-    if (error) setError(error.message)
-    await fetchUsers()
+    if (error) {
+      setError(error.message)
+      // Hata olursa yeniden yükle
+      await fetchUsers()
+    }
     setSaving(null)
   }
+
+
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden' }}>
