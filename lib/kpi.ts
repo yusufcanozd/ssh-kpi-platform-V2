@@ -48,16 +48,8 @@ export interface MarkaData {
 }
 
 export function getMarkaList(bolge='', yas='Tümü'): MarkaData[] {
-  const seen = new Map<string, MarkaData>()
-  for (const r of MARKA_CUBE) {
-    if (r[2]!==bolge || r[3]!==yas) continue
-    seen.set(r[0], {
-      marka: r[0], segment: r[1], bolge: r[2], yas: r[3],
-      kpis: (r[4] as (number|null)[]).map(v => v ?? 0),
-      n: r[5], servis_count: r[6]
-    })
-  }
-  return Array.from(seen.values())
+  // marka_bolge kaldırıldı — boş liste dön (artık getMarkaRanking kullanılıyor)
+  return []
 }
 
 // ── Segment ortalaması ────────────────────────────────────────
@@ -169,4 +161,34 @@ export function scoreBg(v: number): string {
 export function changePct(curr: number, prev: number): string {
   if (!prev) return '—'
   return ((curr-prev)/prev*100).toFixed(1)
+}
+
+// ── Marka Skor Cube ───────────────────────────────────────────
+// [marka, segment, bolge, yas, donem, genel_skor]
+type MarkaScoreRow = [string, string, string, string, string, number]
+const MARKA_SCORE_CUBE: MarkaScoreRow[] = (RAW as any).marka_score_cube as MarkaScoreRow[]
+
+export function getMarkaScore(marka: string, bolge = '', yas = 'Tümü', donem = ''): number | null {
+  const r = MARKA_SCORE_CUBE.find(x => x[0]===marka && x[2]===bolge && x[3]===yas && x[4]===donem)
+  return r ? r[5] : null
+}
+
+export function getMarkaSegment(marka: string): string {
+  const r = MARKA_SCORE_CUBE.find(x => x[0]===marka)
+  return r ? r[1] : ''
+}
+
+// Tüm markalar için sıralama — tüm filtreler dahil
+export function getMarkaRanking(
+  selSeg = '', selBolge = '', selYas = 'Tümü', donem = ''
+): { marka: string; segment: string; score: number }[] {
+  const seen = new Map<string, { marka: string; segment: string; score: number }>()
+  for (const r of MARKA_SCORE_CUBE) {
+    if (r[2] !== selBolge) continue
+    if (r[3] !== selYas)   continue
+    if (r[4] !== donem)    continue
+    if (selSeg && r[1] !== selSeg) continue
+    seen.set(r[0], { marka: r[0], segment: r[1], score: r[5] })
+  }
+  return Array.from(seen.values()).sort((a, b) => b.score - a.score)
 }
