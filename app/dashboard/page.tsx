@@ -537,8 +537,8 @@ function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, s
       {/* 5 kategori için grouped bar grid */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:6}}>
         {KATS.map((k,ki)=>(
-          <div key={k.key} style={{background:'rgba(0,0,0,.08)',borderRadius:6,padding:'8px 6px',textAlign:'center'}}>
-            <div style={{fontSize:9,fontWeight:600,color:'var(--tx3)',marginBottom:6}}>{k.label}</div>
+          <div key={k.key} style={{background:'rgba(0,0,0,.08)',borderRadius:6,padding:'10px 8px',textAlign:'center'}}>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--tx2)',marginBottom:8}}>{k.label}</div>
             {/* Aktörler */}
             {actors.map((actor,ai)=>{
               const bazV = bazData[ki][ai]
@@ -546,41 +546,34 @@ function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, s
               const color = actorColors[ai]
               const chg = cmpV && cmpV>0 ? Math.round((bazV-cmpV)/cmpV*100*10)/10 : null
               return (
-                <div key={actor} style={{marginBottom:5}}>
+                <div key={actor} style={{marginBottom:7}}>
                   {/* Baz bar */}
-                  <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:cmpV?2:0}}>
-                    <div style={{flex:1,background:'rgba(255,255,255,.08)',borderRadius:3,height:5,overflow:'hidden'}}>
-                      <div style={{width:`${Math.min(bazV,100)}%`,height:5,borderRadius:3,
+                  <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:cmpV?3:0}}>
+                    <div style={{flex:1,background:'rgba(255,255,255,.08)',borderRadius:3,height:6,overflow:'hidden'}}>
+                      <div style={{width:`${Math.min(bazV,100)}%`,height:6,borderRadius:3,
                         background:color+'55',borderRight:`2px solid ${color}`}}/>
                     </div>
-                    <span style={{fontSize:8,fontFamily:'var(--font-dm-mono)',fontWeight:700,
-                      color,minWidth:22,textAlign:'right'}}>{bazV}</span>
+                    <span style={{fontSize:10,fontFamily:'var(--font-dm-mono)',fontWeight:700,
+                      color,minWidth:26,textAlign:'right'}}>{bazV}</span>
                   </div>
                   {/* Cmp bar */}
                   {cmpV!==null && (
-                    <div style={{display:'flex',alignItems:'center',gap:4}}>
-                      <div style={{flex:1,background:'rgba(255,255,255,.05)',borderRadius:3,height:4,overflow:'hidden'}}>
-                        <div style={{width:`${Math.min(cmpV,100)}%`,height:4,borderRadius:3,
+                    <div style={{display:'flex',alignItems:'center',gap:5}}>
+                      <div style={{flex:1,background:'rgba(255,255,255,.05)',borderRadius:3,height:5,overflow:'hidden'}}>
+                        <div style={{width:`${Math.min(cmpV,100)}%`,height:5,borderRadius:3,
                           background:color+'88'}}/>
                       </div>
-                      <span style={{fontSize:7,fontFamily:'var(--font-dm-mono)',color:'var(--tx3)',minWidth:22,textAlign:'right'}}>{cmpV}</span>
+                      <span style={{fontSize:9,fontFamily:'var(--font-dm-mono)',color:'var(--tx3)',minWidth:26,textAlign:'right'}}>{cmpV}</span>
                     </div>
                   )}
                   {/* Aktör etiketi */}
-                  <div style={{fontSize:7,color:'var(--tx3)',marginTop:1,
+                  <div style={{fontSize:9,color:'var(--tx3)',marginTop:2,
                     overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                     {actor}{chg!==null?` ${chg>=0?'▲':'▼'}${Math.abs(chg)}%`:''}
                   </div>
                 </div>
               )
             })}
-            {/* Ortalama çizgi göstergesi */}
-            <div style={{marginTop:4,paddingTop:4,borderTop:'1px dashed rgba(255,255,255,.2)'}}>
-              <div style={{fontSize:8,color:'#fff',fontWeight:700}}>
-                Ort: {bazAvg[ki]}
-                {selCmpDonem && <span style={{color:'rgba(255,255,255,.6)',fontWeight:400,marginLeft:4}}>/ {cmpAvg[ki]}</span>}
-              </div>
-            </div>
           </div>
         ))}
       </div>
