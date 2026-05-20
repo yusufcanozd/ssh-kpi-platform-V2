@@ -118,7 +118,7 @@ export default function DashboardPage() {
                   {
                     label: selDonem||'Baz Dönem',
                     data: [trBaz?.genel??0, ...segBarData],
-                    backgroundColor: ['rgba(251,191,36,.15)',...visibleSegs.map(s=>SEGMENT_HEX_BG[s.seg].replace('.25','.30)'))], 
+                    backgroundColor: ['rgba(251,191,36,.12)',...visibleSegs.map(s=>SEGMENT_HEX_BG[s.seg].replace('.25','.10)'))],
                     borderColor: ['#fbbf24',...visibleSegs.map(s=>SEGMENT_HEX[s.seg])],
                     borderWidth:2,borderRadius:8
                   },
@@ -159,7 +159,7 @@ export default function DashboardPage() {
 
                 return (
                   <div key={m.marka} className={styles.hbarRow}
-                    title={tooltipLabel}>
+                    title={`${m.marka} — ${selDonem||'Tüm'}: ${m.score} puan${selCmpDonem && cmpM ? ` | ${selCmpDonem}: ${cmpM.score} puan` : ''}`}>
                     {/* Sıra + isim */}
                     <div style={{display:'flex',alignItems:'center',gap:4,minWidth:110}}>
                       <span style={{color:'var(--tx3)',fontSize:9,fontFamily:'var(--font-dm-mono)',width:14}}>{i+1}</span>
@@ -438,9 +438,15 @@ function SegmentTrendChart({ selSeg, selBolge, selYas, selDonem }:{
   const visibleSegs = SEGMENTLER.filter(s => !selSeg || s===selSeg)
 
   // Her segment için son 4Q + önceki yıl skorları
-  const datasets = [
+  // borderDash type sorunu: segment dataset objesini any'e cast et
+  type LineDS = {
+    label: string; data: (number|null)[]; borderColor: string
+    backgroundColor: string; borderWidth: number; borderDash?: number[]
+    pointRadius: number; pointBackgroundColor: string; tension: number; fill: boolean
+  }
+  const datasets: LineDS[] = [
     ...visibleSegs.map(seg => ({
-      label: `${seg} (${last4Q[0].split('-Q')[0]})`,
+      label: `${seg} · ${last4Q[last4Q.length-1]}`,
       data: last4Q.map(q => getScore(seg, selBolge, selYas, q)?.genel ?? null),
       borderColor: SEGMENT_HEX[seg],
       backgroundColor: 'transparent',
@@ -451,20 +457,19 @@ function SegmentTrendChart({ selSeg, selBolge, selYas, selDonem }:{
       fill: false,
     })),
     ...visibleSegs.map(seg => ({
-      label: `${seg} (${prev4Q[0].split('-Q')[0]})`,
+      label: `${seg} · ${prev4Q[prev4Q.length-1]} (önceki yıl)`,
       data: prev4Q.map(q => getScore(seg, selBolge, selYas, q)?.genel ?? null),
-      borderColor: SEGMENT_HEX[seg],
+      borderColor: SEGMENT_HEX[seg]+'88',
       backgroundColor: 'transparent',
       borderWidth: 1.5,
       borderDash: [5,4],
       pointRadius: 3,
-      pointBackgroundColor: SEGMENT_HEX[seg]+'88',
+      pointBackgroundColor: SEGMENT_HEX[seg]+'66',
       tension: 0.35,
       fill: false,
     })),
-    // Tüm TR
     {
-      label: `Tüm TR (${last4Q[0].split('-Q')[0]})`,
+      label: `Tüm TR · ${last4Q[last4Q.length-1]}`,
       data: last4Q.map(q => getScore('', selBolge, selYas, q)?.genel ?? null),
       borderColor: '#fbbf24',
       backgroundColor: 'transparent',
@@ -475,20 +480,21 @@ function SegmentTrendChart({ selSeg, selBolge, selYas, selDonem }:{
       fill: false,
     },
     {
-      label: `Tüm TR (${prev4Q[0].split('-Q')[0]})`,
+      label: `Tüm TR · ${prev4Q[prev4Q.length-1]} (önceki yıl)`,
       data: prev4Q.map(q => getScore('', selBolge, selYas, q)?.genel ?? null),
       borderColor: '#fbbf2488',
       backgroundColor: 'transparent',
       borderWidth: 1.5,
       borderDash: [5,4],
       pointRadius: 3,
+      pointBackgroundColor: '#fbbf2466',
       tension: 0.35,
       fill: false,
     },
   ]
 
   // X ekseni etiketleri — Q1, Q2 gibi kısa
-  const labels = last4Q.map(q => q.replace('20','').replace('-','·'))
+  const labels = last4Q.map((q,i) => `${q}\n${prev4Q[i]}`)
 
   return (
     <div className={styles.card}>
@@ -508,7 +514,7 @@ function SegmentTrendChart({ selSeg, selBolge, selYas, selDonem }:{
               legend:{
                 display: true, position:'top',
                 labels:{color:'#8496b0',font:{size:9},boxWidth:20,
-                  filter:(item)=>!item.text.includes('önceki')}
+                  filter:(item:any)=>!item.text.includes('önceki yıl')}
               },
               tooltip:{
                 callbacks:{
