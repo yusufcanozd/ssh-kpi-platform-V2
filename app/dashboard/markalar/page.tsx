@@ -5,7 +5,7 @@ import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, SEGMENTLER, SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG,
-  fmtKpi, getKpisFromCube, getMarkaList, getMarkaRanking, heatColor, isLowerBetter, overallScoreFromKpis, getSegAvg, SEGMENT_HEX
+  fmtKpi, getKpisFromCube, getMarkaList, getMarkaRanking, heatColor, isLowerBetter, overallScoreFromKpis, getSegAvg
 } from '@/lib/kpi'
 import styles from './page.module.css'
 
