@@ -3,7 +3,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Profile } from '@/types'
-import { useRouter } from 'next/navigation'
 
 interface AuthContextType {
   profile: Profile | null
@@ -24,7 +23,6 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
-  const router = useRouter()
   const supabase = createClient()
 
   const fetchProfile = useCallback(async (userId: string) => {
@@ -49,7 +47,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (event === 'SIGNED_OUT') {
           setProfile(null)
-          router.push('/login')
           return
         }
         if (session?.user) {
@@ -60,20 +57,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     )
-
     return () => subscription.unsubscribe()
-  }, [fetchProfile, supabase, router])
+  }, [fetchProfile, supabase])
 
-  // Çıkış — signOut çağrısı + state temizle + login'e yönlendir
+  // Çıkış — sadece signOut, yönlendirmeyi Sidebar yapar
   const logout = async () => {
-    try {
-      await supabase.auth.signOut()
-    } catch (e) {
-      console.error('signOut error:', e)
-    } finally {
-      setProfile(null)
-      router.push('/login')
-    }
+    setProfile(null)
+    await supabase.auth.signOut()
   }
 
   const isAdmin      = ['superadmin', 'admin'].includes(profile?.role || '')
