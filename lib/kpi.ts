@@ -193,3 +193,45 @@ export function getMarkaRanking(
   }
   return Array.from(seen.values()).sort((a, b) => b.score - a.score)
 }
+
+// ── KPI Bazlı Puan Hesaplama ──────────────────────────────────
+// Her KPI için segment değerini Tüm TR referansına göre normalize et → 0-100 puan
+
+export function getKpiScores(
+  seg: string, bolge = '', yas = 'Tümü', donem = ''
+): number[] {
+  const segKpis = getKpisFromCube(seg, bolge, yas, donem)
+  const trKpis  = getKpisFromCube('', bolge, yas, donem)
+  return segKpis.map((v, i) => {
+    const r = trKpis[i]
+    if (!v || !r) return 50
+    const ratio = isLowerBetter(i) ? r / v : v / r
+    return Math.min(100, Math.max(0, Math.round(ratio * 100)))
+  })
+}
+
+// KPI puan rengi: ≥100 yeşil, 90-100 sarı, <90 kırmızı
+export function kpiScoreColor(v: number): string {
+  if (v >= 100) return '#10b981'
+  if (v >= 90)  return '#f59e0b'
+  return '#ef4444'
+}
+export function kpiScoreBg(v: number): string {
+  if (v >= 100) return 'rgba(16,185,129,.15)'
+  if (v >= 90)  return 'rgba(245,158,11,.12)'
+  return 'rgba(239,68,68,.12)'
+}
+
+// Değişim % rengi: ≥0 yeşil, -10~0 sarı, <-10 kırmızı
+export function chgColor(chg: number | null): string {
+  if (chg === null) return 'var(--tx3)'
+  if (chg >= 0)    return '#10b981'
+  if (chg >= -10)  return '#f59e0b'
+  return '#ef4444'
+}
+export function chgBg(chg: number | null): string {
+  if (chg === null) return 'transparent'
+  if (chg >= 0)    return 'rgba(16,185,129,.1)'
+  if (chg >= -10)  return 'rgba(245,158,11,.08)'
+  return 'rgba(239,68,68,.1)'
+}
