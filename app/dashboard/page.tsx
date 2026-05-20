@@ -170,7 +170,6 @@ export default function DashboardPage() {
                       {/* Karşılaştırma bar — içi dolu, daha ince */}
                       {selCmpDonem && (()=>{
                         const cmpM = marklarCmp.find(x=>x.marka===m.marka)
-                        // cmpM.score kullan
                         return (
                           <div style={{position:'absolute',top:'25%',left:0,height:'50%',
                             width:`${cmpM?.score ?? 0}%`,background:`${SEGMENT_HEX[m.segment]}66`,
