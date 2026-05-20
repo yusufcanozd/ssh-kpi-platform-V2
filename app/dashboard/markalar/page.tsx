@@ -5,19 +5,20 @@ import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, SEGMENTLER, SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG,
-  fmtKpi, getKpisFromCube, getMarkaRanking, heatColor, isLowerBetter,
+  fmtKpi, getKpisFromCube, getMarkaRanking, isLowerBetter,
   getKpiScores, kpiScoreColor, kpiScoreBg, chgColor, chgBg
 } from '@/lib/kpi'
-import styles from './page.module.css'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
+import styles from './page.module.css'
+
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 export default function MarkalarsPage() {
   const { selSeg, selBolge, selYas, selDonem, selCmpDonem } = useDashboardCtx()
-  const [sortKpi, setSortKpi] = useState<number|'ov'>('ov')
+  const [selKpi, setSelKpi] = useState<number|'ov'>('ov')
 
-  // Segment KPI puanları — baz + karşılaştırma dönem
+  // Segment KPI puanları
   const segData = useMemo(() =>
     SEGMENTLER.filter(s => !selSeg || s===selSeg).map(s => ({
       seg: s,
@@ -26,27 +27,46 @@ export default function MarkalarsPage() {
     })),
     [selSeg, selBolge, selYas, selDonem, selCmpDonem])
 
-  // Marka sıralama — baz dönem
-  const markalar = useMemo(() =>
-    getMarkaRanking(selSeg, selBolge, selYas, selDonem),
-    [selSeg, selBolge, selYas, selDonem])
-
-  // Karşılaştırma dönem sıralaması
-  const marklarCmp = useMemo(() =>
-    selCmpDonem ? getMarkaRanking(selSeg, selBolge, selYas, selCmpDonem) : [],
-    [selSeg, selBolge, selYas, selCmpDonem])
-
-  // Marka KPI puanları — baz + cmp
-  const markaScores = useMemo(() =>
-    markalar.map(m => ({
+  // Marka sıralaması
+  const markalar = useMemo(() => {
+    const ranked = getMarkaRanking(selSeg, selBolge, selYas, selDonem)
+    const cmpRanked = selCmpDonem ? getMarkaRanking(selSeg, selBolge, selYas, selCmpDonem) : []
+    if (selKpi === 'ov') return ranked.map((m,i) => ({
       ...m,
       bazKpiScores: getKpiScores(m.segment, selBolge, selYas, selDonem),
       cmpKpiScores: selCmpDonem ? getKpiScores(m.segment, selBolge, selYas, selCmpDonem) : null,
-    })),
-    [markalar, selBolge, selYas, selDonem, selCmpDonem])
+      cmpScore: cmpRanked.find(x=>x.marka===m.marka)?.score ?? null,
+      cmpRank: cmpRanked.findIndex(x=>x.marka===m.marka)+1,
+    }))
+    // KPI bazlı sırala
+    const lob = isLowerBetter(selKpi as number)
+    return ranked.map(m => ({
+      ...m,
+      bazKpiScores: getKpiScores(m.segment, selBolge, selYas, selDonem),
+      cmpKpiScores: selCmpDonem ? getKpiScores(m.segment, selBolge, selYas, selCmpDonem) : null,
+      cmpScore: cmpRanked.find(x=>x.marka===m.marka)?.score ?? null,
+      cmpRank: cmpRanked.findIndex(x=>x.marka===m.marka)+1,
+    })).sort((a,b) => {
+      const av = a.bazKpiScores[selKpi as number] ?? 0
+      const bv = b.bazKpiScores[selKpi as number] ?? 0
+      return lob ? av - bv : bv - av
+    })
+  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, selKpi])
 
   const filterLabel = [selBolge||'Tüm TR', selYas==='Tümü'?'Tüm Yaş':selYas+'y', selDonem||'Tüm Dönem'].join(' · ')
   const scoreColor  = (v: number) => v>=80?'#10b981':v>=65?'#3b82f6':v>=50?'#f59e0b':'#ef4444'
+  const activeMeta  = selKpi !== 'ov' ? KPI_META[selKpi as number] : null
+
+  function chgPct(baz: number, cmp: number | null): number | null {
+    if (cmp === null || !cmp) return null
+    return Math.round((baz - cmp) / Math.abs(cmp) * 1000) / 10
+  }
+
+  // Bar grafik verileri
+  const barBazData  = markalar.map(m => selKpi==='ov' ? m.score : m.bazKpiScores[selKpi as number])
+  const barCmpData  = selCmpDonem ? markalar.map(m => selKpi==='ov' ? (m.cmpScore??0) : (m.cmpKpiScores?.[selKpi as number]??0)) : []
+  const barMax      = Math.max(...barBazData, ...barCmpData, 0.001)
+  const barFmt      = selKpi==='ov' ? 'int' : (activeMeta?.fmt ?? 'ratio1')
 
   return (
     <div className={styles.wrap}>
@@ -55,62 +75,52 @@ export default function MarkalarsPage() {
       <div className={styles.content}>
 
         {/* ── Segment 4x3 KPI Puan Matrisi ── */}
-        <div style={{display:'grid',gridTemplateColumns:`repeat(${segData.length},1fr)`,gap:10,marginBottom:16}}>
+        <div style={{display:'grid',gridTemplateColumns:`repeat(${segData.length},1fr)`,gap:10,marginBottom:14}}>
           {segData.map(s=>(
             <div key={s.seg} style={{
               background: SEGMENT_BG[s.seg],
               border:`1px solid ${SEGMENT_COLORS[s.seg]}55`,
               borderRadius:10, padding:'12px 14px'
             }}>
-              {/* Başlık */}
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
                 marginBottom:10,paddingBottom:8,borderBottom:`1px solid ${SEGMENT_COLORS[s.seg]}33`}}>
                 <span style={{fontSize:12,fontWeight:700,color:SEGMENT_COLORS[s.seg]}}>{s.seg}</span>
                 <span style={{fontSize:9,color:'var(--tx3)'}}>{filterLabel}</span>
               </div>
-
-              {/* 4x3 KPI puan grid */}
               <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:5}}>
                 {KPI_META.map((k,i)=>{
-                  const bazP  = s.bazScores[i]
-                  const cmpP  = s.cmpScores?.[i] ?? null
-                  const chg   = cmpP !== null && cmpP > 0
-                    ? Math.round((bazP - cmpP) / cmpP * 100 * 10) / 10
-                    : null
+                  const bazP = s.bazScores[i]
+                  const cmpP = s.cmpScores?.[i] ?? null
+                  const chg  = chgPct(bazP, cmpP)
+                  const isActive = selKpi === i
                   return (
-                    <div key={k.no} style={{
-                      background: kpiScoreBg(bazP),
-                      border:`1px solid ${kpiScoreColor(bazP)}44`,
-                      borderRadius:6, padding:'6px 8px', textAlign:'center'
-                    }}>
-                      {/* KPI adı */}
+                    <div key={k.no} onClick={()=>setSelKpi(i)}
+                      style={{
+                        background: isActive ? `${SEGMENT_HEX[s.seg]}33` : kpiScoreBg(bazP),
+                        border:`1px solid ${isActive ? SEGMENT_HEX[s.seg]+'88' : kpiScoreColor(bazP)+'44'}`,
+                        borderRadius:6, padding:'6px 8px', textAlign:'center',
+                        cursor:'pointer', transition:'all .12s'
+                      }}>
                       <div style={{fontSize:7,color:'var(--tx3)',lineHeight:1.3,marginBottom:6,
                         minHeight:20,display:'flex',alignItems:'center',justifyContent:'center'}}>
                         {k.ad}
                       </div>
-                      {/* Baz + cmp + değişim — ekran görüntüsündeki format */}
-                      <div style={{display:'flex',alignItems:'flex-end',gap:6,justifyContent:'center',flexWrap:'wrap'}}>
-                        {/* Baz puan — büyük */}
+                      <div style={{display:'flex',alignItems:'flex-end',gap:5,justifyContent:'center',flexWrap:'wrap'}}>
                         <div>
-                          {selDonem && <div style={{fontSize:7,color:'var(--tx3)',marginBottom:1}}>{selDonem}</div>}
+                          {selDonem&&<div style={{fontSize:7,color:'var(--tx3)',marginBottom:1}}>{selDonem}</div>}
                           <div style={{fontSize:20,fontWeight:800,fontFamily:'var(--font-dm-mono)',
-                            color:kpiScoreColor(bazP),lineHeight:1}}>
-                            {bazP}
-                          </div>
+                            color:kpiScoreColor(bazP),lineHeight:1}}>{bazP}</div>
                           <div style={{fontSize:7,color:'var(--tx3)',marginTop:1}}>puan</div>
                         </div>
-                        {/* Cmp puan + değişim */}
                         {cmpP !== null && (
-                          <div style={{paddingBottom:4}}>
-                            {selCmpDonem && <div style={{fontSize:7,color:'var(--tx3)',marginBottom:1}}>{selCmpDonem}</div>}
+                          <div style={{paddingBottom:3}}>
+                            {selCmpDonem&&<div style={{fontSize:7,color:'var(--tx3)',marginBottom:1}}>{selCmpDonem}</div>}
                             <div style={{fontSize:13,fontWeight:700,fontFamily:'var(--font-dm-mono)',
-                              color:'var(--tx2)',lineHeight:1}}>
-                              {cmpP}
-                            </div>
+                              color:'var(--tx2)',lineHeight:1}}>{cmpP}</div>
                           </div>
                         )}
                         {chg !== null && (
-                          <div style={{paddingBottom:5,marginLeft:'auto'}}>
+                          <div style={{paddingBottom:4,marginLeft:'auto'}}>
                             <div style={{fontSize:10,fontWeight:700,color:chgColor(chg)}}>
                               {chg>=0?'▲ +':'▼ '}{Math.abs(chg)}%
                             </div>
@@ -125,7 +135,73 @@ export default function MarkalarsPage() {
           ))}
         </div>
 
-        {/* ── Marka KPI Puan Tablosu ── */}
+        {/* ── Bar Grafik — seçili KPI veya genel skor ── */}
+        <div className={styles.card}>
+          <div className={styles.cardHd}>
+            <h3>
+              {selKpi==='ov'
+                ? 'Genel Skor — Marka Karşılaştırması'
+                : `KPI ${activeMeta?.no}: ${activeMeta?.ad} — Puan Karşılaştırması`}
+            </h3>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <button onClick={()=>setSelKpi('ov')}
+                style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600,cursor:'pointer',
+                  border:`1px solid ${selKpi==='ov'?'var(--blue)':'var(--bd)'}`,
+                  background:selKpi==='ov'?'rgba(59,130,246,.12)':'var(--surf2)',
+                  color:selKpi==='ov'?'var(--blue)':'var(--tx2)'}}>
+                Genel Skor
+              </button>
+              <span className={styles.hint}>{filterLabel}{selCmpDonem?` vs ${selCmpDonem}`:''}</span>
+            </div>
+          </div>
+          <div style={{overflowX:'auto'}}>
+            <div style={{minWidth:markalar.length*52,height:260}}>
+              <Bar data={{
+                labels: markalar.map(m=>m.marka),
+                datasets:[
+                  {
+                    label: selDonem||'Baz Dönem',
+                    data: barBazData,
+                    backgroundColor: markalar.map(m=>SEGMENT_HEX[m.segment]+'22'),
+                    borderColor: markalar.map(m=>SEGMENT_HEX[m.segment]),
+                    borderWidth:2, borderRadius:5,
+                  },
+                  ...(selCmpDonem?[{
+                    label: selCmpDonem,
+                    data: barCmpData,
+                    backgroundColor: markalar.map(m=>SEGMENT_HEX[m.segment]+'66'),
+                    borderColor: markalar.map(m=>SEGMENT_HEX[m.segment]),
+                    borderWidth:1, borderRadius:5,
+                  }]:[])
+                ]
+              }} options={{
+                responsive:true, maintainAspectRatio:false,
+                plugins:{
+                  legend:{display:!!selCmpDonem,position:'top',labels:{color:'#8496b0',font:{size:10},boxWidth:12}},
+                  tooltip:{callbacks:{
+                    title:(items)=>{const m=markalar[items[0].dataIndex];return `${m.marka} (${m.segment})`},
+                    label:(ctx)=>`${ctx.dataset.label}: ${ctx.parsed.y} puan`
+                  }}
+                },
+                scales:{
+                  y:{min:selKpi==='ov'?40:0,max:selKpi==='ov'?105:barMax*1.2,
+                    grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8496b0',font:{size:9}}},
+                  x:{grid:{display:false},ticks:{color:'#8496b0',font:{size:8},maxRotation:45,autoSkip:false}}
+                }
+              }}/>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:14,marginTop:8,paddingTop:8,borderTop:'1px solid var(--bd)',flexWrap:'wrap'}}>
+            {['Mass','Premium','EV'].filter(s=>!selSeg||s===selSeg).map(s=>(
+              <div key={s} style={{display:'flex',alignItems:'center',gap:5,fontSize:9,color:'var(--tx3)'}}>
+                <div style={{width:12,height:10,borderRadius:2,background:SEGMENT_HEX[s]+'44',border:`1px solid ${SEGMENT_HEX[s]}`}}/>
+                {s}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Marka Puan Tablosu ── */}
         <div className={styles.card} style={{padding:0,overflow:'hidden'}}>
           <div style={{overflowX:'auto',overflowY:'auto',maxHeight:490,position:'relative'}}>
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,tableLayout:'auto'}}>
@@ -135,33 +211,29 @@ export default function MarkalarsPage() {
                   <th style={thS}>Marka</th>
                   <th style={thS}>Seg.</th>
                   {KPI_META.map((k,i)=>(
-                    <th key={i} onClick={()=>setSortKpi(i)}
+                    <th key={i} onClick={()=>setSelKpi(i)}
                       style={{...thS,cursor:'pointer',minWidth:68,textAlign:'center',
-                        color:sortKpi===i?'var(--blue)':'var(--tx3)',
-                        background:sortKpi===i?'rgba(59,130,246,.06)':'var(--surf2)'}}>
-                      <div style={{fontSize:8,lineHeight:1.3,whiteSpace:'normal',wordBreak:'break-word'}}>
-                        {k.ad}
-                      </div>
-                      {sortKpi===i&&<span style={{fontSize:7}}>↓</span>}
+                        color:selKpi===i?'var(--blue)':'var(--tx3)',
+                        background:selKpi===i?'rgba(59,130,246,.06)':'var(--surf2)'}}>
+                      <div style={{fontSize:8,lineHeight:1.3,whiteSpace:'normal',wordBreak:'break-word'}}>{k.ad}</div>
+                      {selKpi===i&&<span style={{fontSize:7}}>↓</span>}
                     </th>
                   ))}
-                  <th onClick={()=>setSortKpi('ov')}
+                  <th onClick={()=>setSelKpi('ov')}
                     style={{...thS,cursor:'pointer',minWidth:80,position:'sticky',right:selCmpDonem?60:0,
-                      color:sortKpi==='ov'?'var(--blue)':'var(--tx3)',
-                      background:sortKpi==='ov'?'rgba(59,130,246,.08)':'var(--surf2)'}}>
-                    Skor{sortKpi==='ov'?' ↓':''}
+                      color:selKpi==='ov'?'var(--blue)':'var(--tx3)',
+                      background:selKpi==='ov'?'rgba(59,130,246,.08)':'var(--surf2)'}}>
+                    Skor{selKpi==='ov'?' ↓':''}
+                    {selCmpDonem&&<div style={{fontSize:7,fontWeight:400,color:'var(--tx3)'}}>{selCmpDonem}</div>}
                   </th>
                   {selCmpDonem&&<th style={{...thS,position:'sticky',right:0,background:'var(--surf2)'}}>Δ Sıra</th>}
                 </tr>
               </thead>
               <tbody>
-                {markaScores.map((m,i)=>{
-                  const cmpM     = marklarCmp.find(x=>x.marka===m.marka)
-                  const cmpRank  = marklarCmp.findIndex(x=>x.marka===m.marka)+1
-                  const rankDiff = cmpRank>0 ? cmpRank-(i+1) : null
-                  const scoreDiff= cmpM ? m.score-cmpM.score : null
-                  const sc       = scoreColor(m.score)
-
+                {markalar.map((m,i)=>{
+                  const rankDiff  = m.cmpRank>0 ? m.cmpRank-(i+1) : null
+                  const scoreDiff = m.cmpScore !== null ? m.score - m.cmpScore : null
+                  const sc = scoreColor(m.score)
                   return (
                     <tr key={m.marka} style={{borderBottom:'1px solid var(--bd)'}}>
                       <td style={tdS}><span style={{color:'var(--tx3)',fontFamily:'var(--font-dm-mono)',fontSize:9}}>{i+1}</span></td>
@@ -173,22 +245,15 @@ export default function MarkalarsPage() {
                           {m.segment}
                         </span>
                       </td>
-
-                      {/* KPI puanları */}
                       {m.bazKpiScores.map((bazP,ki)=>{
                         const cmpP = m.cmpKpiScores?.[ki] ?? null
-                        const chg  = cmpP !== null && cmpP > 0
-                          ? Math.round((bazP-cmpP)/cmpP*100*10)/10
-                          : null
+                        const chg  = chgPct(bazP, cmpP)
+                        const isAct = selKpi===ki
                         return (
-                          <td key={ki} style={{
-                            ...tdS, textAlign:'center',
-                            background: kpiScoreBg(bazP),
-                            outline: sortKpi===ki?`2px solid ${kpiScoreColor(bazP)}66`:'none',
-                            outlineOffset:-1
-                          }}>
-                            <div style={{fontFamily:'var(--font-dm-mono)',fontSize:11,fontWeight:700,
-                              color:kpiScoreColor(bazP)}}>
+                          <td key={ki} onClick={()=>setSelKpi(ki)}
+                            style={{...tdS,textAlign:'center',background:kpiScoreBg(bazP),cursor:'pointer',
+                              outline:isAct?`2px solid ${kpiScoreColor(bazP)}66`:'none',outlineOffset:-1}}>
+                            <div style={{fontFamily:'var(--font-dm-mono)',fontSize:11,fontWeight:700,color:kpiScoreColor(bazP)}}>
                               {bazP}
                             </div>
                             {cmpP !== null && (
@@ -205,8 +270,6 @@ export default function MarkalarsPage() {
                           </td>
                         )
                       })}
-
-                      {/* Genel skor */}
                       <td style={{...tdS,position:'sticky',right:selCmpDonem?60:0,background:'var(--surf)'}}>
                         <div style={{display:'flex',alignItems:'center',gap:4}}>
                           <div style={{flex:1,background:'var(--surf3)',borderRadius:4,height:4,overflow:'hidden',minWidth:32}}>
@@ -215,7 +278,7 @@ export default function MarkalarsPage() {
                           <span style={{fontFamily:'var(--font-dm-mono)',fontSize:11,fontWeight:700,color:sc,minWidth:20,textAlign:'right'}}>
                             {m.score}
                           </span>
-                          {selCmpDonem&&cmpM&&(
+                          {selCmpDonem&&m.cmpScore!==null&&(
                             <span style={{fontSize:9,fontWeight:600,
                               color:scoreDiff!==null&&scoreDiff>0?'#10b981':scoreDiff!==null&&scoreDiff<0?'#f87171':'var(--tx3)'}}>
                               {scoreDiff!==null&&scoreDiff>0?`+${scoreDiff}`:scoreDiff}
@@ -223,8 +286,6 @@ export default function MarkalarsPage() {
                           )}
                         </div>
                       </td>
-
-                      {/* Sıra farkı */}
                       {selCmpDonem&&(
                         <td style={{...tdS,fontFamily:'var(--font-dm-mono)',fontSize:10,fontWeight:700,
                           textAlign:'center',position:'sticky',right:0,background:'var(--surf)',
@@ -240,68 +301,19 @@ export default function MarkalarsPage() {
           </div>
         </div>
 
-        {/* ── Marka Skor Bar Grafiği ── */}
-        <div className={styles.card} style={{marginTop:14}}>
-          <div className={styles.cardHd}>
-            <h3>Marka Skor Karşılaştırması</h3>
-            <span className={styles.hint}>
-              {selDonem||'Tüm Dönem'}{selCmpDonem?` vs ${selCmpDonem}`:''} · {selSeg||'Tüm Segmentler'}
-            </span>
-          </div>
-          <div style={{overflowX:'auto'}}>
-            <div style={{minWidth:markalar.length*52,height:300}}>
-              <Bar
-                data={{
-                  labels: markalar.map(m=>m.marka),
-                  datasets:[
-                    {
-                      label: selDonem||'Baz Dönem',
-                      data: markalar.map(m=>m.score),
-                      backgroundColor: markalar.map(m=>SEGMENT_HEX[m.segment]+'22'),
-                      borderColor: markalar.map(m=>SEGMENT_HEX[m.segment]),
-                      borderWidth:2, borderRadius:5,
-                    },
-                    ...(selCmpDonem?[{
-                      label: selCmpDonem,
-                      data: markalar.map(m=>marklarCmp.find(x=>x.marka===m.marka)?.score??0),
-                      backgroundColor: markalar.map(m=>SEGMENT_HEX[m.segment]+'66'),
-                      borderColor: markalar.map(m=>SEGMENT_HEX[m.segment]),
-                      borderWidth:1, borderRadius:5,
-                    }]:[])
-                  ]
-                }}
-                options={{
-                  responsive:true, maintainAspectRatio:false,
-                  plugins:{
-                    legend:{display:!!selCmpDonem,position:'top',labels:{color:'#8496b0',font:{size:10},boxWidth:12}},
-                    tooltip:{callbacks:{
-                      title:(items)=>{const m=markalar[items[0].dataIndex];return `${m.marka} (${m.segment})`},
-                      label:(ctx)=>`${ctx.dataset.label}: ${ctx.parsed.y} puan`
-                    }}
-                  },
-                  scales:{
-                    y:{min:40,max:105,grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8496b0',font:{size:9}}},
-                    x:{grid:{display:false},ticks:{color:'#8496b0',font:{size:8},maxRotation:45,autoSkip:false}}
-                  }
-                }}/>
+        {/* Açıklama */}
+        <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
+          {[
+            {c:'#10b981',bg:'rgba(16,185,129,.15)',label:'≥100 puan'},
+            {c:'#f59e0b',bg:'rgba(245,158,11,.12)',label:'90–100 puan'},
+            {c:'#ef4444',bg:'rgba(239,68,68,.12)',label:'<90 puan'},
+          ].map(x=>(
+            <div key={x.label} style={{display:'flex',alignItems:'center',gap:5,fontSize:9,color:'var(--tx3)'}}>
+              <div style={{width:12,height:10,borderRadius:3,background:x.bg,border:`1px solid ${x.c}`}}/>
+              {x.label}
             </div>
-          </div>
-          <div style={{display:'flex',gap:14,marginTop:8,paddingTop:8,borderTop:'1px solid var(--bd)',flexWrap:'wrap'}}>
-            {['Mass','Premium','EV'].filter(s=>!selSeg||s===selSeg).map(s=>(
-              <div key={s} style={{display:'flex',alignItems:'center',gap:5,fontSize:9,color:'var(--tx3)'}}>
-                <div style={{width:12,height:10,borderRadius:2,background:SEGMENT_HEX[s]+'44',border:`1px solid ${SEGMENT_HEX[s]}`}}/>
-                {s}
-              </div>
-            ))}
-            <div style={{display:'flex',gap:10,marginLeft:'auto',flexWrap:'wrap'}}>
-              {[{c:'#10b981',l:'≥100 puan'},{c:'#f59e0b',l:'90–100'},{c:'#ef4444',l:'<90 puan'}].map(x=>(
-                <div key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontSize:9,color:'var(--tx3)'}}>
-                  <div style={{width:8,height:8,borderRadius:2,background:x.c+'44',border:`1px solid ${x.c}`}}/>
-                  {x.l}
-                </div>
-              ))}
-            </div>
-          </div>
+          ))}
+          <span style={{fontSize:9,color:'var(--tx3)',marginLeft:8}}>· KPI kutusuna veya sütun başlığına tıklayarak sırala</span>
         </div>
 
       </div>
