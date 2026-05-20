@@ -16,8 +16,8 @@ export const TOTAL_SERVIS: number  = RAW.total_servis as number
 type CubeRow = [string, string, string, string, (number|null)[], number, number]
 type MarkaRow= [string, string, string, string, (number|null)[], number, number]
 
-const CUBE:  CubeRow[]  = RAW.cube  as CubeRow[]
-const MARKA_CUBE: MarkaRow[] = RAW.marka_bolge as MarkaRow[]
+const CUBE:  CubeRow[]  = (RAW.cube ?? []) as CubeRow[]
+const MARKA_CUBE: MarkaRow[] = []  // marka_bolge kaldırıldı
 
 // ── Cube lookup ───────────────────────────────────────────────
 export function getCube(seg='', bolge='', yas='Tümü', donem=''): CubeRow | null {
@@ -134,7 +134,7 @@ export function overallScoreFromKpis(kpis: number[], seg: string, bolge='', yas=
 // [seg, bolge, yas, donem, genel, musteri, ticari, operasyonel, bayi, kapsam]
 type ScoreRow = [string,string,string,string,number,number,number,number,number,number]
 
-const SCORE_CUBE: ScoreRow[] = (RAW as any).score_cube as ScoreRow[]
+const SCORE_CUBE: ScoreRow[] = ((RAW as any).score_cube ?? []) as ScoreRow[]
 
 export interface SegmentScore {
   genel: number
@@ -166,7 +166,7 @@ export function changePct(curr: number, prev: number): string {
 // ── Marka Skor Cube ───────────────────────────────────────────
 // [marka, segment, bolge, yas, donem, genel_skor]
 type MarkaScoreRow = [string, string, string, string, string, number]
-const MARKA_SCORE_CUBE: MarkaScoreRow[] = (RAW as any).marka_score_cube as MarkaScoreRow[]
+const MARKA_SCORE_CUBE: MarkaScoreRow[] = ((RAW as any).marka_score_cube ?? []) as MarkaScoreRow[]
 
 export function getMarkaScore(marka: string, bolge = '', yas = 'Tümü', donem = ''): number | null {
   const r = MARKA_SCORE_CUBE.find(x => x[0]===marka && x[2]===bolge && x[3]===yas && x[4]===donem)
