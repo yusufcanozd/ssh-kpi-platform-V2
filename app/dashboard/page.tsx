@@ -117,15 +117,16 @@ export default function DashboardPage() {
                   {
                     label: selDonem||'Baz Dönem',
                     data: [trBaz?.genel??0, ...segBarData],
-                    backgroundColor: ['var(--seg-tr-bg)',...visibleSegs.map(s=>SEGMENT_HEX_BG[s.seg])],
-                    borderColor: ['var(--seg-tr-color)',...visibleSegs.map(s=>SEGMENT_HEX[s.seg])],
+                    backgroundColor: ['rgba(251,191,36,.08)',...visibleSegs.map(s=>SEGMENT_HEX_BG[s.seg].replace('.25','.08)'))], 
+                    borderColor: ['#fbbf24',...visibleSegs.map(s=>SEGMENT_HEX[s.seg])],
+                    borderWidth:2,
                     borderWidth:1.5,borderRadius:8
                   },
                   ...(selCmpDonem ? [{
                     label: selCmpDonem,
                     data: [trCmp?.genel??0, ...segCmpData],
-                    backgroundColor: ['rgba(251,191,36,.25)',...visibleSegs.map(s=>SEGMENT_HEX_BG[s.seg].replace('.25',',.12)'))],
-                    borderColor: ['rgba(251,191,36,.6)',...visibleSegs.map(s=>SEGMENT_HEX[s.seg]+'99')],
+                    backgroundColor: ['rgba(251,191,36,.65)',...visibleSegs.map(s=>SEGMENT_HEX_BG[s.seg].replace('.25','.65)'))],
+                    borderColor: ['#fbbf24',...visibleSegs.map(s=>SEGMENT_HEX[s.seg])],
                     borderWidth:1.5,borderRadius:8,
                   }] : [])
                 ]
