@@ -1,24 +1,62 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
-  KPI_META, SEGMENTLER, SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG, CAT_COLORS,
+  KPI_META, SEGMENTLER, SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG,
   fmtKpi, getKpisFromCube, getMarkaRanking, heatColor, isLowerBetter,
-  chgColor, chgBg
+  chgColor, chgBg, kpiUnit
 } from '@/lib/kpi'
 import { Bar } from 'react-chartjs-2'
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
+import type { ChartData, ChartOptions } from 'chart.js'
+import {
+  Chart as ChartJS, CategoryScale, LinearScale, BarElement,
+  Tooltip, Legend, LineElement, PointElement
+} from 'chart.js'
 import styles from './page.module.css'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, LineElement, PointElement)
+
+// ── Segment ortalama çizgisi plugin ────────────────────────────
+// Her segment kendi markalarının üstüne kesikli çizgi çizer
+const segmentAvgLinePlugin = {
+  id: 'segmentAvgLine',
+  afterDatasetsDraw(chart: any, _: any, opts: any) {
+    const { ctx, scales: { x, y } } = chart
+    if (!opts?.lines?.length) return
+
+    opts.lines.forEach((line: any) => {
+      const { startIdx, endIdx, value, color, dash, lineWidth } = line
+      if (value == null || startIdx == null) return
+
+      const xStart = x.getPixelForValue(startIdx) - x.width / (x.max - x.min + 1) * 0.4
+      const xEnd   = x.getPixelForValue(endIdx)   + x.width / (x.max - x.min + 1) * 0.4
+      const yPx    = y.getPixelForValue(value)
+
+      ctx.save()
+      ctx.strokeStyle = color
+      ctx.lineWidth   = lineWidth ?? 2
+      ctx.setLineDash(dash ?? [6,4])
+      ctx.beginPath()
+      ctx.moveTo(xStart, yPx)
+      ctx.lineTo(xEnd, yPx)
+      ctx.stroke()
+      ctx.restore()
+    })
+  }
+}
+ChartJS.register(segmentAvgLinePlugin)
 
 export default function KpilerPage() {
   const { selSeg, selBolge, selYas, selDonem, selCmpDonem } = useDashboardCtx()
   const [sortKpi, setSortKpi] = useState<number>(3)
 
-  // Segment KPI değerleri — baz + cmp dönem
+  const meta = KPI_META[sortKpi]
+  const lob  = isLowerBetter(sortKpi)
+  const unit = kpiUnit(meta.fmt)
+
+  // Segment KPI değerleri
   const segData = useMemo(() =>
     SEGMENTLER.filter(s => !selSeg || s===selSeg).map(s => ({
       seg: s,
@@ -27,10 +65,9 @@ export default function KpilerPage() {
     })),
     [selSeg, selBolge, selYas, selDonem, selCmpDonem])
 
-  // Marka sıralaması — KPI değeri üzerinden sırala
+  // Marka listesi — seçili KPI'ya göre sırala
   const markalar = useMemo(() => {
     const ranked = getMarkaRanking(selSeg, selBolge, selYas, selDonem)
-    const lob = isLowerBetter(sortKpi)
     return ranked.map(m => ({
       ...m,
       baz: getKpisFromCube(m.segment, selBolge, selYas, selDonem),
@@ -40,23 +77,52 @@ export default function KpilerPage() {
       const bv = b.baz[sortKpi] ?? 0
       return lob ? av - bv : bv - av
     })
-  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, sortKpi])
+  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, sortKpi, lob])
 
-  // Seçili KPI bar grafik — tüm markalar
-  const meta   = KPI_META[sortKpi]
-  const lob    = isLowerBetter(sortKpi)
-  const maxVal = Math.max(...markalar.map(m=>m.baz[sortKpi]||0), 0.001)
+  // Segment ortalama çizgileri için: her segment hangi index aralığında?
+  const segLinesBaz = useMemo(() => {
+    const segs = selSeg ? [selSeg] : SEGMENTLER
+    return segs.flatMap(seg => {
+      const segMarkalar = markalar.filter(m=>m.segment===seg)
+      if (!segMarkalar.length) return []
+      const idxs = segMarkalar.map(m=>markalar.indexOf(m))
+      const avg  = getKpisFromCube(seg, selBolge, selYas, selDonem)[sortKpi]
+      return [{
+        startIdx: idxs[0], endIdx: idxs[idxs.length-1],
+        value: avg,
+        color: SEGMENT_HEX[seg],
+        dash: [6,4], lineWidth: 2.5,
+        label: `${seg} Ort. (${selDonem||'Tüm'})`
+      }]
+    })
+  }, [markalar, selSeg, selBolge, selYas, selDonem, sortKpi])
 
-  const filterLabel = [
-    selBolge||'Tüm TR', selSeg||'Tüm Seg.',
-    selYas==='Tümü'?'Tüm Yaş':selYas+'y',
-    selDonem||'Tüm Dönem'
-  ].join(' · ')
+  const segLinesCmp = useMemo(() => {
+    if (!selCmpDonem) return []
+    const segs = selSeg ? [selSeg] : SEGMENTLER
+    return segs.flatMap(seg => {
+      const segMarkalar = markalar.filter(m=>m.segment===seg)
+      if (!segMarkalar.length) return []
+      const idxs = segMarkalar.map(m=>markalar.indexOf(m))
+      const avg  = getKpisFromCube(seg, selBolge, selYas, selCmpDonem)[sortKpi]
+      return [{
+        startIdx: idxs[0], endIdx: idxs[idxs.length-1],
+        value: avg,
+        color: SEGMENT_HEX[seg]+'aa',
+        dash: [3,3], lineWidth: 2,
+        label: `${seg} Ort. (${selCmpDonem})`
+      }]
+    })
+  }, [markalar, selSeg, selBolge, selYas, selCmpDonem, sortKpi])
 
-  // Değişim % hesapla
-  function chgPct(baz: number, cmp: number | null): number | null {
-    if (cmp === null || !cmp) return null
-    return Math.round((baz - cmp) / Math.abs(cmp) * 1000) / 10
+  const allLines = [...segLinesBaz, ...segLinesCmp]
+  const maxVal   = Math.max(...markalar.map(m=>m.baz[sortKpi]||0), ...allLines.map(l=>l.value||0), 0.001)
+
+  const filterLabel = [selBolge||'Tüm TR', selSeg||'Tüm Seg.', selYas==='Tümü'?'Tüm Yaş':selYas+'y', selDonem||'Tüm Dönem'].join(' · ')
+
+  function chgPct(baz: number, cmp: number|null): number|null {
+    if (cmp===null||!cmp) return null
+    return Math.round((baz-cmp)/Math.abs(cmp)*1000)/10
   }
 
   return (
@@ -65,65 +131,56 @@ export default function KpilerPage() {
         subtitle={`${markalar.length} marka · ${filterLabel}${selCmpDonem?' vs '+selCmpDonem:''}`}/>
       <div className={styles.content}>
 
-        {/* ── Segment 4x3 KPI Gerçek Değer Matrisi ── */}
-        <div style={{display:'grid',gridTemplateColumns:`repeat(${segData.length},1fr)`,gap:10,marginBottom:16}}>
+        {/* ── Segment 4x3 Matris ── */}
+        <div style={{display:'grid',gridTemplateColumns:`repeat(${segData.length},1fr)`,gap:10,marginBottom:14}}>
           {segData.map(s=>(
-            <div key={s.seg} style={{
-              background: SEGMENT_BG[s.seg],
-              border:`1px solid ${SEGMENT_COLORS[s.seg]}55`,
-              borderRadius:10, padding:'12px 14px'
-            }}>
+            <div key={s.seg} style={{background:SEGMENT_BG[s.seg],border:`1px solid ${SEGMENT_COLORS[s.seg]}55`,borderRadius:10,padding:'12px 14px'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
                 marginBottom:10,paddingBottom:8,borderBottom:`1px solid ${SEGMENT_COLORS[s.seg]}33`}}>
                 <span style={{fontSize:12,fontWeight:700,color:SEGMENT_COLORS[s.seg]}}>{s.seg}</span>
                 <span style={{fontSize:9,color:'var(--tx3)'}}>{filterLabel}</span>
               </div>
-
               <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:5}}>
                 {KPI_META.map((k,i)=>{
-                  const bazV  = s.baz[i]
-                  const cmpV  = s.cmp?.[i] ?? null
-                  const chg   = chgPct(bazV, cmpV)
-                  const isActive = sortKpi === i
-                  // Isı rengi — seçili KPI'da aktif hücre highlight
-                  const bgStyle = isActive
-                    ? `${SEGMENT_HEX[s.seg]}33`
-                    : 'rgba(0,0,0,.12)'
-
+                  const bazV = s.baz[i]
+                  const cmpV = s.cmp?.[i] ?? null
+                  const chg  = chgPct(bazV, cmpV)
+                  const u    = kpiUnit(k.fmt)
+                  const isAct = sortKpi===i
                   return (
-                    <div key={k.no}
-                      onClick={()=>setSortKpi(i)}
+                    <div key={k.no} onClick={()=>setSortKpi(i)}
                       style={{
-                        background: bgStyle,
-                        border: isActive ? `1px solid ${SEGMENT_HEX[s.seg]}88` : '1px solid transparent',
-                        borderRadius:6, padding:'6px 8px', textAlign:'center',
-                        cursor:'pointer', transition:'all .12s'
+                        background:isAct?`${SEGMENT_HEX[s.seg]}30`:'rgba(0,0,0,.12)',
+                        border:`1px solid ${isAct?SEGMENT_HEX[s.seg]+'88':'transparent'}`,
+                        borderRadius:6,padding:'7px 8px',textAlign:'center',cursor:'pointer',transition:'all .12s'
                       }}>
-                      <div style={{fontSize:7,color:'var(--tx3)',lineHeight:1.3,marginBottom:6,
-                        minHeight:20,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                        {k.ad}
+                      {/* KPI adı + birim */}
+                      <div style={{fontSize:9,fontWeight:600,color:isAct?SEGMENT_COLORS[s.seg]:'var(--tx2)',
+                        lineHeight:1.35,marginBottom:6,minHeight:26,
+                        display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column'}}>
+                        <span>{k.ad}</span>
+                        {u && <span style={{fontSize:8,fontWeight:400,color:'var(--tx3)',marginTop:1}}>({u})</span>}
                       </div>
-                      {/* Baz + cmp değer — ekran görüntüsü formatı */}
+                      {/* Baz değer */}
                       <div style={{display:'flex',alignItems:'flex-end',gap:5,justifyContent:'center',flexWrap:'wrap'}}>
                         <div>
-                          {selDonem && <div style={{fontSize:7,color:'var(--tx3)',marginBottom:1}}>{selDonem}</div>}
-                          <div style={{fontSize:16,fontWeight:800,fontFamily:'var(--font-dm-mono)',
+                          {selDonem&&<div style={{fontSize:7,color:'var(--tx3)',marginBottom:1}}>{selDonem}</div>}
+                          <div style={{fontSize:17,fontWeight:800,fontFamily:'var(--font-dm-mono)',
                             color:SEGMENT_COLORS[s.seg],lineHeight:1}}>
                             {fmtKpi(bazV,k.fmt)}
                           </div>
                         </div>
-                        {cmpV !== null && (
+                        {cmpV!==null&&(
                           <div style={{paddingBottom:3}}>
-                            {selCmpDonem && <div style={{fontSize:7,color:'var(--tx3)',marginBottom:1}}>{selCmpDonem}</div>}
-                            <div style={{fontSize:11,fontWeight:600,fontFamily:'var(--font-dm-mono)',
-                              color:'var(--tx2)',lineHeight:1}}>
+                            {selCmpDonem&&<div style={{fontSize:7,color:'var(--tx3)',marginBottom:1}}>{selCmpDonem}</div>}
+                            <div style={{fontSize:12,fontWeight:600,fontFamily:'var(--font-dm-mono)',color:'var(--tx2)',lineHeight:1}}>
                               {fmtKpi(cmpV,k.fmt)}
                             </div>
                           </div>
                         )}
-                        {chg !== null && (
+                        {chg!==null&&(
                           <div style={{paddingBottom:4,marginLeft:'auto'}}>
-                            <div style={{fontSize:9,fontWeight:700,color:chgColor(lob ? -chg : chg)}}>
+                            <div style={{fontSize:9,fontWeight:700,color:chgColor(lob?-chg:chg)}}>
                               {chg>=0?'▲ +':'▼ '}{Math.abs(chg)}%
                             </div>
                           </div>
@@ -137,49 +194,65 @@ export default function KpilerPage() {
           ))}
         </div>
 
-        {/* ── Seçili KPI Bar Grafik ── */}
+        {/* ── Bar Grafik — segment ortalama çizgileri ile ── */}
         <div className={styles.card}>
           <div className={styles.cardHd}>
-            <h3>KPI {meta.no}: {meta.ad} — Marka Dağılımı</h3>
-            <span className={styles.hint}>
-              {filterLabel}{selCmpDonem?` vs ${selCmpDonem}`:''} · {lob?'↓ Düşük daha iyi':'↑ Yüksek daha iyi'}
-            </span>
+            <h3>{meta.ad}{unit?` (${unit})`:''} — Marka Dağılımı</h3>
+            <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
+              <span className={styles.hint}>{filterLabel} · {lob?'↓ Düşük daha iyi':'↑ Yüksek daha iyi'}</span>
+              {/* Ortalama çizgisi legend */}
+              {allLines.slice(0,4).map((l,i)=>(
+                <div key={i} style={{display:'flex',alignItems:'center',gap:4,fontSize:9,color:'var(--tx3)'}}>
+                  <svg width="22" height="8">
+                    <line x1="0" y1="4" x2="22" y2="4"
+                      stroke={l.color} strokeWidth={l.lineWidth}
+                      strokeDasharray={l.dash.join(',')}/>
+                  </svg>
+                  {l.label}
+                </div>
+              ))}
+            </div>
           </div>
           <div style={{overflowX:'auto'}}>
-            <div style={{minWidth: markalar.length*52, height:260}}>
-              <Bar data={{
-                labels: markalar.map(m=>m.marka),
-                datasets:[
-                  {
-                    label: selDonem||'Baz Dönem',
-                    data: markalar.map(m=>m.baz[sortKpi]),
-                    backgroundColor: markalar.map(m=>SEGMENT_HEX[m.segment]+'22'),
-                    borderColor: markalar.map(m=>SEGMENT_HEX[m.segment]),
-                    borderWidth:2, borderRadius:5,
+            <div style={{minWidth:markalar.length*52,height:280}}>
+              <Bar
+                data={{
+                  labels: markalar.map(m=>m.marka),
+                  datasets:[
+                    {
+                      label: selDonem||'Baz Dönem',
+                      data: markalar.map(m=>m.baz[sortKpi]),
+                      backgroundColor: markalar.map(m=>SEGMENT_HEX[m.segment]+'22'),
+                      borderColor: markalar.map(m=>SEGMENT_HEX[m.segment]),
+                      borderWidth:2, borderRadius:5,
+                    },
+                    ...(selCmpDonem?[{
+                      label: selCmpDonem,
+                      data: markalar.map(m=>m.cmp?.[sortKpi]??0),
+                      backgroundColor: markalar.map(m=>SEGMENT_HEX[m.segment]+'66'),
+                      borderColor: markalar.map(m=>SEGMENT_HEX[m.segment]),
+                      borderWidth:1, borderRadius:5,
+                    }]:[])
+                  ]
+                } as ChartData<'bar'>}
+                options={{
+                  responsive:true, maintainAspectRatio:false,
+                  plugins:{
+                    legend:{display:!!selCmpDonem,position:'top',labels:{color:'#8496b0',font:{size:10},boxWidth:12}},
+                    tooltip:{callbacks:{
+                      title:(items)=>{const m=markalar[items[0].dataIndex];return `${m.marka} (${m.segment})`},
+                      label:(ctx)=>`${ctx.dataset.label}: ${fmtKpi(ctx.parsed.y as number,meta.fmt)}`
+                    }},
+                    // @ts-ignore
+                    segmentAvgLine:{ lines: allLines }
                   },
-                  ...(selCmpDonem ? [{
-                    label: selCmpDonem,
-                    data: markalar.map(m=>m.cmp?.[sortKpi]??0),
-                    backgroundColor: markalar.map(m=>SEGMENT_HEX[m.segment]+'66'),
-                    borderColor: markalar.map(m=>SEGMENT_HEX[m.segment]),
-                    borderWidth:1, borderRadius:5,
-                  }] : [])
-                ]
-              }} options={{
-                responsive:true, maintainAspectRatio:false,
-                plugins:{
-                  legend:{display:!!selCmpDonem,position:'top',labels:{color:'#8496b0',font:{size:10},boxWidth:12}},
-                  tooltip:{callbacks:{
-                    title:(items)=>{const m=markalar[items[0].dataIndex];return `${m.marka} (${m.segment})`},
-                    label:(ctx)=>`${ctx.dataset.label}: ${fmtKpi(ctx.parsed.y as number,meta.fmt)}`
-                  }}
-                },
-                scales:{
-                  y:{min:0,max:maxVal*1.2,grid:{color:'rgba(255,255,255,.05)'},
-                    ticks:{color:'#8496b0',font:{size:9},callback:(v)=>fmtKpi(Number(v),meta.fmt)}},
-                  x:{grid:{display:false},ticks:{color:'#8496b0',font:{size:8},maxRotation:45,autoSkip:false}}
-                }
-              }}/>
+                  scales:{
+                    y:{min:0,max:maxVal*1.25,grid:{color:'rgba(255,255,255,.05)'},
+                      ticks:{color:'#8496b0',font:{size:9},callback:(v)=>fmtKpi(Number(v),meta.fmt)}},
+                    x:{grid:{display:false},ticks:{color:'#8496b0',font:{size:8},maxRotation:45,autoSkip:false}}
+                  }
+                } as ChartOptions<'bar'>}
+              />
             </div>
           </div>
         </div>
@@ -193,25 +266,27 @@ export default function KpilerPage() {
                   <th style={thS}>#</th>
                   <th style={thS}>Marka</th>
                   <th style={thS}>Seg.</th>
-                  {KPI_META.map((k,i)=>(
-                    <th key={i} onClick={()=>setSortKpi(i)}
-                      style={{...thS,cursor:'pointer',minWidth:68,textAlign:'center',
-                        color:sortKpi===i?'var(--blue)':'var(--tx3)',
-                        background:sortKpi===i?'rgba(59,130,246,.06)':'var(--surf2)'}}>
-                      <div style={{fontSize:8,lineHeight:1.3,whiteSpace:'normal',wordBreak:'break-word'}}>{k.ad}</div>
-                      {sortKpi===i&&<span style={{fontSize:7}}>{lob?'↑':'↓'}</span>}
-                    </th>
-                  ))}
-                  <th style={{...thS,position:'sticky',right:0,background:'var(--surf2)',minWidth:60}}>
-                    Skor
-                  </th>
+                  {KPI_META.map((k,i)=>{
+                    const u = kpiUnit(k.fmt)
+                    return (
+                      <th key={i} onClick={()=>setSortKpi(i)}
+                        style={{...thS,cursor:'pointer',minWidth:68,textAlign:'center',
+                          color:sortKpi===i?'var(--blue)':'var(--tx3)',
+                          background:sortKpi===i?'rgba(59,130,246,.06)':'var(--surf2)'}}>
+                        <div style={{fontSize:8,lineHeight:1.3,whiteSpace:'normal',wordBreak:'break-word'}}>
+                          {k.ad}{u?` (${u})`:''}
+                        </div>
+                        {sortKpi===i&&<span style={{fontSize:7}}>{lob?'↑':'↓'}</span>}
+                      </th>
+                    )
+                  })}
+                  <th style={{...thS,position:'sticky',right:0,background:'var(--surf2)',minWidth:60}}>Skor</th>
                 </tr>
               </thead>
               <tbody>
                 {markalar.map((m,i)=>{
-                  const segAvgBaz = getKpisFromCube(m.segment, selBolge, selYas, selDonem)
-                  const trBaz     = getKpisFromCube('', selBolge, selYas, selDonem)
-
+                  const trBaz = getKpisFromCube('', selBolge, selYas, selDonem)
+                  const sc = m.score>=80?'#10b981':m.score>=65?'#3b82f6':m.score>=50?'#f59e0b':'#ef4444'
                   return (
                     <tr key={m.marka} style={{borderBottom:'1px solid var(--bd)'}}>
                       <td style={tdS}><span style={{color:'var(--tx3)',fontFamily:'var(--font-dm-mono)',fontSize:9}}>{i+1}</span></td>
@@ -223,28 +298,24 @@ export default function KpilerPage() {
                           {m.segment}
                         </span>
                       </td>
-
-                      {/* KPI gerçek değerleri — TR'ye göre ısı rengi */}
                       {m.baz.map((bazV,ki)=>{
-                        const ref  = trBaz[ki] ?? 0
-                        const {bg,color} = heatColor(bazV, ref, !isLowerBetter(ki))
-                        const cmpV = m.cmp?.[ki] ?? null
-                        const chg  = chgPct(bazV, cmpV)
-                        const isAct = sortKpi===ki
-
+                        const ref = trBaz[ki]??0
+                        const {bg,color} = heatColor(bazV,ref,!isLowerBetter(ki))
+                        const cmpV = m.cmp?.[ki]??null
+                        const chg  = chgPct(bazV,cmpV)
                         return (
                           <td key={ki} onClick={()=>setSortKpi(ki)}
                             style={{...tdS,textAlign:'center',background:bg,cursor:'pointer',
-                              outline:isAct?`2px solid ${color}66`:'none',outlineOffset:-1}}>
+                              outline:sortKpi===ki?`2px solid ${color}66`:'none',outlineOffset:-1}}>
                             <div style={{fontFamily:'var(--font-dm-mono)',fontSize:10,fontWeight:700,color}}>
                               {fmtKpi(bazV,KPI_META[ki].fmt)}
                             </div>
-                            {cmpV !== null && (
+                            {cmpV!==null&&(
                               <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:2,marginTop:1}}>
                                 <span style={{fontSize:8,color:'var(--tx3)',fontFamily:'var(--font-dm-mono)'}}>
                                   {fmtKpi(cmpV,KPI_META[ki].fmt)}
                                 </span>
-                                {chg !== null && (
+                                {chg!==null&&(
                                   <span style={{fontSize:7,fontWeight:700,padding:'0 2px',borderRadius:2,
                                     background:chgBg(isLowerBetter(ki)?-chg:chg),
                                     color:chgColor(isLowerBetter(ki)?-chg:chg)}}>
@@ -256,16 +327,12 @@ export default function KpilerPage() {
                           </td>
                         )
                       })}
-
-                      {/* Genel skor */}
                       <td style={{...tdS,position:'sticky',right:0,background:'var(--surf)'}}>
                         <div style={{display:'flex',alignItems:'center',gap:4}}>
                           <div style={{flex:1,background:'var(--surf3)',borderRadius:4,height:4,overflow:'hidden',minWidth:28}}>
-                            <div style={{width:`${m.score}%`,height:4,borderRadius:4,
-                              background:m.score>=80?'#10b981':m.score>=65?'#3b82f6':m.score>=50?'#f59e0b':'#ef4444'}}/>
+                            <div style={{width:`${m.score}%`,height:4,borderRadius:4,background:sc}}/>
                           </div>
-                          <span style={{fontFamily:'var(--font-dm-mono)',fontSize:10,fontWeight:700,minWidth:18,textAlign:'right',
-                            color:m.score>=80?'#10b981':m.score>=65?'#3b82f6':m.score>=50?'#f59e0b':'#ef4444'}}>
+                          <span style={{fontFamily:'var(--font-dm-mono)',fontSize:10,fontWeight:700,color:sc,minWidth:18,textAlign:'right'}}>
                             {m.score}
                           </span>
                         </div>
@@ -291,9 +358,6 @@ export default function KpilerPage() {
               {x.label}
             </div>
           ))}
-          <span style={{fontSize:9,color:'var(--tx3)',marginLeft:8}}>
-            · Isı rengi Tüm TR ortalamasına göre · Tıklayarak sırala
-          </span>
         </div>
 
       </div>
@@ -302,8 +366,8 @@ export default function KpilerPage() {
 }
 
 const thS: React.CSSProperties = {
-  padding:'8px 10px', textAlign:'left', fontSize:9, fontWeight:700,
-  letterSpacing:'.06em', textTransform:'uppercase', color:'var(--tx3)',
-  borderBottom:'1px solid var(--bd)', whiteSpace:'nowrap'
+  padding:'8px 10px',textAlign:'left',fontSize:9,fontWeight:700,
+  letterSpacing:'.06em',textTransform:'uppercase',color:'var(--tx3)',
+  borderBottom:'1px solid var(--bd)',whiteSpace:'nowrap'
 }
-const tdS: React.CSSProperties = {padding:'6px 8px', borderBottom:'1px solid var(--bd)'}
+const tdS: React.CSSProperties = {padding:'6px 8px',borderBottom:'1px solid var(--bd)'}
