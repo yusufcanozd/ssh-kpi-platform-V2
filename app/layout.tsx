@@ -10,6 +10,10 @@ const dmMono = DM_Mono({ subsets:['latin'], weight:['400','500'], variable:'--fo
 export const metadata: Metadata = {
   title: 'SSH KPI Platform | Türkiye Otomotiv Sektörü',
   description: 'Satış Sonrası Hizmetler Rekabet Analizi Platformu',
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
