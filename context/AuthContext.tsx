@@ -35,9 +35,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase])
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const p = await fetchProfile(session.user.id)
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (user) {
+        const p = await fetchProfile(user.id)
         setProfile(p)
       }
       setLoading(false)
@@ -45,25 +45,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_OUT') {
+        if (event === 'SIGNED_OUT' || !session) {
           setProfile(null)
+          setLoading(false)
+          // Sayfayı yenile — middleware /login'e yönlendirecek
+          window.location.href = '/login'
           return
         }
         if (session?.user) {
           const p = await fetchProfile(session.user.id)
           setProfile(p)
-        } else {
-          setProfile(null)
         }
       }
     )
     return () => subscription.unsubscribe()
   }, [fetchProfile, supabase])
 
-  // Çıkış — sadece signOut, yönlendirmeyi Sidebar yapar
   const logout = async () => {
-    setProfile(null)
     await supabase.auth.signOut()
+    // onAuthStateChange SIGNED_OUT eventi tetiklenecek ve /login'e yönlendirecek
   }
 
   const isAdmin      = ['superadmin', 'admin'].includes(profile?.role || '')
