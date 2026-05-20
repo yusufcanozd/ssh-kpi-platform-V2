@@ -147,47 +147,57 @@ export default function DashboardPage() {
               <h3>Marka Sıralaması</h3>
               <span className={styles.hint}>{selBolge||'Tüm TR'} · {selDonem||'Tüm Dönem'}{selCmpDonem?' vs '+selCmpDonem:''}</span>
             </div>
-            <div className={styles.hbarChart}>
-              {markalar.slice(0,12).map((m,i)=>{
-                // Karşılaştırma dönem sıralaması
-                const cmpRank = selCmpDonem
-                  ? marklarCmp.findIndex(x=>x.marka===m.marka) + 1
-                  : null
-                const rankDiff = cmpRank ? cmpRank - (i+1) : null
+            {/* Scrollable — tüm 42 marka */}
+            <div style={{overflowY:'auto',maxHeight:420,paddingRight:4}}>
+              {markalar.map((m,i)=>{
+                const cmpM    = marklarCmp.find(x=>x.marka===m.marka)
+                const cmpRank = selCmpDonem ? marklarCmp.findIndex(x=>x.marka===m.marka)+1 : null
+                const rankDiff= cmpRank ? cmpRank-(i+1) : null
+                const tooltipLabel = selCmpDonem && cmpM
+                  ? `${selDonem||'Baz'}: ${m.score} · ${selCmpDonem}: ${cmpM.score}`
+                  : `${m.marka}: ${m.score} puan`
+
                 return (
-                  <div key={m.marka} className={styles.hbarRow}>
+                  <div key={m.marka} className={styles.hbarRow}
+                    title={tooltipLabel}>
                     {/* Sıra + isim */}
                     <div style={{display:'flex',alignItems:'center',gap:4,minWidth:110}}>
                       <span style={{color:'var(--tx3)',fontSize:9,fontFamily:'var(--font-dm-mono)',width:14}}>{i+1}</span>
-                      <span style={{color:SEGMENT_HEX[m.segment],fontSize:11,fontWeight:600}}>{m.marka}</span>
+                      <span style={{color:SEGMENT_HEX[m.segment],fontSize:11,fontWeight:600,
+                        whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:90}}>
+                        {m.marka}
+                      </span>
                     </div>
-                    {/* Çift bar — baz (içi boş) + cmp (içi dolu) */}
+                    {/* Çift bar */}
                     <div className={styles.hbarTrack} style={{position:'relative'}}>
-                      {/* Baz dönem bar — içi boş */}
+                      {/* Baz dönem — içi boş */}
                       <div style={{position:'absolute',top:0,left:0,height:'100%',
                         width:`${m.score}%`,border:`2px solid ${SEGMENT_HEX[m.segment]}`,
                         borderRadius:4,boxSizing:'border-box'}}/>
-                      {/* Karşılaştırma bar — içi dolu, daha ince */}
-                      {selCmpDonem && (()=>{
-                        const cmpM = marklarCmp.find(x=>x.marka===m.marka)
-                        return (
-                          <div style={{position:'absolute',top:'25%',left:0,height:'50%',
-                            width:`${cmpM?.score ?? 0}%`,background:`${SEGMENT_HEX[m.segment]}66`,
-                            borderRadius:3}}/>
-                        )
-                      })()}
+                      {/* Karşılaştırma — içi dolu */}
+                      {selCmpDonem && cmpM && (
+                        <div style={{position:'absolute',top:'25%',left:0,height:'50%',
+                          width:`${cmpM.score}%`,background:`${SEGMENT_HEX[m.segment]}55`,
+                          borderRadius:3}}/>
+                      )}
                     </div>
-                    {/* Skorlar */}
-                    <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1,minWidth:48}}>
+                    {/* Skor + rank diff */}
+                    <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1,minWidth:52}}>
                       <span style={{fontFamily:'var(--font-dm-mono)',fontSize:12,fontWeight:700,
-                        color:SEGMENT_HEX[m.segment]}}>{m.score}</span>
-                      {selCmpDonem && (()=>{
-                        const cmpM = marklarCmp.find(x=>x.marka===m.marka)
-                        const diff = rankDiff ?? 0
-                        return <span style={{fontSize:9,color: diff>0?'#10b981':diff<0?'#f87171':'var(--tx3)'}}>
-                          {diff>0?`▲${diff}`:diff<0?`▼${Math.abs(diff)}`:'—'}
+                        color:SEGMENT_HEX[m.segment]}}>
+                        {m.score}
+                        {selCmpDonem && cmpM && (
+                          <span style={{fontSize:9,color:'var(--tx3)',fontWeight:400,marginLeft:3}}>
+                            / {cmpM.score}
+                          </span>
+                        )}
+                      </span>
+                      {selCmpDonem && rankDiff !== null && (
+                        <span style={{fontSize:9,fontWeight:600,
+                          color:rankDiff>0?'#10b981':rankDiff<0?'#f87171':'var(--tx3)'}}>
+                          {rankDiff>0?`▲${rankDiff}`:rankDiff<0?`▼${Math.abs(rankDiff)}`:'—'}
                         </span>
-                      })()}
+                      )}
                     </div>
                   </div>
                 )
