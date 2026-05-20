@@ -150,13 +150,13 @@ export default function DashboardPage() {
           </div>
 
           {/* Marka sıralaması — tüm filtreler dahil */}
-          <div className={styles.card}>
+          <div className={styles.card} style={{display:'flex',flexDirection:'column'}}>
             <div className={styles.cardHd}>
               <h3>Marka Sıralaması</h3>
               <span className={styles.hint}>{selBolge||'Tüm TR'} · {selDonem||'Tüm Dönem'}{selCmpDonem?' vs '+selCmpDonem:''}</span>
             </div>
-            {/* Scrollable — tüm 42 marka */}
-            <div style={{overflowY:'auto',maxHeight:'none',paddingRight:4}}>
+            {/* Scrollable — sol kartla eşit yükseklik */}
+            <div style={{overflowY:'auto',flex:1,minHeight:0,paddingRight:4}}>
               {markalar.map((m,i)=>{
                 const cmpM    = marklarCmp.find(x=>x.marka===m.marka)
                 const cmpRank = selCmpDonem ? marklarCmp.findIndex(x=>x.marka===m.marka)+1 : null
