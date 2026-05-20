@@ -6,7 +6,7 @@ import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, BOLGELER, SEGMENTLER, YAS_STATS, TOTAL_IO, TOTAL_SERVIS,
   SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG, CAT_COLORS,
-  fmtKpi, getKpisFromCube, getN, getMarkaList, SEGMENT_HEX_BG,
+  fmtKpi, getKpisFromCube, getN, getMarkaList,
   overallScoreFromKpis, heatColor, isLowerBetter,
   getScore, scoreColor, scoreBg, changePct, SegmentScore
 } from '@/lib/kpi'
