@@ -280,7 +280,7 @@ function KatDetayKutu({ label, score, color }:{
 function BolgeSkorGrid({ selSeg, selBolge, selYas, selDonem, selCmpDonem }:{
   selSeg:string; selBolge:string; selYas:string; selDonem:string; selCmpDonem:string
 }) {
-  const bolgeList = BOLGELER.filter(b => !selBolge || b===selBolge)
+  const bolgeList = selBolge ? [selBolge] : BOLGELER
 
   return (
     <div className={styles.card}>
@@ -293,93 +293,67 @@ function BolgeSkorGrid({ selSeg, selBolge, selYas, selDonem, selCmpDonem }:{
       </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:8}}>
         {bolgeList.map(b=>{
-          const baz = getScore(selSeg, b, selYas, selDonem)
-          const cmp = selCmpDonem ? getScore(selSeg, b, selYas, selCmpDonem) : null
+          const baz  = getScore(selSeg, b, selYas, selDonem)
+          const cmp  = selCmpDonem ? getScore(selSeg, b, selYas, selCmpDonem) : null
           const bazG = baz?.genel ?? 0
           const cmpG = cmp?.genel ?? 0
-          const chg  = cmp && cmpG ? ((bazG-cmpG)/cmpG*100) : null
-          const isActive = selBolge===b
+          const chg  = (cmp && cmpG) ? ((bazG - cmpG) / cmpG * 100) : null
+          const chgColor = chg===null?'var(--tx3)':chg>=0?'#10b981':chg>=-10?'#f59e0b':'#f87171'
 
           return (
             <div key={b} style={{
-              textAlign:'center', padding:'12px 8px',
-              background: isActive ? scoreBg(bazG) : 'var(--surf2)',
+              padding:'10px 10px 8px',
+              background: scoreBg(bazG),
               borderRadius:8,
-              border:`1px solid ${isActive ? scoreColor(bazG) : 'var(--bd)'}`,
+              border:`1px solid ${scoreColor(bazG)}44`,
             }}>
-              <div style={{fontSize:8,fontWeight:700,color:'var(--tx3)',marginBottom:6,
-                textTransform:'uppercase',letterSpacing:'.04em',lineHeight:1.4}}>
+              {/* Bölge adı */}
+              <div style={{fontSize:9,fontWeight:700,color:scoreColor(bazG),
+                marginBottom:8,lineHeight:1.3}}>
                 {b}
               </div>
 
-              {/* Skor bar */}
-              <div style={{height:36,display:'flex',alignItems:'flex-end',justifyContent:'center',gap:3,marginBottom:5}}>
-                {/* Baz dönem */}
-                <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-                  <div style={{width:14,borderRadius:'3px 3px 0 0',
-                    background: scoreColor(bazG)+'88',
-                    borderTop:`2px solid ${scoreColor(bazG)}`,
-                    height:`${Math.max(bazG,4)}%`,minHeight:4}}/>
+              {/* Skorlar — SkorKutu ile aynı layout */}
+              <div style={{display:'flex',alignItems:'flex-end',gap:6,marginBottom:6}}>
+                {/* Baz */}
+                <div>
+                  <div style={{fontSize:8,color:'var(--tx3)',marginBottom:2,fontWeight:500}}>
+                    {selDonem||'Tüm'}
+                  </div>
+                  <div style={{fontSize:22,fontWeight:800,fontFamily:'var(--font-dm-mono)',
+                    color:scoreColor(bazG),lineHeight:1}}>
+                    {bazG||'—'}
+                  </div>
+                  <div style={{fontSize:8,color:'var(--tx3)',marginTop:1}}>puan</div>
                 </div>
-                {/* Karşılaştırma dönem */}
+                {/* Karşılaştırma */}
                 {cmp && (
-                  <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-                    <div style={{width:14,borderRadius:'3px 3px 0 0',
-                      background:'rgba(148,163,184,.3)',
-                      borderTop:'2px solid #94a3b8',
-                      height:`${Math.max(cmpG,4)}%`,minHeight:4}}/>
+                  <div style={{paddingBottom:3}}>
+                    <div style={{fontSize:8,color:'var(--tx3)',marginBottom:2,fontWeight:500}}>
+                      {selCmpDonem}
+                    </div>
+                    <div style={{fontSize:15,fontWeight:700,fontFamily:'var(--font-dm-mono)',
+                      color:'var(--tx2)',lineHeight:1}}>
+                      {cmpG}
+                    </div>
+                  </div>
+                )}
+                {/* Değişim */}
+                {chg !== null && (
+                  <div style={{marginLeft:'auto',paddingBottom:3,fontSize:11,fontWeight:700,color:chgColor}}>
+                    {chg>=0?'▲ +':'▼ '}{Math.abs(chg).toFixed(1)}%
                   </div>
                 )}
               </div>
 
-              {/* Baz skor */}
-              <div style={{fontSize:16,fontWeight:800,fontFamily:'var(--font-dm-mono)',
-                color:scoreColor(bazG),lineHeight:1}}>
-                {bazG || '—'}
+              {/* Progress bar */}
+              <div style={{background:'rgba(0,0,0,.12)',borderRadius:4,height:3,overflow:'hidden'}}>
+                <div style={{width:`${Math.min(bazG,100)}%`,height:3,borderRadius:4,
+                  background:scoreColor(bazG),transition:'width .4s'}}/>
               </div>
-              {cmp && (
-                <div style={{fontSize:9,color:'var(--tx3)',marginTop:1}}>{cmpG}</div>
-              )}
-
-              {/* Değişim */}
-              {chg !== null && (
-                <div style={{
-                  fontSize:9,fontWeight:700,marginTop:4,
-                  color: chg>=0?'#10b981':chg>=-10?'#f59e0b':'#f87171'
-                }}>
-                  {chg>=0?'▲ +':'▼ '}{chg.toFixed(1)}%
-                </div>
-              )}
             </div>
           )
         })}
-      </div>
-
-      {/* Legend */}
-      <div style={{display:'flex',gap:12,marginTop:10,paddingTop:8,borderTop:'1px solid var(--bd)',flexWrap:'wrap'}}>
-        {[
-          {c:'#10b981',label:'≥100 puan'},
-          {c:'#f59e0b',label:'90–100 puan'},
-          {c:'#f87171',label:'<90 puan'},
-        ].map(x=>(
-          <div key={x.label} style={{display:'flex',alignItems:'center',gap:5,fontSize:9,color:'var(--tx3)'}}>
-            <div style={{width:10,height:10,borderRadius:2,background:x.c+'33',border:`1px solid ${x.c}`}}/>
-            {x.label}
-          </div>
-        ))}
-        {selCmpDonem && (
-          <>
-            <div style={{display:'flex',alignItems:'center',gap:5,fontSize:9,color:'var(--tx3)'}}>
-              <div style={{width:10,height:10,borderRadius:2,background:'rgba(148,163,184,.3)',border:'1px solid #94a3b8'}}/>
-              {selCmpDonem} (karş.)
-            </div>
-            <div style={{display:'flex',alignItems:'center',gap:5,fontSize:9,color:'var(--tx3)'}}>
-              <span style={{color:'#10b981'}}>▲ ≥0%</span> /
-              <span style={{color:'#f59e0b'}}> ▼ 0–10%</span> /
-              <span style={{color:'#f87171'}}> ▼ &gt;10%</span>
-            </div>
-          </>
-        )}
       </div>
     </div>
   )
