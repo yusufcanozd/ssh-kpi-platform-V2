@@ -7,14 +7,7 @@ import { useTheme } from '@/context/ThemeContext'
 import clsx from 'clsx'
 import styles from './Sidebar.module.css'
 
-interface NavItem {
-  href: string
-  label: string
-  icon: React.ReactNode
-  adminOnly?: boolean
-}
-
-const DASHBOARD_NAV: NavItem[] = [
+const DASHBOARD_NAV = [
   { href: '/dashboard',          label: 'Genel Bakış',      icon: <GridIcon /> },
   { href: '/dashboard/markalar', label: 'Marka Sıralaması', icon: <BarIcon /> },
   { href: '/dashboard/kpiler',   label: 'KPI Detay',        icon: <ActivityIcon /> },
@@ -22,7 +15,7 @@ const DASHBOARD_NAV: NavItem[] = [
   { href: '/dashboard/trend',    label: 'Dönemsel Trend',   icon: <TrendIcon /> },
 ]
 
-const ADMIN_NAV: NavItem[] = [
+const ADMIN_NAV = [
   { href: '/admin/users', label: 'Kullanıcılar', icon: <UsersIcon /> },
 ]
 
@@ -34,19 +27,17 @@ interface SidebarProps {
 export default function Sidebar({ variant, filters }: SidebarProps) {
   const pathname = usePathname()
   const router   = useRouter()
-  const { profile, isAdmin, logout } = useAuth()
+  const { profile, isAdmin, loading, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
 
   const nav = variant === 'admin' ? ADMIN_NAV : DASHBOARD_NAV
 
   const handleLogout = async () => {
     await logout()
-    router.replace('/login')
   }
 
   return (
     <aside className={styles.sidebar}>
-      {/* Logo */}
       <div className={styles.brand}>
         <div className={styles.brandTag}>SSH · {variant === 'admin' ? 'Admin' : 'KPI'}</div>
         <div className={styles.brandName}>
@@ -55,7 +46,6 @@ export default function Sidebar({ variant, filters }: SidebarProps) {
         <div className={styles.brandSub}>Türkiye Otomotiv Sektörü</div>
       </div>
 
-      {/* Nav */}
       <nav className={styles.nav}>
         <div className={styles.navGrp}>
           {variant === 'admin' ? 'Yönetim' : 'Görünümler'}
@@ -72,24 +62,30 @@ export default function Sidebar({ variant, filters }: SidebarProps) {
           )
         })}
 
-        {/* Geçiş linkleri */}
-        <div className={styles.navGrp} style={{ marginTop: 12 }}>Geçiş</div>
-        {variant === 'admin' ? (
-          <Link href="/dashboard" className={styles.navBtn}><GridIcon />KPI Dashboard</Link>
-        ) : isAdmin ? (
-          <Link href="/admin/users" className={styles.navBtn}><ShieldIcon />Admin Paneli</Link>
-        ) : null}
+        {/* Geçiş linkleri — loading bitmeden gösterme */}
+        {!loading && (
+          <>
+            <div className={styles.navGrp} style={{ marginTop: 12 }}>Geçiş</div>
+            {variant === 'admin' ? (
+              <Link href="/dashboard" className={styles.navBtn}>
+                <GridIcon />KPI Dashboard
+              </Link>
+            ) : isAdmin ? (
+              <Link href="/admin/users" className={styles.navBtn}>
+                <ShieldIcon />Admin Paneli
+              </Link>
+            ) : null}
+          </>
+        )}
       </nav>
 
-      {/* Filtreler */}
       {filters && <div className={styles.filters}>{filters}</div>}
 
-      {/* Footer */}
       <div className={styles.footer}>
         {profile && (
           <div className={styles.userBlock}>
             <div className={styles.userName}>{profile.full_name}</div>
-            <div className={clsx(styles.userRole)}>
+            <div className={styles.userRole}>
               {profile.role === 'superadmin' ? 'Süper Admin' :
                profile.role === 'admin'      ? 'Admin' :
                profile.role === 'analyst'    ? 'Analist' : 'İzleyici'}
@@ -103,11 +99,7 @@ export default function Sidebar({ variant, filters }: SidebarProps) {
           <button className={styles.themeBtn} onClick={toggleTheme} title="Tema">
             {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
           </button>
-          <button
-            className={styles.logoutBtn}
-            onClick={handleLogout}
-            type="button"
-          >
+          <button className={styles.logoutBtn} onClick={handleLogout} type="button">
             Çıkış Yap
           </button>
         </div>
