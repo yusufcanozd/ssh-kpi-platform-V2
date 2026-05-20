@@ -118,8 +118,8 @@ export default function DashboardPage() {
                   {
                     label: selDonem||'Baz Dönem',
                     data: [trBaz?.genel??0, ...segBarData],
-                    backgroundColor: ['rgba(251,191,36,.12)',...visibleSegs.map(s=>SEGMENT_HEX_BG[s.seg].replace('.25','.10)'))],
-                    borderColor: ['#fbbf24',...visibleSegs.map(s=>SEGMENT_HEX[s.seg])],
+                    backgroundColor: ['rgba(251,191,36,.10)','rgba(96,165,250,.08)','rgba(192,132,252,.08)','rgba(52,211,153,.08)'],
+                    borderColor: ['#fbbf24','#60a5fa','#c084fc','#34d399'],
                     borderWidth:2,borderRadius:8
                   },
                   ...(selCmpDonem ? [{
@@ -170,7 +170,38 @@ export default function DashboardPage() {
 
                 return (
                   <div key={m.marka} className={styles.hbarRow}
-                    title={`${m.marka} — ${selDonem||'Tüm'}: ${m.score} puan${selCmpDonem && cmpM ? ` | ${selCmpDonem}: ${cmpM.score} puan` : ''}`}>
+                    style={{position:'relative'}}
+                    onMouseEnter={e=>{
+                      const tip = e.currentTarget.querySelector('.marka-tip') as HTMLElement
+                      if(tip) tip.style.display='block'
+                    }}
+                    onMouseLeave={e=>{
+                      const tip = e.currentTarget.querySelector('.marka-tip') as HTMLElement
+                      if(tip) tip.style.display='none'
+                    }}>
+                    {/* Tooltip */}
+                    <div className="marka-tip" style={{
+                      display:'none',position:'absolute',bottom:'calc(100% + 4px)',left:'50%',
+                      transform:'translateX(-50%)',zIndex:100,
+                      background:'var(--surf3)',border:'1px solid var(--bd2)',
+                      borderRadius:6,padding:'5px 10px',whiteSpace:'nowrap',
+                      fontSize:11,color:'var(--tx)',pointerEvents:'none',
+                      boxShadow:'0 4px 12px rgba(0,0,0,.3)'
+                    }}>
+                      <div style={{fontWeight:700,color:SEGMENT_HEX[m.segment],marginBottom:3}}>{m.marka}</div>
+                      <div style={{display:'flex',gap:12}}>
+                        <div>
+                          <div style={{fontSize:9,color:'var(--tx3)',marginBottom:1}}>{selDonem||'Tüm Dönem'}</div>
+                          <div style={{fontSize:14,fontWeight:800,fontFamily:'var(--font-dm-mono)',color:SEGMENT_HEX[m.segment]}}>{m.score} puan</div>
+                        </div>
+                        {selCmpDonem && cmpM && (
+                          <div>
+                            <div style={{fontSize:9,color:'var(--tx3)',marginBottom:1}}>{selCmpDonem}</div>
+                            <div style={{fontSize:14,fontWeight:800,fontFamily:'var(--font-dm-mono)',color:'var(--tx2)'}}>{cmpM.score} puan</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                     {/* Sıra + isim */}
                     <div style={{display:'flex',alignItems:'center',gap:4,minWidth:110}}>
                       <span style={{color:'var(--tx3)',fontSize:9,fontFamily:'var(--font-dm-mono)',width:14}}>{i+1}</span>
