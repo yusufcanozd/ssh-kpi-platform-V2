@@ -395,31 +395,32 @@ function BolgeSkorGrid({ selSeg, selBolge, selYas, selDonem, selCmpDonem }:{
               border:`1px solid ${relColor}55`,
             }}>
               {/* Bölge adı */}
-              <div style={{fontSize:9,fontWeight:700,color:relColor,
-                marginBottom:8,lineHeight:1.3}}>
+              <div style={{fontSize:8,fontWeight:700,color:relColor,
+                marginBottom:6,lineHeight:1.3,
+                overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                 {b}
               </div>
 
-              {/* Skorlar — SkorKutu ile aynı layout */}
-              <div style={{display:'flex',alignItems:'flex-end',gap:6,marginBottom:6}}>
+              {/* Skorlar */}
+              <div style={{display:'flex',alignItems:'flex-end',gap:4,marginBottom:5,flexWrap:'nowrap'}}>
                 {/* Baz */}
-                <div>
-                  <div style={{fontSize:8,color:'var(--tx3)',marginBottom:2,fontWeight:500}}>
-                    {selDonem||'Tüm'}
+                <div style={{flexShrink:0}}>
+                  <div style={{fontSize:7,color:'var(--tx3)',marginBottom:1,fontWeight:500,lineHeight:1,whiteSpace:'nowrap'}}>
+                    {selDonem ? selDonem.replace('20','').replace('-FY','FY') : 'Tüm'}
                   </div>
-                  <div style={{fontSize:22,fontWeight:800,fontFamily:'var(--font-dm-mono)',
+                  <div style={{fontSize:20,fontWeight:800,fontFamily:'var(--font-dm-mono)',
                     color:scoreColor(bazG),lineHeight:1}}>
                     {bazG||'—'}
                   </div>
-                  <div style={{fontSize:8,color:'var(--tx3)',marginTop:1}}>puan</div>
+                  <div style={{fontSize:7,color:'var(--tx3)',marginTop:1}}>puan</div>
                 </div>
                 {/* Karşılaştırma */}
                 {cmp && (
-                  <div style={{paddingBottom:3}}>
-                    <div style={{fontSize:8,color:'var(--tx3)',marginBottom:2,fontWeight:500}}>
-                      {selCmpDonem}
+                  <div style={{paddingBottom:2,flexShrink:0}}>
+                    <div style={{fontSize:7,color:'var(--tx3)',marginBottom:1,fontWeight:500,lineHeight:1,whiteSpace:'nowrap'}}>
+                      {selCmpDonem ? selCmpDonem.replace('20','').replace('-FY','FY') : ''}
                     </div>
-                    <div style={{fontSize:15,fontWeight:700,fontFamily:'var(--font-dm-mono)',
+                    <div style={{fontSize:13,fontWeight:700,fontFamily:'var(--font-dm-mono)',
                       color:'var(--tx2)',lineHeight:1}}>
                       {cmpG}
                     </div>
@@ -427,7 +428,7 @@ function BolgeSkorGrid({ selSeg, selBolge, selYas, selDonem, selCmpDonem }:{
                 )}
                 {/* Değişim */}
                 {chg !== null && (
-                  <div style={{marginLeft:'auto',paddingBottom:3,fontSize:11,fontWeight:700,color:chgColor}}>
+                  <div style={{marginLeft:'auto',paddingBottom:2,fontSize:10,fontWeight:700,color:chgColor,flexShrink:0,whiteSpace:'nowrap'}}>
                     {chg>=0?'▲ +':'▼ '}{Math.abs(chg).toFixed(1)}%
                   </div>
                 )}
