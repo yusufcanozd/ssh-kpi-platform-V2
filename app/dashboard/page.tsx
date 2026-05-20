@@ -126,7 +126,7 @@ export default function DashboardPage() {
                     data: [trCmp?.genel??0, ...segCmpData],
                     backgroundColor: ['rgba(59,130,246,.15)',...visibleSegs.map(s=>SEGMENT_BG[s.seg].replace('.35',',.12)'))],
                     borderColor: ['#3b82f688',...visibleSegs.map(s=>SEGMENT_COLORS[s.seg]+'88')],
-                    borderWidth:1,borderRadius:8,borderDash:[4,2]
+                    borderWidth:1,borderRadius:8
                   }] : [])
                 ]
               }} options={{
