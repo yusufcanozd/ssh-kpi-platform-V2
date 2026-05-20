@@ -5,9 +5,11 @@
   flex-direction: column;
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
   flex-shrink: 0;
   width: 224px;
-  transition: background .2s, border-color .2s;
+  transition: width .25s ease, background .2s, border-color .2s;
+  position: relative;
 }
 
 .brand {
@@ -143,8 +145,8 @@
 
 /* ── Collapsed state ── */
 .collapsed {
-  width: 52px;
-  min-width: 52px;
+  width: 44px;
+  min-width: 44px;
 }
 .collapsed .navBtn {
   justify-content: center;
@@ -168,12 +170,14 @@
 
 /* Toggle butonu */
 .toggleBtn {
-  position: absolute;
-  right: -12px;
-  top: 56px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
+  position: sticky;
+  top: 0;
+  left: 0;
+  align-self: flex-end;
+  margin: 8px 8px 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
   border: 1px solid var(--bd2);
   background: var(--surf2);
   color: var(--tx2);
@@ -181,9 +185,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   z-index: 10;
   transition: all .15s;
-  box-shadow: 0 2px 8px rgba(0,0,0,.2);
 }
 .toggleBtn:hover {
   background: var(--surf3);
