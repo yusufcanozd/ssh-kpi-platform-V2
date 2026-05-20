@@ -1,4 +1,5 @@
 import RAW from './kpi_data.json'
+import MARKA_RAW from './marka_scores.json'
 
 // ── Tipler ────────────────────────────────────────────────────
 export interface KpiMeta { no: number; ad: string; kat: string; fmt: string }
@@ -166,7 +167,7 @@ export function changePct(curr: number, prev: number): string {
 // ── Marka Skor Cube ───────────────────────────────────────────
 // [marka, segment, bolge, yas, donem, genel_skor]
 type MarkaScoreRow = [string, string, string, string, string, number]
-const MARKA_SCORE_CUBE: MarkaScoreRow[] = ((RAW as any).marka_score_cube ?? []) as MarkaScoreRow[]
+const MARKA_SCORE_CUBE: MarkaScoreRow[] = (MARKA_RAW ?? []) as MarkaScoreRow[]
 
 export function getMarkaScore(marka: string, bolge = '', yas = 'Tümü', donem = ''): number | null {
   const r = MARKA_SCORE_CUBE.find(x => x[0]===marka && x[2]===bolge && x[3]===yas && x[4]===donem)
