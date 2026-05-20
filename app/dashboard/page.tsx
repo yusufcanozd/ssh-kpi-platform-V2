@@ -6,7 +6,7 @@ import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, BOLGELER, SEGMENTLER, YAS_STATS, TOTAL_IO, TOTAL_SERVIS,
   SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG, CAT_COLORS,
-  fmtKpi, getKpisFromCube, getN, getMarkaList,
+  fmtKpi, getKpisFromCube, getN, getMarkaList, SEGMENT_HEX_BG,
   overallScoreFromKpis, heatColor, isLowerBetter,
   getScore, scoreColor, scoreBg, changePct, SegmentScore
 } from '@/lib/kpi'
@@ -40,7 +40,7 @@ export default function DashboardPage() {
   // Seçili segmente göre filtre
   const visibleSegs = selSeg ? segScores.filter(s=>s.seg===selSeg) : segScores
 
-  // Marka sıralaması — baz dönem
+  // Marka sıralaması — baz dönem (cube'den marka × bölge × yaş)
   const markalar = useMemo(() => {
     const list = getMarkaList(selBolge, selYas)
     return list
@@ -49,15 +49,26 @@ export default function DashboardPage() {
       .sort((a,b) => b.ov - a.ov)
   }, [selSeg, selBolge, selYas])
 
-  // Marka sıralaması — karşılaştırma dönem (sıra farkı için)
+  // Marka sıralaması — karşılaştırma dönem
+  // Dönem bazlı marka skoru: segment ortalamasının cmp dönem değerine göre normalize
   const marklarCmp = useMemo(() => {
-    if (!selCmpDonem) return []
+    if (!selCmpDonem) return [] as typeof markalar
+    // Baz listeyi al, cmp dönem segment ortalamalarına göre skor hesapla
     const list = getMarkaList(selBolge, selYas)
     return list
       .filter(m => !selSeg || m.segment===selSeg)
-      .map(m => ({ ...m, ov: overallScoreFromKpis(m.kpis, m.segment, selBolge, selYas) }))
+      .map(m => {
+        // Cmp dönem segment referansı
+        const segCmpKpis = getKpisFromCube(m.segment, selBolge, selYas, selCmpDonem)
+        // Marka kpis değişmiyor (dönem filtreli marka verisi yok) — segment ortalama farkını uygula
+        const ov = overallScoreFromKpis(m.kpis, m.segment, selBolge, selYas)
+        // Cmp dönem segment skoru farkını ekleyerek yaklaşık cmp sırası üret
+        const segBazKpis = getKpisFromCube(m.segment, selBolge, selYas, selDonem)
+        const adjFactor  = segBazKpis[4] > 0 ? segCmpKpis[4] / segBazKpis[4] : 1
+        return { ...m, ov: Math.round(ov * adjFactor) }
+      })
       .sort((a,b) => b.ov - a.ov)
-  }, [selSeg, selBolge, selYas, selCmpDonem])
+  }, [selSeg, selBolge, selYas, selCmpDonem, selDonem])
 
   // Bölge dağılımı
   const bolgeData = useMemo(() =>
@@ -154,7 +165,7 @@ export default function DashboardPage() {
           <div className={styles.card}>
             <div className={styles.cardHd}>
               <h3>Marka Sıralaması</h3>
-              <span className={styles.hint}>{selBolge||'Tüm TR'} · {selYas==='Tümü'?'Tüm Yaş':selYas+'y'}</span>
+              <span className={styles.hint}>{selBolge||'Tüm TR'} · {selDonem||'Tüm Dönem'}{selCmpDonem?' vs '+selCmpDonem:''}</span>
             </div>
             <div className={styles.hbarChart}>
               {markalar.slice(0,12).map((m,i)=>{
