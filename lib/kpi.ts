@@ -120,3 +120,36 @@ export function overallScoreFromKpis(kpis: number[], seg: string, bolge='', yas=
   })
   return Math.round(scores.reduce((a,b)=>a+b,0)/scores.length)
 }
+
+// ── Skor Cube ─────────────────────────────────────────────────
+// [seg, bolge, yas, donem, genel, musteri, ticari, operasyonel, bayi, kapsam]
+type ScoreRow = [string,string,string,string,number,number,number,number,number,number]
+
+const SCORE_CUBE: ScoreRow[] = (RAW as any).score_cube as ScoreRow[]
+
+export interface SegmentScore {
+  genel: number
+  musteri: number; ticari: number; operasyonel: number; bayi: number; kapsam: number
+}
+
+export function getScore(seg='', bolge='', yas='Tümü', donem=''): SegmentScore | null {
+  const r = SCORE_CUBE.find(x => x[0]===seg && x[1]===bolge && x[2]===yas && x[3]===donem)
+  if (!r) return null
+  return { genel:r[4], musteri:r[5], ticari:r[6], operasyonel:r[7], bayi:r[8], kapsam:r[9] }
+}
+
+// Skor rengi: ≥100 yeşil, 90-100 sarı, <90 kırmızı
+export function scoreColor(v: number): string {
+  if (v >= 100) return '#10b981'
+  if (v >= 90)  return '#f59e0b'
+  return '#ef4444'
+}
+export function scoreBg(v: number): string {
+  if (v >= 100) return 'rgba(16,185,129,.15)'
+  if (v >= 90)  return 'rgba(245,158,11,.12)'
+  return 'rgba(239,68,68,.12)'
+}
+export function changePct(curr: number, prev: number): string {
+  if (!prev) return '—'
+  return ((curr-prev)/prev*100).toFixed(1)
+}
