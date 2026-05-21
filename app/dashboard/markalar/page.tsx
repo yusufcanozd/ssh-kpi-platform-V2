@@ -350,15 +350,7 @@ function KategoriBazliTabMarkalar() {
       <div className={styles.card}>
         <div className={styles.cardHd}>
           <h3>{KATS.find(k => k.key === selKat)?.label || 'Genel'} Skoru — Marka Karşılaştırması</h3>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            {KATS.map(k => (
-              <button key={k.key} onClick={() => setSelKat(k.key)}
-                style={{ padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: `1px solid ${selKat === k.key ? 'var(--blue)' : 'var(--bd)'}`, background: selKat === k.key ? 'rgba(59,130,246,.12)' : 'var(--surf2)', color: selKat === k.key ? 'var(--blue)' : 'var(--tx2)' }}>
-                {k.label}
-              </button>
-            ))}
-            <span className={styles.hint}>{filterLabel}{selCmpDonem ? ` vs ${selCmpDonem}` : ''}</span>
-          </div>
+          <span className={styles.hint}>{filterLabel}{selCmpDonem ? ` vs ${selCmpDonem}` : ''}</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <div style={{ minWidth: markalar.length * 52, height: 260 }}>
