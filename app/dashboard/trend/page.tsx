@@ -261,9 +261,16 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
     const dV = seriler.filter(s=>s.tip==='deger').flatMap(s=>getSeriVeri(s,aktifDonemler,bolge,yas)).filter(v=>v>0)
     const sV = seriler.filter(s=>s.tip==='skor').flatMap(s=>getSeriVeri(s,aktifDonemler,bolge,yas)).filter(v=>v>0)
     function bounds(vals: number[]) {
-      if (!vals.length) return { min:0, max:100 }
-      const mn=Math.min(...vals), mx=Math.max(...vals), pad=(mx-mn)*.35||mx*.2||10
-      return { min:Math.max(0,mn-pad), max:mx+pad }
+      if (!vals.length) return { min:0, max:100, stepSize: 20 }
+      const mn=Math.min(...vals), mx=Math.max(...vals)
+      const range = mx - mn || mx || 10
+      // Temiz step hesapla — 1, 2, 5, 10, 20, 50, 100... katları
+      const rawStep = range / 5
+      const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)))
+      const niceStep = [1,2,5,10].map(f => f * magnitude).find(s => s >= rawStep) ?? magnitude * 10
+      const niceMin = Math.floor(Math.max(0, mn - niceStep) / niceStep) * niceStep
+      const niceMax = Math.ceil((mx + niceStep) / niceStep) * niceStep
+      return { min: niceMin, max: niceMax, stepSize: niceStep }
     }
     const dB=bounds(dV), sB=bounds(sV)
     return {
@@ -281,10 +288,10 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
       },
       scales:{
         y:{ type:'linear' as const, position:'left' as const, min:dB.min, max:dB.max,
-          grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'#8496b0',font:{size:9}},
+          grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'#8496b0',font:{size:9}, stepSize: dB.stepSize},
           title:dualAxis?{display:true,text:'Değer',color:'#8496b0',font:{size:8}}:undefined },
         ...(dualAxis?{ y1:{ type:'linear' as const, position:'right' as const, min:sB.min, max:sB.max,
-          grid:{drawOnChartArea:false}, ticks:{color:'#10b981',font:{size:9}},
+          grid:{drawOnChartArea:false}, ticks:{color:'#10b981',font:{size:9}, stepSize: sB.stepSize},
           title:{display:true,text:'Skor',color:'#10b981',font:{size:8}} } }:{}),
         x:{ grid:{display:false}, ticks:{color:'#8496b0',font:{size:9},maxRotation:45,autoSkip:false} },
       },
