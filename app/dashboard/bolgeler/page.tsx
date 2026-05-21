@@ -76,6 +76,28 @@ const TABS = [
   ['markaKpi', 'Marka KPI'],
 ]
 
+function BolgeBarChart(selDonem: string, selCmpDonem: string, labels: string[], bazData: number[], cmpData: number[], maxVal: number, fmt: string, usePuan: boolean) {
+  const bgBaz = labels.map(function(_, i) { return i === 0 ? 'rgba(251,191,36,.15)' : 'rgba(59,130,246,.15)' })
+  const bdBaz = labels.map(function(_, i) { return i === 0 ? '#fbbf24' : '#3b82f6' })
+  const bgCmp = labels.map(function(_, i) { return i === 0 ? 'rgba(251,191,36,.5)' : 'rgba(59,130,246,.5)' })
+  const ds: any[] = [{label: selDonem || 'Baz', data: bazData, backgroundColor: bgBaz, borderColor: bdBaz, borderWidth: 2, borderRadius: 5}]
+  if (selCmpDonem) ds.push({label: selCmpDonem, data: cmpData, backgroundColor: bgCmp, borderColor: bdBaz, borderWidth: 1, borderRadius: 5})
+  return (
+    <Bar data={{ labels: labels, datasets: ds }} options={{
+      responsive: true, maintainAspectRatio: false,
+      plugins: {legend:{display:!!selCmpDonem, position:'top', labels:{color:'#8496b0', font:{size:9}, boxWidth:10}},
+        tooltip:{callbacks:{label:function(ctx) {
+          return ctx.dataset.label + ': ' + (usePuan ? ctx.parsed.y + ' puan' : fmtKpi(ctx.parsed.y as number, fmt))
+        }}}},
+      scales: {
+        y: {min:0, max:maxVal * 1.2, grid:{color:'rgba(255,255,255,.05)'},
+          ticks:{color:'#8496b0', font:{size:9}, callback:function(v) { return usePuan ? v + '' : fmtKpi(Number(v), fmt) }}},
+        x: {grid:{display:false}, ticks:{color:'#8496b0', font:{size:9}, maxRotation:30}}
+      }
+    }}/>
+  )
+}
+
 export default function BolgelerPage() {
   const { selSeg, selBolge, selYas, selDonem, selCmpDonem } = useDashboardCtx()
   const [selKpi,    setSelKpi]    = useState(3)
@@ -152,32 +174,7 @@ export default function BolgelerPage() {
   const barMarkaScoreBaz = markalar.slice(0, 20).map(function(m) { return m.bazKpiScores[selKpi] || 0 })
   const barMarkaScoreCmp = markalar.slice(0, 20).map(function(m) { return m.cmpKpiScores ? (m.cmpKpiScores[selKpi] || 0) : 0 })
 
-  function barChart(labels: string[], bazData: number[], cmpData: number[], maxVal: number, fmt: string, usePuan: boolean) {
-    const bgBaz = labels.map(function(_, i) { return i === 0 ? 'rgba(251,191,36,.15)' : 'rgba(59,130,246,.15)' })
-    const bdBaz = labels.map(function(_, i) { return i === 0 ? '#fbbf24' : '#3b82f6' })
-    const bgCmp = labels.map(function(_, i) { return i === 0 ? 'rgba(251,191,36,.5)' : 'rgba(59,130,246,.5)' })
-    const ds: any[] = [{label: selDonem || 'Baz', data: bazData, backgroundColor: bgBaz, borderColor: bdBaz, borderWidth: 2, borderRadius: 5}]
-    if (selCmpDonem) ds.push({label: selCmpDonem, data: cmpData, backgroundColor: bgCmp, borderColor: bdBaz, borderWidth: 1, borderRadius: 5})
-    return (
-      <Bar data={{
-        labels: labels,
-        datasets: ds
-      }} options={{
-        responsive: true, maintainAspectRatio: false,
-        plugins: {legend:{display:!!selCmpDonem, position:'top', labels:{color:'#8496b0', font:{size:9}, boxWidth:10}},
-          tooltip:{callbacks:{label:function(ctx) {
-            return ctx.dataset.label + ': ' + (usePuan ? ctx.parsed.y + ' puan' : fmtKpi(ctx.parsed.y as number, fmt))
-          }}}},
-        scales: {
-          y: {min:0, max:maxVal * 1.2, grid:{color:'rgba(255,255,255,.05)'},
-            ticks:{color:'#8496b0', font:{size:9}, callback:function(v) {
-              return usePuan ? v + '' : fmtKpi(Number(v), fmt)
-            }}},
-          x: {grid:{display:false}, ticks:{color:'#8496b0', font:{size:9}, maxRotation:30}}
-        }
-      }}/>
-    )
-  }
+// barChart dışarıda tanımlı — selDonem/selCmpDonem parametre olarak geliyor
 
 
   return (
@@ -300,7 +297,7 @@ export default function BolgelerPage() {
                 <span className={styles.hint}>Kategori tıklayarak degistir</span>
               </div>
               <div style={{height:220}}>
-                {barChart(['Tum TR'].concat(bolgeList), [trKatBaz].concat(barKatBaz), [trKatCmp].concat(barKatCmp), barKatMax, 'int', true)}
+                {BolgeBarChart(selDonem, selCmpDonem, ['Tum TR'].concat(bolgeList), [trKatBaz].concat(barKatBaz), [trKatCmp].concat(barKatCmp), barKatMax, 'int', true)}
               </div>
             </div>
           </div>
@@ -405,7 +402,7 @@ export default function BolgelerPage() {
                 <span className={styles.hint}>Kategori tıklayarak degistir</span>
               </div>
               <div style={{height:220}}>
-                {barChart(['Tum TR'].concat(bolgeList), [trKatBaz].concat(barKatBaz), [trKatCmp].concat(barKatCmp), barKatMax, 'int', true)}
+                {BolgeBarChart(selDonem, selCmpDonem, ['Tum TR'].concat(bolgeList), [trKatBaz].concat(barKatBaz), [trKatCmp].concat(barKatCmp), barKatMax, 'int', true)}
               </div>
             </div>
           </div>
@@ -474,7 +471,7 @@ export default function BolgelerPage() {
                 <h3>{meta.ad} — KPI Puan Karsilastirmasi</h3>
               </div>
               <div style={{height:220}}>
-                {barChart(['Tum TR'].concat(bolgeList), [trKpiScores[selKpi]].concat(barKpiScoreBaz), [trKpiScoresCmp ? trKpiScoresCmp[selKpi] : 0].concat(barKpiScoreCmp), barKpiScoreMax, 'int', true)}
+                {BolgeBarChart(selDonem, selCmpDonem, ['Tum TR'].concat(bolgeList), [trKpiScores[selKpi]].concat(barKpiScoreBaz), [trKpiScoresCmp ? trKpiScoresCmp[selKpi] : 0].concat(barKpiScoreCmp), barKpiScoreMax, 'int', true)}
               </div>
             </div>
           </div>
@@ -542,7 +539,7 @@ export default function BolgelerPage() {
                 <h3>{meta.ad} — KPI Puan Karsilastirmasi</h3>
               </div>
               <div style={{height:220}}>
-                {barChart(['Tum TR'].concat(bolgeList), [trKpiScores[selKpi]].concat(barKpiScoreBaz), [trKpiScoresCmp ? trKpiScoresCmp[selKpi] : 0].concat(barKpiScoreCmp), barKpiScoreMax, 'int', true)}
+                {BolgeBarChart(selDonem, selCmpDonem, ['Tum TR'].concat(bolgeList), [trKpiScores[selKpi]].concat(barKpiScoreBaz), [trKpiScoresCmp ? trKpiScoresCmp[selKpi] : 0].concat(barKpiScoreCmp), barKpiScoreMax, 'int', true)}
               </div>
             </div>
           </div>
@@ -615,7 +612,7 @@ export default function BolgelerPage() {
             <div className={styles.card}>
               <div className={styles.cardHd}><h3>{meta.ad}{unit ? ' (' + unit + ')' : ''} — Bolge Karsilastirmasi</h3></div>
               <div style={{height:220}}>
-                {barChart(['Tum TR'].concat(bolgeList), [trKpis[selKpi]].concat(barKpiBaz), [trKpisCmp ? trKpisCmp[selKpi] : 0].concat(barKpiCmp), barKpiMax, meta.fmt, false)}
+                {BolgeBarChart(selDonem, selCmpDonem, ['Tum TR'].concat(bolgeList), [trKpis[selKpi]].concat(barKpiBaz), [trKpisCmp ? trKpisCmp[selKpi] : 0].concat(barKpiCmp), barKpiMax, meta.fmt, false)}
               </div>
             </div>
           </div>
@@ -712,7 +709,7 @@ export default function BolgelerPage() {
                 <span className={styles.hint}>Kategori tıklayarak degistir</span>
               </div>
               <div style={{overflowX:'auto'}}><div style={{minWidth:markalar.slice(0,20).length*52, height:240}}>
-                {barChart(
+                {BolgeBarChart(selDonem, selCmpDonem, 
                   markalar.slice(0,20).map(function(m) { return m.marka }),
                   markalar.slice(0,20).map(function(m) {
                     const s = getScore(m.segment, selBolge, selYas, selDonem)
@@ -792,7 +789,7 @@ export default function BolgelerPage() {
             <div className={styles.card}>
               <div className={styles.cardHd}><h3>{meta.ad}{unit ? ' (' + unit + ')' : ''} — Marka Karsilastirmasi</h3></div>
               <div style={{overflowX:'auto'}}><div style={{minWidth:markalar.slice(0,20).length*52, height:240}}>
-                {barChart(markalar.slice(0,20).map(function(m) { return m.marka }),
+                {BolgeBarChart(selDonem, selCmpDonem, markalar.slice(0,20).map(function(m) { return m.marka }),
                   barMarkaBaz, barMarkaCmp, barMarkaMax, meta.fmt, false)}
               </div></div>
             </div>
