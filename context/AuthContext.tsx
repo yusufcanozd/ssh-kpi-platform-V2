@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Profile } from '@/types'
 
@@ -21,9 +22,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const supabaseRef = useRef(createClient())
-  const supabase = supabaseRef.current
+  const supabase    = supabaseRef.current
+  const router      = useRouter()
 
   useEffect(() => {
+    // Oturum kontrolü
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
         const { data } = await supabase
@@ -36,24 +39,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
     })
 
+    // Auth state değişikliklerini dinle
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_OUT') {
           setProfile(null)
-          // Next.js router yerine history.pushState — flash olmaz
-          if (typeof window !== 'undefined') {
-            window.history.pushState({}, '', '/login')
-            window.dispatchEvent(new PopStateEvent('popstate'))
-          }
+          router.replace('/login')
+        } else if (event === 'SIGNED_IN' && session?.user) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*, brands(id, code, name, segment)')
+            .eq('id', session.user.id)
+            .single()
+          setProfile(data as Profile | null)
         }
       }
     )
-    return () => subscription.unsubscribe()
+
+    // ── Sayfa kapatılınca / tab kapatılınca oturumu sonlandır ──
+    const handleUnload = () => {
+      // sessionStorage'a flag koy — tab kapandı
+      sessionStorage.setItem('tab_closing', '1')
+    }
+
+    const handleVisibilityChange = async () => {
+      // Sayfa gizlenince (tab kapatma veya başka sekmeye geçme)
+      // Tab kapatılıyorsa (beforeunload tetiklendiyse) çıkış yap
+      if (document.visibilityState === 'hidden' &&
+          sessionStorage.getItem('tab_closing') === '1') {
+        sessionStorage.removeItem('tab_closing')
+        await supabase.auth.signOut()
+      }
+    }
+
+    window.addEventListener('beforeunload', handleUnload)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      subscription.unsubscribe()
+      window.removeEventListener('beforeunload', handleUnload)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const logout = async () => {
-    await supabase.auth.signOut()
+    try {
+      await supabase.auth.signOut()
+      // router.replace SIGNED_OUT event'inde çalışacak
+    } catch (e) {
+      // Hata olursa direkt yönlendir
+      router.replace('/login')
+    }
   }
 
   const isAdmin      = ['superadmin', 'admin'].includes(profile?.role || '')
