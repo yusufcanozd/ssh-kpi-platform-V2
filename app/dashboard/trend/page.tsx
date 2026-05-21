@@ -32,7 +32,7 @@ function donemSira(d: string): number {
 const AYLIK_DONEMLER = DONEMLER.filter(d => donemTip(d) === 'ay').sort((a,b) => donemSira(a)-donemSira(b))
 const Q_DONEMLER     = DONEMLER.filter(d => donemTip(d) === 'Q').sort((a,b) => donemSira(a)-donemSira(b))
 const FY_DONEMLER    = DONEMLER.filter(d => donemTip(d) === 'FY').sort((a,b) => donemSira(a)-donemSira(b))
-const TUM_YILLAR     = [...new Set(DONEMLER.map(d => parseInt(d.split('-')[0])))].sort()
+const TUM_YILLAR     = Array.from(new Set(DONEMLER.map(d => parseInt(d.split('-')[0])))).sort()
 
 // ── Sabitler ──────────────────────────────────────────────────────────────────
 const KATEGORILER = [
