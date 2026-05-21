@@ -32,6 +32,7 @@ function donemSira(d: string): number {
 const AYLIK_DONEMLER = DONEMLER.filter(d => donemTip(d) === 'ay').sort((a,b) => donemSira(a)-donemSira(b))
 const Q_DONEMLER     = DONEMLER.filter(d => donemTip(d) === 'Q').sort((a,b) => donemSira(a)-donemSira(b))
 const FY_DONEMLER    = DONEMLER.filter(d => donemTip(d) === 'FY').sort((a,b) => donemSira(a)-donemSira(b))
+const TUM_YILLAR     = [...new Set(DONEMLER.map(d => parseInt(d.split('-')[0])))].sort()
 
 // ── Sabitler ──────────────────────────────────────────────────────────────────
 const KATEGORILER = [
@@ -47,23 +48,18 @@ const SERI_RENKLER = [
   '#ec4899','#84cc16','#f97316','#a78bfa','#34d399','#fb923c',
 ]
 
-type SeriTip = 'deger' | 'puan'
+type SeriTip = 'deger' | 'skor'
 
 interface Seri {
-  id: string
-  label: string
-  color: string
-  tip: SeriTip
-  segment: string
-  kpiIdx: number | null
-  katKey: string | null
+  id: string; label: string; color: string; tip: SeriTip
+  segment: string; kpiIdx: number | null; katKey: string | null
 }
 
-function makeSeriId() { return Math.random().toString(36).slice(2, 8) }
+function makeSeriId() { return Math.random().toString(36).slice(2,8) }
 
 function getSeriVeri(s: Seri, donemler: string[], bolge: string, yas: string): number[] {
   return donemler.map(d => {
-    if (s.tip === 'puan') {
+    if (s.tip === 'skor') {
       const sc = getScore(s.segment, bolge, yas, d)
       if (!sc) return 0
       if (s.katKey) return (sc as any)[s.katKey] ?? sc.genel
@@ -74,7 +70,7 @@ function getSeriVeri(s: Seri, donemler: string[], bolge: string, yas: string): n
   })
 }
 
-// ── Nokta üstü label plugin ───────────────────────────────────────────────────
+// ── Nokta etiketi plugin ──────────────────────────────────────────────────────
 const pointLabelPlugin = {
   id: 'pointLabel',
   afterDatasetsDraw(chart: any) {
@@ -84,14 +80,14 @@ const pointLabelPlugin = {
       if (meta.hidden) return
       meta.data.forEach((pt: any, pi: number) => {
         const raw = ds.data[pi]
-        if (raw == null || raw === 0) return
-        const label = ds._labelFmt ? ds._labelFmt(raw) : String(raw)
+        if (!raw) return
+        const lbl = ds._fmt ? ds._fmt(raw) : String(Math.round(raw))
         ctx.save()
         ctx.fillStyle = ds.borderColor
         ctx.font = '700 8px sans-serif'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'bottom'
-        ctx.fillText(label, pt.x, pt.y - 6)
+        ctx.fillText(lbl, pt.x, pt.y - 5)
         ctx.restore()
       })
     })
@@ -99,160 +95,249 @@ const pointLabelPlugin = {
 }
 ChartJS.register(pointLabelPlugin)
 
-// ── Ana Bileşen ───────────────────────────────────────────────────────────────
-export default function TrendPage() {
-  const { selBolge, selYas } = useDashboardCtx()
+// ── Dönem seçici bileşeni ─────────────────────────────────────────────────────
+type DonemPeriyot = 'ay' | 'Q' | 'FY'
 
-  // Filtre
-  type Periyot = 'aylik' | 'ceyreklik' | 'yillik'
-  const [periyot, setPeriyot] = useState<Periyot>('ceyreklik')
+interface DonemSec { yil: number; periyot: DonemPeriyot; alt: string }
 
-  const tumDonemler = periyot === 'aylik' ? AYLIK_DONEMLER
-    : periyot === 'ceyreklik' ? Q_DONEMLER : FY_DONEMLER
+function donemSecToStr(s: DonemSec): string {
+  if (s.periyot === 'FY') return `${s.yil}-FY`
+  if (s.periyot === 'Q')  return `${s.yil}-Q${s.alt}`
+  return `${s.yil}-${s.alt.padStart(2,'0')}`
+}
 
-  const [aralikBas, setAralikBas] = useState(() => tumDonemler[0] ?? '')
-  const [aralikBit, setAralikBit] = useState(() => tumDonemler[tumDonemler.length - 1] ?? '')
+function getAltSecenekler(periyot: DonemPeriyot): string[] {
+  if (periyot === 'FY') return ['FY']
+  if (periyot === 'Q')  return ['1','2','3','4']
+  return ['01','02','03','04','05','06','07','08','09','10','11','12']
+}
 
-  function handlePeriyot(p: Periyot) {
-    const liste = p === 'aylik' ? AYLIK_DONEMLER : p === 'ceyreklik' ? Q_DONEMLER : FY_DONEMLER
-    setPeriyot(p)
-    setAralikBas(liste[0] ?? '')
-    setAralikBit(liste[liste.length - 1] ?? '')
-  }
+function filtreDonemler(bas: DonemSec, bit: DonemSec): string[] {
+  const basStr = donemSecToStr(bas)
+  const bitStr = donemSecToStr(bit)
+  const basS = donemSira(basStr), bitS = donemSira(bitStr)
+  const liste = bas.periyot === 'ay' ? AYLIK_DONEMLER : bas.periyot === 'Q' ? Q_DONEMLER : FY_DONEMLER
+  return liste.filter(d => donemSira(d) >= Math.min(basS,bitS) && donemSira(d) <= Math.max(basS,bitS))
+}
 
-  const aktifDonemler = useMemo(() => {
-    const bas = tumDonemler.indexOf(aralikBas)
-    const bit = tumDonemler.indexOf(aralikBit)
-    if (bas < 0 || bit < 0) return tumDonemler
-    return tumDonemler.slice(Math.min(bas,bit), Math.max(bas,bit) + 1)
-  }, [tumDonemler, aralikBas, aralikBit])
+function DonemSecici({ value, onChange }: {
+  value: DonemSec
+  onChange: (v: DonemSec) => void
+}) {
+  const altlar = getAltSecenekler(value.periyot)
+  const altSecili = altlar.includes(value.alt) ? value.alt : altlar[0]
 
-  // Builder state — useRef ile stale closure sorunu yok
+  return (
+    <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+      {/* Yıl */}
+      <select value={value.yil}
+        onChange={e => onChange({ ...value, yil: parseInt(e.target.value) })}
+        style={selSt}>
+        {TUM_YILLAR.map(y => <option key={y} value={y}>{y}</option>)}
+      </select>
+      {/* Periyot */}
+      <div style={{ display:'flex', gap:2 }}>
+        {(['ay','Q','FY'] as DonemPeriyot[]).map(p => {
+          const disabled = p === 'ay' ? AYLIK_DONEMLER.length===0 : p === 'Q' ? Q_DONEMLER.length===0 : FY_DONEMLER.length===0
+          return (
+            <button key={p} disabled={disabled}
+              onClick={() => {
+                const newAlt = p==='FY' ? 'FY' : p==='Q' ? '1' : '01'
+                onChange({ ...value, periyot:p, alt:newAlt })
+              }}
+              style={{ padding:'3px 8px', borderRadius:4, fontSize:9, fontWeight:600, cursor:disabled?'not-allowed':'pointer',
+                border:`1px solid ${value.periyot===p?'var(--blue)':'var(--bd)'}`,
+                background:value.periyot===p?'rgba(59,130,246,.12)':'var(--surf)',
+                color:disabled?'var(--tx3)':value.periyot===p?'var(--blue)':'var(--tx2)',
+                opacity:disabled?.5:1 }}>
+              {p==='ay'?'Aylık':p==='Q'?'Çeyreklik':'Yıllık'}
+            </button>
+          )
+        })}
+      </div>
+      {/* Alt seçenek */}
+      <div style={{ display:'flex', gap:2, flexWrap:'wrap' }}>
+        {altlar.map(a => (
+          <button key={a} onClick={() => onChange({ ...value, alt:a })}
+            style={{ padding:'2px 6px', borderRadius:4, fontSize:9, cursor:'pointer',
+              border:`1px solid ${altSecili===a?'var(--blue)':'var(--bd)'}`,
+              background:altSecili===a?'rgba(59,130,246,.15)':'var(--surf3)',
+              color:altSecili===a?'var(--blue)':'var(--tx3)', fontWeight:altSecili===a?700:400 }}>
+            {value.periyot==='Q'?`Q${a}`:value.periyot==='FY'?'FY':a}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Builder state tipi ────────────────────────────────────────────────────────
+interface BuilderState {
+  segmentler: string[]   // seçili segmentler (birden fazla olabilir)
+  kategoriler: string[]  // seçili kategori keyler
+  kpiEklendi: boolean    // en az bir KPI sürüklendi mi
+  tip: SeriTip | null
+}
+
+// ── Tek grafik builder bileşeni ───────────────────────────────────────────────
+function GrafikBuilder({ idx, bolge, yas }: { idx: number; bolge: string; yas: string }) {
+  const ilkYil = TUM_YILLAR[0] ?? 2024
+  const sonYil = TUM_YILLAR[TUM_YILLAR.length-1] ?? 2024
+
+  const [bas, setBas] = useState<DonemSec>({ yil: ilkYil, periyot:'Q', alt:'1' })
+  const [bit, setBit] = useState<DonemSec>({ yil: sonYil, periyot:'Q', alt:'4' })
+
+  const aktifDonemler = useMemo(() => filtreDonemler(bas, bit), [bas, bit])
+
+  // Seriler
   const [seriler, setSeriler] = useState<Seri[]>([])
   const [dragOver, setDragOver] = useState(false)
-  const builderRef = useRef({ segment: '' as string, katKey: null as string|null, tip: null as SeriTip|null })
-  const [builderSnap, setBuilderSnap] = useState({ segment: '' as string, katKey: null as string|null, tip: null as SeriTip|null })
-  const dragPayload = useRef<string>('')
 
-  function updateBuilder(patch: Partial<typeof builderRef.current>) {
-    builderRef.current = { ...builderRef.current, ...patch }
-    setBuilderSnap({ ...builderRef.current })
+  // Builder ref (stale closure sorunu yok)
+  const bRef = useRef<BuilderState>({ segmentler:[], kategoriler:[], kpiEklendi:false, tip:null })
+  const [bSnap, setBSnap] = useState<BuilderState>({ segmentler:[], kategoriler:[], kpiEklendi:false, tip:null })
+  const dragPayload = useRef('')
+
+  function updateB(patch: Partial<BuilderState>) {
+    bRef.current = { ...bRef.current, ...patch }
+    setBSnap({ ...bRef.current })
   }
 
-  // KPI listesi — katKey filtreli
+  // KPI listesi — tek kategori seçiliyse o kategorinin KPI'ları
   const filteredKpis = useMemo(() => {
-    if (!builderSnap.katKey) return KPI_META.map((k,i) => ({ ...k, i }))
-    const katLabel = KATEGORILER.find(k => k.key === builderSnap.katKey)?.label
-    return KPI_META.map((k,i) => ({ ...k, i })).filter(k => k.kat === katLabel)
-  }, [builderSnap.katKey])
+    if (bSnap.kategoriler.length === 1) {
+      const katLabel = KATEGORILER.find(k => k.key === bSnap.kategoriler[0])?.label
+      return KPI_META.map((k,i) => ({...k,i})).filter(k => k.kat === katLabel)
+    }
+    if (bSnap.kategoriler.length === 0) return KPI_META.map((k,i) => ({...k,i}))
+    return [] // birden fazla kategori → KPI eklenemez
+  }, [bSnap.kategoriler])
+
+  const kpiEklenebilir = bSnap.kategoriler.length <= 1
+  const degerAktif = bSnap.kpiEklendi  // en az bir KPI eklendiyse Değer aktif
+  const skorAktif  = true              // Skor her zaman eklenebilir
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
     setDragOver(false)
     let payload: any
     try { payload = JSON.parse(dragPayload.current) } catch { return }
-    const b = builderRef.current
+    const b = bRef.current
 
     if (payload.grup === 'segment') {
-      updateBuilder({ segment: payload.seg })
+      const yeni = b.segmentler.includes(payload.seg)
+        ? b.segmentler.filter(s => s !== payload.seg)
+        : [...b.segmentler, payload.seg]
+      updateB({ segmentler: yeni })
       return
     }
+
     if (payload.grup === 'kategori') {
-      updateBuilder({ katKey: payload.katKey })
+      const yeni = b.kategoriler.includes(payload.katKey)
+        ? b.kategoriler.filter(k => k !== payload.katKey)
+        : [...b.kategoriler, payload.katKey]
+      updateB({ kategoriler: yeni, kpiEklendi: false })
       return
     }
-    if (payload.grup === 'puan') {
-      updateBuilder({ tip: 'puan' })
-      // Puan sürüklenince direkt seri oluştur
-      const seg = b.segment
-      const color = SERI_RENKLER[seriler.length % SERI_RENKLER.length]
-      const segLabel = seg || 'Tüm TR'
-      const katLabel = b.katKey ? (KATEGORILER.find(k=>k.key===b.katKey)?.label ?? 'Genel') : 'Genel'
-      const yeni: Seri = {
-        id: makeSeriId(), label: `${segLabel} · ${katLabel} Puanı`,
-        color, tip: 'puan', segment: seg, kpiIdx: null, katKey: b.katKey,
-      }
-      setSeriler(prev => [...prev, yeni])
+
+    if (payload.grup === 'skor') {
+      updateB({ tip: 'skor' })
+      // Her segment için skor serisi oluştur
+      const segs = b.segmentler.length ? b.segmentler : ['']
+      const kats = b.kategoriler.length ? b.kategoriler : [null]
+      const yeniSeriler: Seri[] = []
+      segs.forEach(seg => {
+        kats.forEach(katKey => {
+          const katLabel = katKey ? (KATEGORILER.find(k=>k.key===katKey)?.label ?? 'Genel') : 'Genel'
+          const segLabel = seg || 'Tüm TR'
+          const color = SERI_RENKLER[(seriler.length + yeniSeriler.length) % SERI_RENKLER.length]
+          yeniSeriler.push({ id:makeSeriId(), label:`${segLabel} · ${katLabel} Skoru`, color, tip:'skor', segment:seg, kpiIdx:null, katKey })
+        })
+      })
+      setSeriler(prev => [...prev, ...yeniSeriler])
       return
     }
+
     if (payload.grup === 'deger') {
-      updateBuilder({ tip: 'deger' })
+      if (!b.kpiEklendi) return // Değer ancak KPI eklendikten sonra
+      updateB({ tip: 'deger' })
       return
     }
+
     if (payload.grup === 'kpi') {
-      // KPI için tip zorunlu
-      const tip = b.tip
-      if (!tip) {
-        alert('Önce "Değer" veya "Puan" grubunu grafiğe sürükleyin!')
-        return
-      }
-      if (tip !== 'deger') {
-        alert('KPI yalnızca "Değer" tipiyle kullanılır. "Puan" için KPI yerine Puan grubunu sürükleyin.')
-        return
-      }
-      const seg = b.segment
-      const color = SERI_RENKLER[seriler.length % SERI_RENKLER.length]
-      const segLabel = seg || 'Tüm TR'
-      const yeni: Seri = {
-        id: makeSeriId(), label: `${segLabel} · ${payload.label}`,
-        color, tip: 'deger', segment: seg, kpiIdx: payload.kpiIdx, katKey: null,
-      }
-      setSeriler(prev => [...prev, yeni])
+      if (!kpiEklenebilir) return
+      const segs = b.segmentler.length ? b.segmentler : ['']
+      const yeniSeriler: Seri[] = []
+      segs.forEach(seg => {
+        const segLabel = seg || 'Tüm TR'
+        const color = SERI_RENKLER[(seriler.length + yeniSeriler.length) % SERI_RENKLER.length]
+        yeniSeriler.push({ id:makeSeriId(), label:`${segLabel} · ${payload.label}`, color, tip:'deger', segment:seg, kpiIdx:payload.kpiIdx, katKey:null })
+      })
+      setSeriler(prev => [...prev, ...yeniSeriler])
+      updateB({ kpiEklendi: true })
       return
     }
   }
 
-  function removeSeri(id: string) {
-    setSeriler(prev => prev.filter(s => s.id !== id))
-  }
+  function removeSeri(id: string) { setSeriler(prev => prev.filter(s => s.id !== id)) }
 
-  // Chart verisi
-  const chartData = useMemo(() => {
-    return {
-      labels: aktifDonemler,
-      datasets: seriler.map(s => {
-        const veri = getSeriVeri(s, aktifDonemler, selBolge, selYas)
-        const fmt = s.kpiIdx !== null ? KPI_META[s.kpiIdx].fmt : 'int'
-        return {
-          label: s.label,
-          data: veri,
-          borderColor: s.color,
-          backgroundColor: s.color + '20',
-          borderWidth: 2.5,
-          pointRadius: 5,
-          pointHoverRadius: 7,
-          pointBackgroundColor: s.color,
-          pointBorderColor: '#fff',
-          pointBorderWidth: 1.5,
-          fill: false,
-          tension: 0.3,
-          // custom prop for label plugin
-          _labelFmt: (v: number) => s.tip === 'puan' ? `${Math.round(v)}` : fmtKpi(v, fmt),
-        }
-      }),
-    }
-  }, [seriler, aktifDonemler, selBolge, selYas])
+  // Chart data — iki eksen: deger=y, skor=y1
+  const hasDeger = seriler.some(s => s.tip === 'deger')
+  const hasSkor  = seriler.some(s => s.tip === 'skor')
+  const dualAxis = hasDeger && hasSkor
 
-  // Y eksen min/max — %25 padding
+  const chartData = useMemo(() => ({
+    labels: aktifDonemler,
+    datasets: seriler.map(s => {
+      const veri = getSeriVeri(s, aktifDonemler, bolge, yas)
+      const fmt = s.kpiIdx !== null ? KPI_META[s.kpiIdx].fmt : 'int'
+      return {
+        label: s.label,
+        data: veri,
+        borderColor: s.color,
+        backgroundColor: s.color + '18',
+        borderWidth: 2.5,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: s.color,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 1.5,
+        fill: false,
+        tension: 0.3,
+        yAxisID: dualAxis && s.tip === 'skor' ? 'y1' : 'y',
+        _fmt: (v: number) => s.tip === 'skor' ? `${Math.round(v)}` : fmtKpi(v, fmt),
+      }
+    }),
+  }), [seriler, aktifDonemler, bolge, yas, dualAxis])
+
   const chartOptions = useMemo(() => {
-    const allVals = chartData.datasets.flatMap(ds => ds.data as number[]).filter(v => v > 0)
-    const minV = allVals.length ? Math.min(...allVals) : 0
-    const maxV = allVals.length ? Math.max(...allVals) : 100
-    const pad  = (maxV - minV) * 0.35 || maxV * 0.2 || 10
+    const degerVals = seriler.filter(s=>s.tip==='deger').flatMap(s => getSeriVeri(s,aktifDonemler,bolge,yas)).filter(v=>v>0)
+    const skorVals  = seriler.filter(s=>s.tip==='skor').flatMap(s => getSeriVeri(s,aktifDonemler,bolge,yas)).filter(v=>v>0)
+
+    function axisBounds(vals: number[]) {
+      if (!vals.length) return { min: 0, max: 100 }
+      const mn = Math.min(...vals), mx = Math.max(...vals)
+      const pad = (mx - mn) * 0.35 || mx * 0.2 || 10
+      return { min: Math.max(0, mn - pad), max: mx + pad }
+    }
+
+    const dB = axisBounds(degerVals)
+    const sB = axisBounds(skorVals)
+
     return {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: 'index' as const, intersect: false },
       plugins: {
-        legend: { display: true, position: 'top' as const, labels: { color: '#8496b0', font: { size: 9 }, boxWidth: 12, padding: 10 } },
+        legend: { display:true, position:'top' as const, labels:{ color:'#8496b0', font:{size:9}, boxWidth:12, padding:10 } },
         tooltip: {
           callbacks: {
             label: (ctx: any) => {
               const s = seriler[ctx.datasetIndex]
               if (!s) return ''
               const v = ctx.parsed.y
-              if (s.tip === 'puan') return `${s.label}: ${Math.round(v)} puan`
-              if (s.kpiIdx !== null) return `${s.label}: ${fmtKpi(v, KPI_META[s.kpiIdx].fmt)}`
+              if (s.tip==='skor') return `${s.label}: ${Math.round(v)} puan`
+              if (s.kpiIdx!==null) return `${s.label}: ${fmtKpi(v, KPI_META[s.kpiIdx].fmt)}`
               return `${s.label}: ${v}`
             },
           },
@@ -260,251 +345,251 @@ export default function TrendPage() {
       },
       scales: {
         y: {
-          min: Math.max(0, minV - pad),
-          max: maxV + pad,
-          grid: { color: 'rgba(255,255,255,.05)' },
-          ticks: { color: '#8496b0', font: { size: 9 } },
+          type: 'linear' as const, position: 'left' as const,
+          min: dB.min, max: dB.max,
+          grid: { color:'rgba(255,255,255,.05)' },
+          ticks: { color:'#8496b0', font:{size:9} },
+          title: dualAxis ? { display:true, text:'Değer', color:'#8496b0', font:{size:8} } : undefined,
         },
+        ...(dualAxis ? {
+          y1: {
+            type: 'linear' as const, position: 'right' as const,
+            min: sB.min, max: sB.max,
+            grid: { drawOnChartArea: false },
+            ticks: { color:'#10b981', font:{size:9} },
+            title: { display:true, text:'Skor', color:'#10b981', font:{size:8} },
+          }
+        } : {}),
         x: {
-          grid: { display: false },
-          ticks: { color: '#8496b0', font: { size: 9 }, maxRotation: 45, autoSkip: false },
+          grid: { display:false },
+          ticks: { color:'#8496b0', font:{size:9}, maxRotation:45, autoSkip:false },
         },
       },
     }
-  }, [chartData, seriler])
+  }, [chartData, seriler, aktifDonemler, bolge, yas, dualAxis])
 
-  const periyotler = [
-    { key: 'aylik' as Periyot,     label: 'Aylık',     disabled: AYLIK_DONEMLER.length === 0 },
-    { key: 'ceyreklik' as Periyot, label: 'Çeyreklik', disabled: Q_DONEMLER.length === 0 },
-    { key: 'yillik' as Periyot,    label: 'Yıllık',    disabled: FY_DONEMLER.length === 0 },
-  ]
+  return (
+    <div style={{ background:'var(--surf2)', border:'1px solid var(--bd)', borderRadius:12, padding:14, marginBottom:16 }}>
+      <div style={{ fontSize:11, fontWeight:700, color:'var(--tx3)', marginBottom:12 }}>
+        Grafik {idx + 1}
+      </div>
 
+      {/* Dönem filtresi */}
+      <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:8, padding:'10px 14px', marginBottom:12 }}>
+        <div style={{ fontSize:9, fontWeight:700, color:'var(--tx3)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8 }}>Dönem Aralığı</div>
+        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+          <DonemSecici value={bas} onChange={v => { setBas(v); if (donemSira(donemSecToStr(v)) > donemSira(donemSecToStr(bit))) setBit({...v}) }} />
+          <span style={{ color:'var(--tx3)', fontSize:16, fontWeight:300 }}>→</span>
+          <DonemSecici value={bit} onChange={v => { setBit(v); if (donemSira(donemSecToStr(v)) < donemSira(donemSecToStr(bas))) setBas({...v}) }} />
+          <span style={{ fontSize:10, color:'var(--tx3)', whiteSpace:'nowrap' }}>{aktifDonemler.length} dönem</span>
+        </div>
+
+        {/* Dönem bandı — dar yükseklik */}
+        {aktifDonemler.length > 0 && (
+          <div style={{ display:'flex', gap:2, flexWrap:'wrap', marginTop:8 }}>
+            {aktifDonemler.map(d => (
+              <span key={d} style={{ padding:'1px 5px', borderRadius:3, fontSize:8,
+                background:'rgba(59,130,246,.12)', color:'var(--blue)',
+                border:'1px solid rgba(59,130,246,.25)', lineHeight:1.4 }}>
+                {d}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Builder + Grafik */}
+      <div style={{ display:'grid', gridTemplateColumns:'230px 1fr', gap:12, alignItems:'start' }}>
+
+        {/* Sol panel */}
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+
+          <PanelGrup title="Kategori" icon="🏷"
+            hint={bSnap.kategoriler.length > 1 ? 'KPI eklenemez (birden fazla kat.)' : undefined}>
+            {KATEGORILER.map(k => {
+              const secili = bSnap.kategoriler.includes(k.key)
+              return (
+                <DragChip key={k.key} label={k.label} color={k.color} active={secili}
+                  onDragStart={() => { dragPayload.current = JSON.stringify({ grup:'kategori', katKey:k.key }) }} />
+              )
+            })}
+          </PanelGrup>
+
+          <PanelGrup title="Segment" icon="🔷">
+            {['', ...SEGMENTLER].map(s => {
+              const secili = bSnap.segmentler.includes(s)
+              return (
+                <DragChip key={s||'tr'} label={s||'Tüm TR'} color={SEGMENT_HEX[s]||'#8496b0'} active={secili}
+                  onDragStart={() => { dragPayload.current = JSON.stringify({ grup:'segment', seg:s }) }} />
+              )
+            })}
+          </PanelGrup>
+
+          <PanelGrup title="KPI" icon="📊"
+            hint={bSnap.kategoriler.length > 1 ? '⛔ Birden fazla kategori seçili' :
+              bSnap.kategoriler.length === 1 ? `Filtre: ${KATEGORILER.find(k=>k.key===bSnap.kategoriler[0])?.label}` :
+              'Kategori seçince filtreler'}>
+            <div style={{ maxHeight:180, overflowY:'auto', display:'flex', flexDirection:'column', gap:3 }}>
+              {bSnap.kategoriler.length > 1 ? (
+                <div style={{ fontSize:9, color:'var(--tx3)', padding:'4px 2px', fontStyle:'italic' }}>
+                  Birden fazla kategori seçili — KPI eklenemez
+                </div>
+              ) : filteredKpis.map(k => (
+                <DragChip key={k.i} label={k.ad} color={CAT_COLORS[k.kat]||'#8496b0'}
+                  onDragStart={() => { dragPayload.current = JSON.stringify({ grup:'kpi', kpiIdx:k.i, label:k.ad }) }} />
+              ))}
+            </div>
+          </PanelGrup>
+
+          <PanelGrup title="Tip" icon="📈">
+            <DragChip label="Değer" color="#3b82f6"
+              disabled={!degerAktif}
+              hint={!degerAktif ? 'Önce KPI ekle' : undefined}
+              onDragStart={() => { if (degerAktif) dragPayload.current = JSON.stringify({ grup:'deger' }) }} />
+            <DragChip label="Skor" color="#10b981"
+              onDragStart={() => { dragPayload.current = JSON.stringify({ grup:'skor' }) }} />
+          </PanelGrup>
+
+          {/* Parametre göstergesi */}
+          <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:8, padding:'9px 11px' }}>
+            <div style={{ fontSize:8, fontWeight:700, color:'var(--tx3)', marginBottom:7, textTransform:'uppercase', letterSpacing:'.06em' }}>Seçili Parametreler</div>
+            {[
+              { label:'Segment', value: bSnap.segmentler.length ? bSnap.segmentler.map(s=>s||'Tüm TR').join(', ') : '—', color:'#8496b0' },
+              { label:'Kategori', value: bSnap.kategoriler.length ? bSnap.kategoriler.map(k=>KATEGORILER.find(x=>x.key===k)?.label??k).join(', ') : '—', color:'#8496b0' },
+              { label:'Tip', value: bSnap.tip==='deger'?'Değer':bSnap.tip==='skor'?'Skor':'—', color: bSnap.tip==='deger'?'#3b82f6':bSnap.tip==='skor'?'#10b981':'var(--tx3)' },
+            ].map(r => (
+              <div key={r.label} style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+                <span style={{ fontSize:9, color:'var(--tx3)' }}>{r.label}</span>
+                <span style={{ fontSize:9, fontWeight:700, color:r.color, maxWidth:140, textAlign:'right', lineHeight:1.3 }}>{r.value}</span>
+              </div>
+            ))}
+            {!degerAktif && (
+              <div style={{ fontSize:8, color:'#f59e0b', fontWeight:600, marginTop:5 }}>⚠ Değer için önce KPI sürükle</div>
+            )}
+            <button onClick={() => { bRef.current={segmentler:[],kategoriler:[],kpiEklendi:false,tip:null}; setBSnap({segmentler:[],kategoriler:[],kpiEklendi:false,tip:null}); setSeriler([]) }}
+              style={{ marginTop:8, width:'100%', padding:'3px 0', borderRadius:4, fontSize:9, cursor:'pointer', border:'1px solid var(--bd)', background:'var(--surf2)', color:'var(--tx3)' }}>
+              Sıfırla
+            </button>
+          </div>
+
+          {/* Nasıl */}
+          <div style={{ background:'var(--surf)', border:'1px dashed var(--bd)', borderRadius:8, padding:'9px 11px', fontSize:8, color:'var(--tx3)', lineHeight:1.9 }}>
+            <div style={{ fontWeight:700, color:'var(--tx2)', marginBottom:3, fontSize:9 }}>Nasıl Kullanılır?</div>
+            <div>1. <b>Segment(ler)</b> → sürükle</div>
+            <div>2. <b>Kategori(ler)</b> → sürükle <em>(opsiyonel)</em></div>
+            <div>3a. <b>KPI</b> → sürükle, sonra <b>Değer</b> ekle</div>
+            <div>3b. <b>Skor</b> → direkt sürükle</div>
+            <div style={{ marginTop:3 }}>Seriyi kaldırmak → <b>×</b> tıkla</div>
+          </div>
+        </div>
+
+        {/* Grafik alanı */}
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          <div
+            onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            style={{ background:'var(--surf)', border:`2px ${dragOver?'solid var(--blue)':'dashed var(--bd)'}`,
+              borderRadius:12, padding:14, minHeight:320, position:'relative', transition:'border-color .15s' }}>
+
+            {seriler.length === 0 ? (
+              <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column',
+                alignItems:'center', justifyContent:'center', gap:8,
+                color:dragOver?'var(--blue)':'var(--tx3)' }}>
+                <div style={{ fontSize:36 }}>📈</div>
+                <div style={{ fontSize:13, fontWeight:600 }}>{dragOver?'Bırak!':'Buraya sürükle & bırak'}</div>
+                <div style={{ fontSize:10 }}>Segment → KPI/Skor sürükle</div>
+              </div>
+            ) : (
+              <div style={{ height:320 }}>
+                <Line data={chartData} options={chartOptions} />
+              </div>
+            )}
+
+            {dragOver && seriler.length > 0 && (
+              <div style={{ position:'absolute', inset:0, background:'rgba(59,130,246,.06)',
+                border:'2px solid var(--blue)', borderRadius:12, display:'flex',
+                alignItems:'center', justifyContent:'center', fontSize:14,
+                fontWeight:700, color:'var(--blue)', pointerEvents:'none' }}>
+                + Seri Ekle
+              </div>
+            )}
+          </div>
+
+          {/* Seri listesi */}
+          {seriler.length > 0 && (
+            <div style={{ background:'var(--surf2)', border:'1px solid var(--bd)', borderRadius:8, padding:'10px 12px' }}>
+              <div style={{ fontSize:10, fontWeight:700, color:'var(--tx3)', marginBottom:7 }}>Aktif Seriler ({seriler.length})</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                {seriler.map(s => (
+                  <div key={s.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 8px',
+                    borderRadius:6, background:'var(--surf)', border:`1px solid ${s.color}44` }}>
+                    <div style={{ width:9, height:9, borderRadius:2, background:s.color, flexShrink:0 }} />
+                    <span style={{ fontSize:10, color:'var(--tx2)', flex:1 }}>{s.label}</span>
+                    <span style={{ fontSize:8, padding:'1px 5px', borderRadius:10, fontWeight:600,
+                      background:s.tip==='skor'?'rgba(16,185,129,.15)':'rgba(59,130,246,.12)',
+                      color:s.tip==='skor'?'#10b981':'#3b82f6' }}>
+                      {s.tip==='skor'?'Skor':'Değer'}
+                    </span>
+                    <button onClick={() => removeSeri(s.id)}
+                      style={{ background:'none', border:'none', cursor:'pointer', color:'#f87171', fontSize:15, lineHeight:1 }}>×</button>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setSeriler([])}
+                style={{ marginTop:8, padding:'3px 0', borderRadius:6, fontSize:9, fontWeight:600,
+                  cursor:'pointer', border:'1px solid var(--bd)', background:'var(--surf)', color:'var(--tx3)', width:'100%' }}>
+                Tümünü Temizle
+              </button>
+            </div>
+          )}
+
+          {/* Dönem tablosu */}
+          {seriler.length > 0 && aktifDonemler.length > 0 && (
+            <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:8, overflow:'hidden' }}>
+              <div style={{ overflowX:'auto', maxHeight:220, overflowY:'auto' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:10 }}>
+                  <thead>
+                    <tr style={{ background:'var(--surf2)', position:'sticky', top:0, zIndex:2 }}>
+                      <th style={thSt}>Dönem</th>
+                      {seriler.map(s => <th key={s.id} style={{ ...thSt, color:s.color }}>{s.label}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {aktifDonemler.map(d => (
+                      <tr key={d} style={{ borderBottom:'1px solid var(--bd)' }}>
+                        <td style={{ ...tdSt, fontFamily:'var(--font-dm-mono)', color:'var(--tx2)', fontWeight:600 }}>{d}</td>
+                        {seriler.map(s => {
+                          const v = getSeriVeri(s,[d],bolge,yas)[0]
+                          const fmt = s.kpiIdx !== null ? KPI_META[s.kpiIdx].fmt : 'int'
+                          return (
+                            <td key={s.id} style={{ ...tdSt, fontFamily:'var(--font-dm-mono)', color:s.color, fontWeight:600 }}>
+                              {s.tip==='skor' ? `${Math.round(v)} puan` : fmtKpi(v, fmt)}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Ana Sayfa ─────────────────────────────────────────────────────────────────
+export default function TrendPage() {
+  const { selBolge, selYas } = useDashboardCtx()
   return (
     <div className={styles.wrap}>
       <Topbar title="Dönemsel Trend" subtitle="Kendi trend grafiğini oluştur" />
       <div className={styles.content}>
-
-        {/* ── Filtre ── */}
-        <div style={{ background:'var(--surf2)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px', marginBottom:14 }}>
-          <div style={{ display:'flex', gap:24, alignItems:'flex-start', flexWrap:'wrap' }}>
-
-            <div>
-              <div style={labelSt}>Periyot</div>
-              <div style={{ display:'flex', gap:6 }}>
-                {periyotler.map(p => (
-                  <button key={p.key} onClick={() => !p.disabled && handlePeriyot(p.key)} disabled={p.disabled}
-                    style={{ padding:'5px 14px', borderRadius:20, fontSize:11, fontWeight:600, cursor:p.disabled?'not-allowed':'pointer',
-                      border:`1px solid ${periyot===p.key?'var(--blue)':'var(--bd)'}`,
-                      background:periyot===p.key?'rgba(59,130,246,.12)':'var(--surf)',
-                      color:p.disabled?'var(--tx3)':periyot===p.key?'var(--blue)':'var(--tx2)',
-                      opacity:p.disabled?.5:1 }}>
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ flex:1, minWidth:240 }}>
-              <div style={labelSt}>Dönem Aralığı</div>
-              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                <select value={aralikBas} onChange={e=>setAralikBas(e.target.value)} style={selSt}>
-                  {tumDonemler.map(d=><option key={d} value={d}>{d}</option>)}
-                </select>
-                <span style={{ color:'var(--tx3)', fontSize:12 }}>→</span>
-                <select value={aralikBit} onChange={e=>setAralikBit(e.target.value)} style={selSt}>
-                  {tumDonemler.map(d=><option key={d} value={d}>{d}</option>)}
-                </select>
-                <span style={{ fontSize:10, color:'var(--tx3)' }}>{aktifDonemler.length} dönem</span>
-              </div>
-              <div style={{ display:'flex', gap:3, flexWrap:'wrap', marginTop:8 }}>
-                {tumDonemler.map(d => {
-                  const inRange = aktifDonemler.includes(d)
-                  const isEdge  = d===aralikBas || d===aralikBit
-                  return (
-                    <button key={d} onClick={() => {
-                      const s = donemSira(aralikBas), e2 = donemSira(aralikBit), t = donemSira(d)
-                      if (!aralikBas) { setAralikBas(d); setAralikBit(d) }
-                      else if (t < s) setAralikBas(d)
-                      else setAralikBit(d)
-                    }}
-                      style={{ padding:'2px 7px', borderRadius:4, fontSize:9, cursor:'pointer',
-                        background:inRange?'rgba(59,130,246,.15)':'var(--surf3)',
-                        color:inRange?'var(--blue)':'var(--tx3)',
-                        border:`1px solid ${isEdge?'var(--blue)':inRange?'rgba(59,130,246,.3)':'var(--bd)'}`,
-                        fontWeight:isEdge?700:400 }}>
-                      {d}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Builder ── */}
-        <div style={{ display:'grid', gridTemplateColumns:'250px 1fr', gap:12, alignItems:'start' }}>
-
-          {/* Sol panel */}
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-
-            <PanelGrup title="Kategori" icon="🏷">
-              {KATEGORILER.map(k => (
-                <DragChip key={k.key} label={k.label} color={k.color}
-                  onDragStart={() => { dragPayload.current = JSON.stringify({ grup:'kategori', katKey:k.key }) }} />
-              ))}
-            </PanelGrup>
-
-            <PanelGrup title="Segment" icon="🔷">
-              {['', ...SEGMENTLER].map(s => (
-                <DragChip key={s||'tr'} label={s||'Tüm TR'} color={SEGMENT_HEX[s]||'#8496b0'}
-                  onDragStart={() => { dragPayload.current = JSON.stringify({ grup:'segment', seg:s }) }} />
-              ))}
-            </PanelGrup>
-
-            <PanelGrup title="KPI" icon="📊"
-              hint={builderSnap.katKey ? `Filtre: ${KATEGORILER.find(k=>k.key===builderSnap.katKey)?.label}` : 'Kategori seçince filtreler'}>
-              <div style={{ maxHeight:200, overflowY:'auto', display:'flex', flexDirection:'column', gap:3 }}>
-                {filteredKpis.map(k => (
-                  <DragChip key={k.i} label={k.ad} color={CAT_COLORS[k.kat]||'#8496b0'}
-                    onDragStart={() => { dragPayload.current = JSON.stringify({ grup:'kpi', kpiIdx:k.i, label:k.ad }) }} />
-                ))}
-              </div>
-            </PanelGrup>
-
-            <PanelGrup title="Tip" icon="📈">
-              <DragChip label="Değer" color="#3b82f6"
-                onDragStart={() => { dragPayload.current = JSON.stringify({ grup:'deger' }) }} />
-              <DragChip label="Puan" color="#10b981"
-                onDragStart={() => { dragPayload.current = JSON.stringify({ grup:'puan' }) }} />
-            </PanelGrup>
-
-            {/* Parametre göstergesi */}
-            <div style={{ background:'var(--surf2)', border:'1px solid var(--bd)', borderRadius:8, padding:'10px 12px' }}>
-              <div style={{ fontSize:9, fontWeight:700, color:'var(--tx3)', marginBottom:8, textTransform:'uppercase', letterSpacing:'.06em' }}>Seçili Parametreler</div>
-              {[
-                { label:'Segment', value: builderSnap.segment!==null ? (builderSnap.segment||'Tüm TR') : '—', color: SEGMENT_HEX[builderSnap.segment]||'#8496b0' },
-                { label:'Kategori', value: builderSnap.katKey ? (KATEGORILER.find(k=>k.key===builderSnap.katKey)?.label??'—') : '—', color: KATEGORILER.find(k=>k.key===builderSnap.katKey)?.color??'var(--tx3)' },
-                { label:'Tip', value: builderSnap.tip==='deger'?'Değer':builderSnap.tip==='puan'?'Puan':'—', color: builderSnap.tip==='deger'?'#3b82f6':builderSnap.tip==='puan'?'#10b981':'var(--tx3)' },
-              ].map(r => (
-                <div key={r.label} style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                  <span style={{ fontSize:9, color:'var(--tx3)' }}>{r.label}</span>
-                  <span style={{ fontSize:9, fontWeight:700, color:r.color }}>{r.value}</span>
-                </div>
-              ))}
-              {!builderSnap.tip && (
-                <div style={{ fontSize:8, color:'#f59e0b', fontWeight:600, marginTop:4 }}>⚠ KPI için önce Değer veya Puan sürükle</div>
-              )}
-              <button onClick={() => { builderRef.current={segment:'',katKey:null,tip:null}; setBuilderSnap({segment:'',katKey:null,tip:null}) }}
-                style={{ marginTop:8, width:'100%', padding:'3px 0', borderRadius:4, fontSize:9, cursor:'pointer', border:'1px solid var(--bd)', background:'var(--surf)', color:'var(--tx3)' }}>
-                Sıfırla
-              </button>
-            </div>
-
-            {/* Nasıl */}
-            <div style={{ background:'var(--surf2)', border:'1px dashed var(--bd)', borderRadius:8, padding:'10px 12px', fontSize:9, color:'var(--tx3)', lineHeight:1.8 }}>
-              <div style={{ fontWeight:700, color:'var(--tx2)', marginBottom:4 }}>Nasıl Kullanılır?</div>
-              <div>1. <b>Segment</b> → grafiğe sürükle</div>
-              <div>2. <b>Kategori</b> → grafiğe sürükle <em>(KPI filtreler)</em></div>
-              <div>3a. <b>Değer</b> → grafiğe sürükle, sonra <b>KPI</b> ekle</div>
-              <div>3b. <b>Puan</b> → grafiğe sürükle (direkt seri oluşur)</div>
-              <div style={{ marginTop:4 }}>Seriyi kaldırmak için <b>×</b> tıkla</div>
-            </div>
-          </div>
-
-          {/* Sağ — grafik */}
-          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-            <div
-              onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              style={{ background:'var(--surf)', border:`2px ${dragOver?'solid var(--blue)':'dashed var(--bd)'}`,
-                borderRadius:12, padding:16, minHeight:360, position:'relative', transition:'border-color .15s' }}>
-
-              {seriler.length === 0 ? (
-                <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column',
-                  alignItems:'center', justifyContent:'center', gap:8,
-                  color:dragOver?'var(--blue)':'var(--tx3)' }}>
-                  <div style={{ fontSize:40 }}>📈</div>
-                  <div style={{ fontSize:13, fontWeight:600 }}>{dragOver?'Bırak!':'Buraya sürükle & bırak'}</div>
-                  <div style={{ fontSize:10 }}>Önce Segment, sonra Değer+KPI veya Puan sürükle</div>
-                </div>
-              ) : (
-                <div style={{ height:360 }}>
-                  <Line data={chartData} options={chartOptions} />
-                </div>
-              )}
-
-              {dragOver && seriler.length > 0 && (
-                <div style={{ position:'absolute', inset:0, background:'rgba(59,130,246,.06)',
-                  border:'2px solid var(--blue)', borderRadius:12, display:'flex',
-                  alignItems:'center', justifyContent:'center', fontSize:14,
-                  fontWeight:700, color:'var(--blue)', pointerEvents:'none' }}>
-                  + Seri Ekle
-                </div>
-              )}
-            </div>
-
-            {/* Seri listesi */}
-            {seriler.length > 0 && (
-              <div style={{ background:'var(--surf2)', border:'1px solid var(--bd)', borderRadius:8, padding:'10px 12px' }}>
-                <div style={{ fontSize:10, fontWeight:700, color:'var(--tx3)', marginBottom:8 }}>Aktif Seriler ({seriler.length})</div>
-                <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                  {seriler.map(s => (
-                    <div key={s.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 8px',
-                      borderRadius:6, background:'var(--surf)', border:`1px solid ${s.color}44` }}>
-                      <div style={{ width:10, height:10, borderRadius:2, background:s.color, flexShrink:0 }} />
-                      <span style={{ fontSize:10, color:'var(--tx2)', flex:1 }}>{s.label}</span>
-                      <span style={{ fontSize:8, padding:'1px 5px', borderRadius:10, fontWeight:600,
-                        background:s.tip==='puan'?'rgba(16,185,129,.15)':'rgba(59,130,246,.12)',
-                        color:s.tip==='puan'?'#10b981':'#3b82f6' }}>
-                        {s.tip==='puan'?'Puan':'Değer'}
-                      </span>
-                      <button onClick={() => removeSeri(s.id)}
-                        style={{ background:'none', border:'none', cursor:'pointer', color:'#f87171', fontSize:15, lineHeight:1, padding:'0 2px' }}>×</button>
-                    </div>
-                  ))}
-                </div>
-                <button onClick={() => setSeriler([])}
-                  style={{ marginTop:8, padding:'4px 0', borderRadius:6, fontSize:10, fontWeight:600,
-                    cursor:'pointer', border:'1px solid var(--bd)', background:'var(--surf)', color:'var(--tx3)', width:'100%' }}>
-                  Tümünü Temizle
-                </button>
-              </div>
-            )}
-
-            {/* Dönem tablosu */}
-            {seriler.length > 0 && aktifDonemler.length > 0 && (
-              <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:8, overflow:'hidden' }}>
-                <div style={{ overflowX:'auto', maxHeight:260, overflowY:'auto' }}>
-                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:10 }}>
-                    <thead>
-                      <tr style={{ background:'var(--surf2)', position:'sticky', top:0, zIndex:2 }}>
-                        <th style={thSt}>Dönem</th>
-                        {seriler.map(s => <th key={s.id} style={{ ...thSt, color:s.color }}>{s.label}</th>)}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {aktifDonemler.map(d => (
-                        <tr key={d} style={{ borderBottom:'1px solid var(--bd)' }}>
-                          <td style={{ ...tdSt, fontFamily:'var(--font-dm-mono)', color:'var(--tx2)', fontWeight:600 }}>{d}</td>
-                          {seriler.map(s => {
-                            const v = getSeriVeri(s, [d], selBolge, selYas)[0]
-                            const fmt = s.kpiIdx !== null ? KPI_META[s.kpiIdx].fmt : 'int'
-                            return (
-                              <td key={s.id} style={{ ...tdSt, fontFamily:'var(--font-dm-mono)', color:s.color, fontWeight:600 }}>
-                                {s.tip==='puan' ? `${Math.round(v)} puan` : fmtKpi(v, fmt)}
-                              </td>
-                            )
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <GrafikBuilder idx={0} bolge={selBolge} yas={selYas} />
+        <GrafikBuilder idx={1} bolge={selBolge} yas={selYas} />
       </div>
     </div>
   )
@@ -512,34 +597,42 @@ export default function TrendPage() {
 
 // ── Alt bileşenler ────────────────────────────────────────────────────────────
 function PanelGrup({ title, icon, hint, children }: {
-  title: string; icon: string; hint?: string; children: React.ReactNode
+  title:string; icon:string; hint?:string; children:React.ReactNode
 }) {
   return (
-    <div style={{ background:'var(--surf2)', border:'1px solid var(--bd)', borderRadius:8, padding:'10px 12px' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8 }}>
-        <span style={{ fontSize:13 }}>{icon}</span>
+    <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:8, padding:'9px 11px' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:7 }}>
+        <span style={{ fontSize:12 }}>{icon}</span>
         <span style={{ fontSize:11, fontWeight:700, color:'var(--tx2)' }}>{title}</span>
-        {hint && <span style={{ fontSize:8, color:'var(--tx3)', marginLeft:'auto' }}>{hint}</span>}
+        {hint && <span style={{ fontSize:8, color:'var(--tx3)', marginLeft:'auto', textAlign:'right', maxWidth:100, lineHeight:1.3 }}>{hint}</span>}
       </div>
-      <div style={{ display:'flex', flexDirection:'column', gap:4 }}>{children}</div>
+      <div style={{ display:'flex', flexDirection:'column', gap:3 }}>{children}</div>
     </div>
   )
 }
 
-function DragChip({ label, color, onDragStart }: { label:string; color:string; onDragStart:()=>void }) {
+function DragChip({ label, color, active, disabled, hint, onDragStart }: {
+  label:string; color:string; active?:boolean; disabled?:boolean; hint?:string; onDragStart:()=>void
+}) {
   return (
-    <div draggable onDragStart={e => { e.dataTransfer.effectAllowed='copy'; onDragStart() }}
-      style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 8px', borderRadius:6,
-        cursor:'grab', background:color+'18', border:`1px solid ${color}44`, userSelect:'none' }}>
-      <div style={{ width:8, height:8, borderRadius:2, background:color, flexShrink:0 }} />
-      <span style={{ fontSize:10, color:'var(--tx2)', fontWeight:500, lineHeight:1.3, flex:1 }}>{label}</span>
-      <span style={{ fontSize:9, color:color, opacity:.6 }}>⠿</span>
+    <div draggable={!disabled}
+      onDragStart={e => { if (disabled) { e.preventDefault(); return }; e.dataTransfer.effectAllowed='copy'; onDragStart() }}
+      title={hint}
+      style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 8px', borderRadius:6,
+        cursor:disabled?'not-allowed':'grab',
+        background: active ? color+'30' : disabled ? 'var(--surf2)' : color+'15',
+        border:`1px solid ${active ? color+'88' : disabled ? 'var(--bd)' : color+'44'}`,
+        opacity: disabled ? .45 : 1,
+        userSelect:'none' }}>
+      <div style={{ width:7, height:7, borderRadius:2, background:disabled?'var(--tx3)':color, flexShrink:0 }} />
+      <span style={{ fontSize:10, color: disabled?'var(--tx3)':'var(--tx2)', fontWeight:500, lineHeight:1.3, flex:1 }}>{label}</span>
+      {active && <span style={{ fontSize:8, color, fontWeight:700 }}>✓</span>}
+      {!active && !disabled && <span style={{ fontSize:9, color, opacity:.5 }}>⠿</span>}
     </div>
   )
 }
 
 // ── Stiller ───────────────────────────────────────────────────────────────────
-const labelSt: React.CSSProperties = { fontSize:9, fontWeight:700, color:'var(--tx3)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }
-const selSt: React.CSSProperties   = { padding:'4px 8px', borderRadius:6, fontSize:10, fontWeight:600, background:'var(--surf)', border:'1px solid var(--bd)', color:'var(--tx2)', cursor:'pointer' }
-const thSt: React.CSSProperties    = { padding:'7px 10px', textAlign:'left', fontSize:9, fontWeight:700, color:'var(--tx3)', borderBottom:'1px solid var(--bd)', whiteSpace:'nowrap' }
-const tdSt: React.CSSProperties    = { padding:'6px 10px', borderBottom:'1px solid var(--bd)' }
+const selSt: React.CSSProperties = { padding:'3px 7px', borderRadius:6, fontSize:10, fontWeight:600, background:'var(--surf)', border:'1px solid var(--bd)', color:'var(--tx2)', cursor:'pointer' }
+const thSt: React.CSSProperties  = { padding:'6px 10px', textAlign:'left', fontSize:9, fontWeight:700, color:'var(--tx3)', borderBottom:'1px solid var(--bd)', whiteSpace:'nowrap' }
+const tdSt: React.CSSProperties  = { padding:'5px 10px', borderBottom:'1px solid var(--bd)' }
