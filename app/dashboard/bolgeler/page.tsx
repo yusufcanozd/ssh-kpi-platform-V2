@@ -128,20 +128,26 @@ export default function BolgelerPage() {
   // Bar grafik
   const barLabels = ['Tüm TR', ...bolgeList]
 
+  function getKatVal(s: any, key: string): number {
+    if (!s) return 0
+    if (key==='genel') return s.genel || 0
+    return (s[key as keyof typeof s] as number) || 0
+  }
+
   function getBarBaz(b: typeof bolgeData[0]) {
-    if (mode==='katSkor') return b.score?.genel || 0
+    if (mode==='katSkor') return getKatVal(b.score, selKat)
     if (mode==='kpiSkor') return b.kpiScores[selKpi] || 0
     return b.kpis[selKpi] || 0
   }
   function getBarCmp(b: typeof bolgeData[0]) {
     if (!selCmpDonem) return 0
-    if (mode==='katSkor') return b.scoreCmp?.genel || 0
+    if (mode==='katSkor') return getKatVal(b.scoreCmp, selKat)
     if (mode==='kpiSkor') return b.kpiScoresCmp?.[selKpi] || 0
     return b.kpisCmp?.[selKpi] || 0
   }
 
-  const trBarBaz = mode==='katSkor'?(trScore?.genel||0):mode==='kpiSkor'?trKpiScores[selKpi]:(trKpis[selKpi]||0)
-  const trBarCmp = !selCmpDonem?0:mode==='katSkor'?(trScoreCmp?.genel||0):mode==='kpiSkor'?(trKpiScoresCmp?.[selKpi]||0):(trKpisCmp?.[selKpi]||0)
+  const trBarBaz = mode==='katSkor'?getKatVal(trScore,selKat):mode==='kpiSkor'?trKpiScores[selKpi]:(trKpis[selKpi]||0)
+  const trBarCmp = !selCmpDonem?0:mode==='katSkor'?getKatVal(trScoreCmp,selKat):mode==='kpiSkor'?(trKpiScoresCmp?.[selKpi]||0):(trKpisCmp?.[selKpi]||0)
 
   const barBaz = [trBarBaz, ...bolgeData.map(getBarBaz)]
   const barCmp = selCmpDonem ? [trBarCmp, ...bolgeData.map(getBarCmp)] : []
@@ -171,20 +177,7 @@ export default function BolgelerPage() {
           ))}
         </div>
 
-        {/* KPI seçici — KPI modlarında */}
-        {mode !== 'katSkor' && (
-          <div style={{display:'flex', gap:4, marginBottom:12, flexWrap:'wrap'}}>
-            {KPI_META.map((k,i)=>(
-              <button key={i} onClick={()=>setSelKpi(i)}
-                style={{padding:'3px 10px', borderRadius:4, fontSize:10, cursor:'pointer', fontWeight:selKpi===i?700:400,
-                  border:`1px solid ${selKpi===i?'var(--blue)':'var(--bd)'}`,
-                  background:selKpi===i?'rgba(59,130,246,.1)':'transparent',
-                  color:selKpi===i?'var(--blue)':'var(--tx3)'}}>
-                {k.ad}{kpiUnit(k.fmt)?` (${kpiUnit(k.fmt)})`:''}
-              </button>
-            ))}
-          </div>
-        )}
+
 
         {/* ── TABLO ── */}
         <div className={styles.card} style={{padding:0, overflow:'hidden', marginBottom:14}}>
@@ -306,8 +299,8 @@ export default function BolgelerPage() {
               {mode==='katSkor'
                 ? (KATS.find(k=>k.key===selKat)?.label||'Genel') + ' Skoru'
                 : mode==='kpiSkor'
-                ? `KPI ${meta.no}: ${meta.ad} — Puan`
-                : `KPI ${meta.no}: ${meta.ad}${unit?` (${unit})`:''}`}
+                ? `${meta.ad} — Puan`
+                : `${meta.ad}${unit?` (${unit})`:''}`}
               {' '}— Bölge Karşılaştırması
             </h3>
             <span className={styles.hint}>{filterLabel}</span>
