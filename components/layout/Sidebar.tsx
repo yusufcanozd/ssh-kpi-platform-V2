@@ -22,14 +22,19 @@ const ADMIN_NAV = [
 interface SidebarProps {
   variant: 'dashboard' | 'admin'
   filters?: React.ReactNode
+  collapsed?: boolean
+  onToggle?: () => void
 }
 
-export default function Sidebar({ variant, filters }: SidebarProps) {
+export default function Sidebar({ variant, filters, collapsed: collapsedProp, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const router   = useRouter()
   const { profile, isAdmin, loading, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
-  const [collapsed, setCollapsed] = useState(false)
+  // Dashboard'dan prop gelirse onu kullan, yoksa internal state
+  const [internalCollapsed, setInternalCollapsed] = useState(false)
+  const collapsed = collapsedProp !== undefined ? collapsedProp : internalCollapsed
+  const toggle = onToggle || (() => setInternalCollapsed(v=>!v))
 
   const nav = variant === 'admin' ? ADMIN_NAV : DASHBOARD_NAV
 
@@ -50,7 +55,7 @@ export default function Sidebar({ variant, filters }: SidebarProps) {
         )}
         <button
           className={styles.toggleBtn}
-          onClick={() => setCollapsed(v => !v)}
+          onClick={toggle}
           title={collapsed ? 'Menüyü aç' : 'Menüyü gizle'}
           style={{flexShrink:0,marginTop:2}}
         >
