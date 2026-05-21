@@ -299,7 +299,6 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
             <div style={{ fontSize:10 }}>Grafik 1'e en az bir seri ekleyin</div>
           </div>
         ) : seriler.length===0 ? (
-        ) : seriler.length===0 ? (
           <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column',
             alignItems:'center', justifyContent:'center', gap:8, color:dragOver?'var(--blue)':'var(--tx3)' }}>
             <div style={{ fontSize:34 }}>📈</div>
