@@ -374,35 +374,33 @@ function GrafikBuilder({ idx, bolge, yas }: { idx: number; bolge: string; yas: s
         Grafik {idx + 1}
       </div>
 
-      {/* Dönem filtresi */}
-      <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:8, padding:'10px 14px', marginBottom:12 }}>
-        <div style={{ fontSize:9, fontWeight:700, color:'var(--tx3)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8 }}>Dönem Aralığı</div>
-        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
-          <DonemSecici value={bas} onChange={v => { setBas(v); if (donemSira(donemSecToStr(v)) > donemSira(donemSecToStr(bit))) setBit({...v}) }} />
-          <span style={{ color:'var(--tx3)', fontSize:16, fontWeight:300 }}>→</span>
-          <DonemSecici value={bit} onChange={v => { setBit(v); if (donemSira(donemSecToStr(v)) < donemSira(donemSecToStr(bas))) setBas({...v}) }} />
-          <span style={{ fontSize:10, color:'var(--tx3)', whiteSpace:'nowrap' }}>{aktifDonemler.length} dönem</span>
-        </div>
-
-        {/* Dönem bandı — dar yükseklik */}
-        {aktifDonemler.length > 0 && (
-          <div style={{ display:'flex', gap:2, flexWrap:'wrap', marginTop:8 }}>
-            {aktifDonemler.map(d => (
-              <span key={d} style={{ padding:'1px 5px', borderRadius:3, fontSize:8,
-                background:'rgba(59,130,246,.12)', color:'var(--blue)',
-                border:'1px solid rgba(59,130,246,.25)', lineHeight:1.4 }}>
-                {d}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Builder + Grafik */}
+      {/* Builder + Grafik — tek grid, sol panel + sağda grafik */}
       <div style={{ display:'grid', gridTemplateColumns:'230px 1fr', gap:12, alignItems:'start' }}>
 
-        {/* Sol panel */}
-        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        {/* Sol panel — sticky */}
+        <div style={{ display:'flex', flexDirection:'column', gap:8, position:'sticky', top:12 }}>
+
+          {/* Dönem filtresi */}
+          <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:8, padding:'10px 11px' }}>
+            <div style={{ fontSize:8, fontWeight:700, color:'var(--tx3)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:7 }}>Dönem Aralığı</div>
+            <DonemSecici value={bas} onChange={v => { setBas(v); if (donemSira(donemSecToStr(v)) > donemSira(donemSecToStr(bit))) setBit({...v}) }} />
+            <div style={{ display:'flex', alignItems:'center', gap:6, margin:'5px 0' }}>
+              <span style={{ color:'var(--tx3)', fontSize:12 }}>↓</span>
+              <span style={{ fontSize:9, color:'var(--tx3)' }}>{aktifDonemler.length} dönem</span>
+            </div>
+            <DonemSecici value={bit} onChange={v => { setBit(v); if (donemSira(donemSecToStr(v)) < donemSira(donemSecToStr(bas))) setBas({...v}) }} />
+            {aktifDonemler.length > 0 && (
+              <div style={{ display:'flex', gap:2, flexWrap:'wrap', marginTop:8 }}>
+                {aktifDonemler.map(d => (
+                  <span key={d} style={{ padding:'1px 5px', borderRadius:3, fontSize:8,
+                    background:'rgba(59,130,246,.12)', color:'var(--blue)',
+                    border:'1px solid rgba(59,130,246,.25)', lineHeight:1.4 }}>
+                    {d}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
 
           <PanelGrup title="Kategori" icon="🏷"
             hint={bSnap.kategoriler.length > 1 ? 'KPI eklenemez (birden fazla kat.)' : undefined}>
