@@ -184,44 +184,6 @@ export default function BolgelerPage() {
       <Topbar title="Bolge Analizi" subtitle={bolgeList.length + ' bolge'}/>
       <div className={styles.content}>
 
-        {/* Üst bölge skor kartları — ScoreCard formatı */}
-        <div style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:8, marginBottom:14}}>
-          {bolgeData.map(function(b) {
-            const bazG = b.bazScore ? b.bazScore.genel : 0
-            const cmpG = b.cmpScore ? b.cmpScore.genel : null
-            const chg  = chgPct(bazG, cmpG)
-            const chgClr = chg === null ? 'var(--tx3)' : chg >= 0 ? '#10b981' : chg >= -10 ? '#f59e0b' : '#f87171'
-            return (
-              <div key={b.bolge} style={{background:'var(--surf2)', borderRadius:8, padding:'10px 10px 8px',
-                border:'1px solid ' + scoreColor(bazG) + '44'}}>
-                <div style={{fontSize:9, fontWeight:700, color:scoreColor(bazG), marginBottom:6,
-                  overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{b.bolge}</div>
-                <div style={{display:'flex', alignItems:'flex-end', gap:6, marginBottom:6, flexWrap:'nowrap'}}>
-                  <div style={{flexShrink:0}}>
-                    {selDonem && <div style={{fontSize:7, color:'var(--tx3)', lineHeight:1, marginBottom:1}}>{selDonem.replace('20','')}</div>}
-                    <div style={{fontSize:20, fontWeight:800, fontFamily:'var(--font-dm-mono)', color:scoreColor(bazG), lineHeight:1}}>{bazG||'-'}</div>
-                    <div style={{fontSize:7, color:'var(--tx3)', marginTop:1}}>puan</div>
-                  </div>
-                  {cmpG !== null && (
-                    <div style={{paddingBottom:2, flexShrink:0}}>
-                      {selCmpDonem && <div style={{fontSize:7, color:'var(--tx3)', lineHeight:1, marginBottom:1}}>{selCmpDonem.replace('20','')}</div>}
-                      <div style={{fontSize:13, fontWeight:700, fontFamily:'var(--font-dm-mono)', color:'var(--tx2)', lineHeight:1}}>{cmpG}</div>
-                    </div>
-                  )}
-                  {chg !== null && (
-                    <div style={{marginLeft:'auto', paddingBottom:2, fontSize:10, fontWeight:700, color:chgClr, flexShrink:0, whiteSpace:'nowrap'}}>
-                      {chg >= 0 ? '+' : ''}{chg}%
-                    </div>
-                  )}
-                </div>
-                <div style={{background:'rgba(0,0,0,.1)', borderRadius:3, height:3, overflow:'hidden'}}>
-                  <div style={{width:Math.min(bazG,100)+'%', height:3, borderRadius:3, background:scoreColor(bazG)+'99'}}/>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
         {/* Tab seçici */}
         <div style={{display:'flex', gap:6, marginBottom:14, flexWrap:'wrap'}}>
           {tabs.map(function(t) {
