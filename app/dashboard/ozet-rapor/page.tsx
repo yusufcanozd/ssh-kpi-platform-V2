@@ -1,13 +1,13 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
-  KPI_META, SEGMENTLER, SEGMENT_COLORS, SEGMENT_HEX, SEGMENT_BG,
+  KPI_META, SEGMENTLER, SEGMENT_HEX, SEGMENT_BG,
   BOLGELER, YAS_GRUPLARI, DONEMLER, CAT_COLORS,
   fmtKpi, getKpisFromCube, getScore, getKpiScores, getMarkaRanking,
-  isLowerBetter, heatColor, scoreColor, kpiScoreColor,
+  isLowerBetter, heatColor,
 } from '@/lib/kpi'
 import styles from './page.module.css'
 
@@ -221,11 +221,15 @@ async function generateCommentary(prompt: string): Promise<string> {
 // ── Ana Sayfa ─────────────────────────────────────────────────────────────────
 export default function OzetRaporPage() {
   const { selBolge, selYas } = useDashboardCtx()
+  const [mounted, setMounted] = useState(false)
   const [seciliDonem, setSeciliDonem] = useState(Q_DONEMLER[Q_DONEMLER.length - 1] ?? '')
   const [generating, setGenerating] = useState(false)
   const [raporData, setRaporData] = useState<ReturnType<typeof buildReportData> | null>(null)
   const [yorumlar, setYorumlar] = useState<Record<string, string>>({})
   const [progress, setProgress] = useState(0)
+
+  useEffect(() => { setMounted(true) }, [])
+  if (!mounted) return null
 
   async function handleGenerate() {
     setGenerating(true)
