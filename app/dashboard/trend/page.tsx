@@ -5,7 +5,7 @@ import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, SEGMENTLER, SEGMENT_HEX, CAT_COLORS,
-  fmtKpi, getKpisFromCube, getScore, DONEMLER,
+  fmtKpi, getKpisFromCube, getScore, getKpiScores, DONEMLER,
 } from '@/lib/kpi'
 import { Line } from 'react-chartjs-2'
 import {
@@ -60,6 +60,12 @@ function makeSeriId() { return Math.random().toString(36).slice(2,8) }
 function getSeriVeri(s: Seri, donemler: string[], bolge: string, yas: string): number[] {
   return donemler.map(d => {
     if (s.tip === 'skor') {
+      if (s.kpiIdx !== null) {
+        // KPI bazlı skor
+        const scores = getKpiScores(s.segment, bolge, yas, d)
+        return scores[s.kpiIdx] ?? 0
+      }
+      // Kategori veya genel skor
       const sc = getScore(s.segment, bolge, yas, d)
       if (!sc) return 0
       if (s.katKey) return (sc as any)[s.katKey] ?? sc.genel
@@ -173,9 +179,9 @@ function DonemSecici({ value, onChange }: {
 
 // ── Builder state tipi ────────────────────────────────────────────────────────
 interface BuilderState {
-  segmentler: string[]   // seçili segmentler (birden fazla olabilir)
-  kategoriler: string[]  // seçili kategori keyler
-  kpiEklendi: boolean    // en az bir KPI sürüklendi mi
+  segmentler: string[]
+  kategoriler: string[]
+  pendingKpis: { kpiIdx: number; label: string }[]  // sürüklenen KPI'lar — tip seçilince seriye dönüşür
   tip: SeriTip | null
 }
 
@@ -189,13 +195,12 @@ function GrafikBuilder({ idx, bolge, yas }: { idx: number; bolge: string; yas: s
 
   const aktifDonemler = useMemo(() => filtreDonemler(bas, bit), [bas, bit])
 
-  // Seriler
   const [seriler, setSeriler] = useState<Seri[]>([])
   const [dragOver, setDragOver] = useState(false)
 
-  // Builder ref (stale closure sorunu yok)
-  const bRef = useRef<BuilderState>({ segmentler:[], kategoriler:[], kpiEklendi:false, tip:null })
-  const [bSnap, setBSnap] = useState<BuilderState>({ segmentler:[], kategoriler:[], kpiEklendi:false, tip:null })
+  const emptyB: BuilderState = { segmentler:[], kategoriler:[], pendingKpis:[], tip:null }
+  const bRef = useRef<BuilderState>({ ...emptyB })
+  const [bSnap, setBSnap] = useState<BuilderState>({ ...emptyB })
   const dragPayload = useRef('')
 
   function updateB(patch: Partial<BuilderState>) {
@@ -203,19 +208,18 @@ function GrafikBuilder({ idx, bolge, yas }: { idx: number; bolge: string; yas: s
     setBSnap({ ...bRef.current })
   }
 
-  // KPI listesi — tek kategori seçiliyse o kategorinin KPI'ları
   const filteredKpis = useMemo(() => {
     if (bSnap.kategoriler.length === 1) {
       const katLabel = KATEGORILER.find(k => k.key === bSnap.kategoriler[0])?.label
       return KPI_META.map((k,i) => ({...k,i})).filter(k => k.kat === katLabel)
     }
     if (bSnap.kategoriler.length === 0) return KPI_META.map((k,i) => ({...k,i}))
-    return [] // birden fazla kategori → KPI eklenemez
+    return []
   }, [bSnap.kategoriler])
 
+  // Değer: pending KPI varsa aktif. Skor: her zaman aktif.
+  const degerAktif = bSnap.pendingKpis.length > 0
   const kpiEklenebilir = bSnap.kategoriler.length <= 1
-  const degerAktif = bSnap.kpiEklendi  // en az bir KPI eklendiyse Değer aktif
-  const skorAktif  = true              // Skor her zaman eklenebilir
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
@@ -223,6 +227,7 @@ function GrafikBuilder({ idx, bolge, yas }: { idx: number; bolge: string; yas: s
     let payload: any
     try { payload = JSON.parse(dragPayload.current) } catch { return }
     const b = bRef.current
+    const segs = b.segmentler.length ? b.segmentler : ['']
 
     if (payload.grup === 'segment') {
       const yeni = b.segmentler.includes(payload.seg)
@@ -236,50 +241,90 @@ function GrafikBuilder({ idx, bolge, yas }: { idx: number; bolge: string; yas: s
       const yeni = b.kategoriler.includes(payload.katKey)
         ? b.kategoriler.filter(k => k !== payload.katKey)
         : [...b.kategoriler, payload.katKey]
-      updateB({ kategoriler: yeni, kpiEklendi: false })
+      // Kategori değişince pending KPI'ları sıfırla
+      updateB({ kategoriler: yeni, pendingKpis: [] })
       return
     }
 
-    if (payload.grup === 'skor') {
-      updateB({ tip: 'skor' })
-      // Her segment için skor serisi oluştur
-      const segs = b.segmentler.length ? b.segmentler : ['']
-      const kats = b.kategoriler.length ? b.kategoriler : [null]
+    if (payload.grup === 'kpi') {
+      // KPI sürüklenince sadece pending listeye ekle — seri OLUŞTURMA
+      if (!kpiEklenebilir) return
+      const zatenVar = b.pendingKpis.some(p => p.kpiIdx === payload.kpiIdx)
+      const yeni = zatenVar
+        ? b.pendingKpis.filter(p => p.kpiIdx !== payload.kpiIdx)  // toggle: kaldır
+        : [...b.pendingKpis, { kpiIdx: payload.kpiIdx, label: payload.label }]
+      updateB({ pendingKpis: yeni })
+      return
+    }
+
+    if (payload.grup === 'deger') {
+      // Değer: pending KPI'lar için değer serisi oluştur
+      if (!b.pendingKpis.length) return
+      updateB({ tip: 'deger' })
       const yeniSeriler: Seri[] = []
       segs.forEach(seg => {
-        kats.forEach(katKey => {
-          const katLabel = katKey ? (KATEGORILER.find(k=>k.key===katKey)?.label ?? 'Genel') : 'Genel'
+        b.pendingKpis.forEach(kpi => {
           const segLabel = seg || 'Tüm TR'
           const color = SERI_RENKLER[(seriler.length + yeniSeriler.length) % SERI_RENKLER.length]
-          yeniSeriler.push({ id:makeSeriId(), label:`${segLabel} · ${katLabel} Skoru`, color, tip:'skor', segment:seg, kpiIdx:null, katKey })
+          yeniSeriler.push({
+            id: makeSeriId(),
+            label: `${segLabel} · ${kpi.label} (Değer)`,
+            color, tip: 'deger', segment: seg, kpiIdx: kpi.kpiIdx, katKey: null,
+          })
         })
       })
       setSeriler(prev => [...prev, ...yeniSeriler])
       return
     }
 
-    if (payload.grup === 'deger') {
-      if (!b.kpiEklendi) return // Değer ancak KPI eklendikten sonra
-      updateB({ tip: 'deger' })
-      return
-    }
-
-    if (payload.grup === 'kpi') {
-      if (!kpiEklenebilir) return
-      const segs = b.segmentler.length ? b.segmentler : ['']
+    if (payload.grup === 'skor') {
+      updateB({ tip: 'skor' })
       const yeniSeriler: Seri[] = []
-      segs.forEach(seg => {
-        const segLabel = seg || 'Tüm TR'
-        const color = SERI_RENKLER[(seriler.length + yeniSeriler.length) % SERI_RENKLER.length]
-        yeniSeriler.push({ id:makeSeriId(), label:`${segLabel} · ${payload.label}`, color, tip:'deger', segment:seg, kpiIdx:payload.kpiIdx, katKey:null })
-      })
+
+      if (b.pendingKpis.length > 0) {
+        // Pending KPI varsa → o KPI'ların KPI bazlı skorunu göster
+        // getSeriVeri'de tip='skor' + kpiIdx kullanarak KPI skoru hesaplanacak
+        segs.forEach(seg => {
+          b.pendingKpis.forEach(kpi => {
+            const segLabel = seg || 'Tüm TR'
+            const color = SERI_RENKLER[(seriler.length + yeniSeriler.length) % SERI_RENKLER.length]
+            yeniSeriler.push({
+              id: makeSeriId(),
+              label: `${segLabel} · ${kpi.label} (Skor)`,
+              color, tip: 'skor', segment: seg, kpiIdx: kpi.kpiIdx, katKey: null,
+            })
+          })
+        })
+      } else if (b.kategoriler.length > 0) {
+        // KPI yok, kategori var → kategori skoru
+        segs.forEach(seg => {
+          b.kategoriler.forEach(katKey => {
+            const katLabel = KATEGORILER.find(k=>k.key===katKey)?.label ?? 'Genel'
+            const segLabel = seg || 'Tüm TR'
+            const color = SERI_RENKLER[(seriler.length + yeniSeriler.length) % SERI_RENKLER.length]
+            yeniSeriler.push({
+              id: makeSeriId(),
+              label: `${segLabel} · ${katLabel} (Skor)`,
+              color, tip: 'skor', segment: seg, kpiIdx: null, katKey,
+            })
+          })
+        })
+      } else {
+        // Hiçbiri yok → genel skor
+        segs.forEach(seg => {
+          const segLabel = seg || 'Tüm TR'
+          const color = SERI_RENKLER[(seriler.length + yeniSeriler.length) % SERI_RENKLER.length]
+          yeniSeriler.push({
+            id: makeSeriId(),
+            label: `${segLabel} · Genel Skor`,
+            color, tip: 'skor', segment: seg, kpiIdx: null, katKey: null,
+          })
+        })
+      }
       setSeriler(prev => [...prev, ...yeniSeriler])
-      updateB({ kpiEklendi: true })
       return
     }
   }
-
-  function removeSeri(id: string) { setSeriler(prev => prev.filter(s => s.id !== id)) }
 
   // Chart data — iki eksen: deger=y, skor=y1
   const hasDeger = seriler.some(s => s.tip === 'deger')
@@ -434,6 +479,7 @@ function GrafikBuilder({ idx, bolge, yas }: { idx: number; bolge: string; yas: s
                 </div>
               ) : filteredKpis.map(k => (
                 <DragChip key={k.i} label={k.ad} color={CAT_COLORS[k.kat]||'#8496b0'}
+                  active={bSnap.pendingKpis.some(p => p.kpiIdx === k.i)}
                   onDragStart={() => { dragPayload.current = JSON.stringify({ grup:'kpi', kpiIdx:k.i, label:k.ad }) }} />
               ))}
             </div>
@@ -454,6 +500,7 @@ function GrafikBuilder({ idx, bolge, yas }: { idx: number; bolge: string; yas: s
             {[
               { label:'Segment', value: bSnap.segmentler.length ? bSnap.segmentler.map(s=>s||'Tüm TR').join(', ') : '—', color:'#8496b0' },
               { label:'Kategori', value: bSnap.kategoriler.length ? bSnap.kategoriler.map(k=>KATEGORILER.find(x=>x.key===k)?.label??k).join(', ') : '—', color:'#8496b0' },
+              { label:'KPI', value: bSnap.pendingKpis.length ? bSnap.pendingKpis.map(k=>k.label).join(', ') : '—', color:'#8496b0' },
               { label:'Tip', value: bSnap.tip==='deger'?'Değer':bSnap.tip==='skor'?'Skor':'—', color: bSnap.tip==='deger'?'#3b82f6':bSnap.tip==='skor'?'#10b981':'var(--tx3)' },
             ].map(r => (
               <div key={r.label} style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
@@ -464,7 +511,7 @@ function GrafikBuilder({ idx, bolge, yas }: { idx: number; bolge: string; yas: s
             {!degerAktif && (
               <div style={{ fontSize:8, color:'#f59e0b', fontWeight:600, marginTop:5 }}>⚠ Değer için önce KPI sürükle</div>
             )}
-            <button onClick={() => { bRef.current={segmentler:[],kategoriler:[],kpiEklendi:false,tip:null}; setBSnap({segmentler:[],kategoriler:[],kpiEklendi:false,tip:null}); setSeriler([]) }}
+            <button onClick={() => { bRef.current={segmentler:[],kategoriler:[],pendingKpis:[],tip:null}; setBSnap({segmentler:[],kategoriler:[],pendingKpis:[],tip:null}); setSeriler([]) }}
               style={{ marginTop:8, width:'100%', padding:'3px 0', borderRadius:4, fontSize:9, cursor:'pointer', border:'1px solid var(--bd)', background:'var(--surf2)', color:'var(--tx3)' }}>
               Sıfırla
             </button>
