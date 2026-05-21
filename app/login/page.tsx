@@ -170,7 +170,14 @@ export default function LoginPage() {
             </div>
             <div className={styles.field}>
               <label>Telefon</label>
-              <input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+90 5XX XXX XXXX" required/>
+              <div className={styles.pwWrap}>
+                <span style={{padding:'0 8px',color:'var(--tx2)',fontSize:12,borderRight:'1px solid var(--bd2)',
+                  display:'flex',alignItems:'center',background:'var(--surf3)',borderRadius:'6px 0 0 6px',
+                  whiteSpace:'nowrap',height:'100%',minWidth:44}}>🇹🇷 +90</span>
+                <input type="tel" value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,'').slice(0,10))}
+                  placeholder="5XX XXX XXXX" required
+                  style={{borderRadius:'0 6px 6px 0',borderLeft:'none'}}/>
+              </div>
             </div>
             <div className={styles.field}>
               <label>E-posta</label>
