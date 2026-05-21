@@ -408,12 +408,6 @@ function KategoriBazliTabKpi() {
         <div className={styles.cardHd}>
           <h3>{KATS.find(k => k.key === selKat)?.label || 'Genel'} Skoru — Marka Dağılımı</h3>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            {KATS.map(k => (
-              <button key={k.key} onClick={() => setSelKat(k.key)}
-                style={{ padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: `1px solid ${selKat === k.key ? 'var(--blue)' : 'var(--bd)'}`, background: selKat === k.key ? 'rgba(59,130,246,.12)' : 'var(--surf2)', color: selKat === k.key ? 'var(--blue)' : 'var(--tx2)' }}>
-                {k.label}
-              </button>
-            ))}
             <span className={styles.hint}>{filterLabel}</span>
             {allLines.slice(0, 4).map((l, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, color: 'var(--tx3)' }}>
