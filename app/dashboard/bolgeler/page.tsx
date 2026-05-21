@@ -306,6 +306,31 @@ export default function BolgelerPage() {
               </table>
             </div>
           </div>
+          {/* Bar grafik — KPI sekmesi */}
+          <div className={styles.card} style={{marginTop:14}}>
+            <div className={styles.cardHd}>
+              <h3>{meta.ad}{unit?` (${unit})`:''} — Bölge Karşılaştırması</h3>
+              <span className={styles.hint}>{filterLabel} · {lob?'↓ Düşük daha iyi':'↑ Yüksek daha iyi'}</span>
+            </div>
+            <div style={{height:220}}>
+              <Bar data={{
+                labels:['Tüm TR',...bolgeList],
+                datasets:[
+                  {label:selDonem||'Baz',data:[trKpis[selKpi],...barBazData],
+                    backgroundColor:['rgba(251,191,36,.15)',...bolgeList.map(()=>'rgba(59,130,246,.15)')],
+                    borderColor:['#fbbf24',...bolgeList.map(()=>'#3b82f6')],borderWidth:2,borderRadius:5},
+                  ...(selCmpDonem?[{label:selCmpDonem,
+                    data:[getKpisFromCube(selSeg,'',selYas,selCmpDonem)[selKpi],...barCmpData],
+                    backgroundColor:['rgba(251,191,36,.5)',...bolgeList.map(()=>'rgba(59,130,246,.5)')],
+                    borderColor:['#fbbf24',...bolgeList.map(()=>'#3b82f6')],borderWidth:1,borderRadius:5}]:[])
+                ]
+              }} options={{responsive:true,maintainAspectRatio:false,
+                plugins:{legend:{display:!!selCmpDonem,position:'top',labels:{color:'#8496b0',font:{size:9},boxWidth:10}},
+                  tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${fmtKpi(ctx.parsed.y as number,meta.fmt)}`}}},
+                scales:{y:{min:0,max:barMax*1.2,grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8496b0',font:{size:9},callback:(v)=>fmtKpi(Number(v),meta.fmt)}},
+                  x:{grid:{display:false},ticks:{color:'#8496b0',font:{size:9},maxRotation:30}}}}}/>
+            </div>
+          </div>
         )}
 
         {/* ══ MARKA DETAYI — satır:marka, sütun:bölge ══ */}
@@ -398,6 +423,31 @@ export default function BolgelerPage() {
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
+          {/* Bar grafik — Marka sekmesi */}
+          <div className={styles.card} style={{marginTop:14}}>
+            <div className={styles.cardHd}>
+              <h3>{meta.ad}{unit?` (${unit})`:''} — Bölge Karşılaştırması</h3>
+              <span className={styles.hint}>{filterLabel} · {lob?'↓ Düşük daha iyi':'↑ Yüksek daha iyi'}</span>
+            </div>
+            <div style={{height:220}}>
+              <Bar data={{
+                labels:['Tüm TR',...bolgeList],
+                datasets:[
+                  {label:selDonem||'Baz',data:[trKpis[selKpi],...barBazData],
+                    backgroundColor:['rgba(251,191,36,.15)',...bolgeList.map(()=>'rgba(59,130,246,.15)')],
+                    borderColor:['#fbbf24',...bolgeList.map(()=>'#3b82f6')],borderWidth:2,borderRadius:5},
+                  ...(selCmpDonem?[{label:selCmpDonem,
+                    data:[getKpisFromCube(selSeg,'',selYas,selCmpDonem)[selKpi],...barCmpData],
+                    backgroundColor:['rgba(251,191,36,.5)',...bolgeList.map(()=>'rgba(59,130,246,.5)')],
+                    borderColor:['#fbbf24',...bolgeList.map(()=>'#3b82f6')],borderWidth:1,borderRadius:5}]:[])
+                ]
+              }} options={{responsive:true,maintainAspectRatio:false,
+                plugins:{legend:{display:!!selCmpDonem,position:'top',labels:{color:'#8496b0',font:{size:9},boxWidth:10}},
+                  tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${fmtKpi(ctx.parsed.y as number,meta.fmt)}`}}},
+                scales:{y:{min:0,max:barMax*1.2,grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8496b0',font:{size:9},callback:(v)=>fmtKpi(Number(v),meta.fmt)}},
+                  x:{grid:{display:false},ticks:{color:'#8496b0',font:{size:9},maxRotation:30}}}}}/>
             </div>
           </div>
         )}
