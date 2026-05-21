@@ -198,24 +198,22 @@ function DeltaBadge({ val, lob = false }: { val: number; lob?: boolean }) {
   )
 }
 
-// ── Yorum üretici (Claude API) ────────────────────────────────────────────────
+// ── Yorum üretici (Next.js API route üzerinden) ───────────────────────────────
 async function generateCommentary(prompt: string): Promise<string> {
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('/api/commentary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: `Sen Türkiye otomotiv sektörü SSH (Satış Sonrası Hizmet) rekabet analizi uzmanısın. 
-Verilen veriyi otomobil sektörü dergisi yazı stilinde, akıcı ve profesyonel Türkçe ile yorumlayacaksın.
-Yanıtın maksimum 3-4 cümle, direkt editorial yorum olacak. Madde işareti veya başlık kullanma.`,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+      body: JSON.stringify({ prompt }),
     })
     const data = await res.json()
-    return data.content?.[0]?.text ?? ''
-  } catch {
+    if (!res.ok) {
+      console.error('Commentary API error:', res.status, data)
+      return ''
+    }
+    return data.text ?? ''
+  } catch (err) {
+    console.error('Commentary fetch error:', err)
     return ''
   }
 }
