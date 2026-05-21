@@ -515,24 +515,9 @@ function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, s
 
   return (
     <div style={{borderTop:'1px solid var(--bd)',marginTop:14,paddingTop:12}}>
-      {/* Başlık + legend */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,flexWrap:'wrap',gap:8}}>
-        <div style={{fontSize:10,fontWeight:600,color:'var(--tx3)'}}>
-          Kategori Skor Karşılaştırması
-        </div>
-        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-          {/* Ortalama çizgi legend */}
-          <div style={{display:'flex',alignItems:'center',gap:5,fontSize:9,color:'var(--tx3)'}}>
-            <svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#fff" strokeWidth="2.5" strokeDasharray="6,4"/></svg>
-            {`Ort. ${selDonem||'Baz'}`}
-          </div>
-          {selCmpDonem && (
-            <div style={{display:'flex',alignItems:'center',gap:5,fontSize:9,color:'var(--tx3)'}}>
-              <svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#ffffff99" strokeWidth="2" strokeDasharray="3,3"/></svg>
-              {`Ort. ${selCmpDonem}`}
-            </div>
-          )}
-        </div>
+      {/* Başlık */}
+      <div style={{fontSize:10,fontWeight:600,color:'var(--tx3)',marginBottom:10}}>
+        Kategori Skor Karşılaştırması
       </div>
 
       {/* 5 kategori için grouped bar grid */}
