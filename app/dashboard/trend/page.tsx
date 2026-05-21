@@ -171,10 +171,11 @@ interface GrafikPaneliProps {
   seriler: Seri[]
   setSeriler: React.Dispatch<React.SetStateAction<Seri[]>>
   aktifDonemler: string[]
-  locked?: boolean  // Grafik 2 için — grafik 1 dolmadan kilitli
+  locked: boolean
+  onLockToggle: () => void
 }
 
-function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler, aktifDonemler, locked }: GrafikPaneliProps) {
+function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler, aktifDonemler, locked, onLockToggle }: GrafikPaneliProps) {
   const [dragOver, setDragOver] = useState(false)
 
   const hasDeger = seriler.some(s => s.tip === 'deger')
@@ -283,7 +284,25 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-      <div style={{ fontSize:10, fontWeight:700, color:'var(--tx3)', padding:'4px 0' }}>Grafik {idx+1}</div>
+      {/* Başlık + kilit butonu */}
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <span style={{ fontSize:10, fontWeight:700, color:'var(--tx2)' }}>Grafik {idx+1}</span>
+        <button onClick={onLockToggle}
+          style={{ display:'flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:20,
+            fontSize:9, fontWeight:600, cursor:'pointer',
+            border:`1px solid ${locked ? 'var(--bd)' : 'var(--blue)'}`,
+            background: locked ? 'var(--surf2)' : 'rgba(59,130,246,.1)',
+            color: locked ? 'var(--tx3)' : 'var(--blue)' }}>
+          {locked ? '🔒 Kilitli — düzenlemek için tıkla' : '🔓 Aktif — sürükle & bırak'}
+        </button>
+        {seriler.length > 0 && (
+          <button onClick={() => setSeriler([])}
+            style={{ marginLeft:'auto', padding:'2px 8px', borderRadius:12, fontSize:8,
+              cursor:'pointer', border:'1px solid var(--bd)', background:'var(--surf2)', color:'var(--tx3)' }}>
+            Temizle
+          </button>
+        )}
+      </div>
 
       {/* Drop zone */}
       <div onDragOver={e=>{e.preventDefault(); if(!locked) setDragOver(true)}} onDragLeave={()=>setDragOver(false)} onDrop={handleDrop}
@@ -337,41 +356,6 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
               </div>
             ))}
           </div>
-          <button onClick={()=>setSeriler([])}
-            style={{ marginTop:6,padding:'2px 0',borderRadius:5,fontSize:8,fontWeight:600,
-              cursor:'pointer',border:'1px solid var(--bd)',background:'var(--surf)',color:'var(--tx3)',width:'100%' }}>
-            Tümünü Temizle
-          </button>
-        </div>
-      )}
-
-      {/* Tablo */}
-      {seriler.length>0 && aktifDonemler.length>0 && (
-        <div style={{ background:'var(--surf)',border:'1px solid var(--bd)',borderRadius:8,overflow:'hidden' }}>
-          <div style={{ overflowX:'auto',maxHeight:180,overflowY:'auto' }}>
-            <table style={{ width:'100%',borderCollapse:'collapse',fontSize:9 }}>
-              <thead>
-                <tr style={{ background:'var(--surf2)',position:'sticky',top:0,zIndex:2 }}>
-                  <th style={thSt}>Dönem</th>
-                  {seriler.map(s=><th key={s.id} style={{ ...thSt,color:s.color }}>{s.label}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {aktifDonemler.map(d=>(
-                  <tr key={d} style={{ borderBottom:'1px solid var(--bd)' }}>
-                    <td style={{ ...tdSt,fontFamily:'var(--font-dm-mono)',color:'var(--tx2)',fontWeight:600 }}>{d}</td>
-                    {seriler.map(s=>{
-                      const v=getSeriVeri(s,[d],bolge,yas)[0]
-                      const fmt=s.kpiIdx!==null?KPI_META[s.kpiIdx].fmt:'int'
-                      return <td key={s.id} style={{ ...tdSt,fontFamily:'var(--font-dm-mono)',color:s.color,fontWeight:600 }}>
-                        {s.tip==='skor'?`${Math.round(v)} puan`:fmtKpi(v,fmt)}
-                      </td>
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </div>
       )}
     </div>
@@ -398,6 +382,9 @@ export default function TrendPage() {
     bRef.current = { ...bRef.current, ...patch }
     setBSnap({ ...bRef.current })
   }
+
+  // Manuel kilit — sadece kilidi açık grafik seri alır. Başlangıçta grafik1 açık.
+  const [aktifGrafik, setAktifGrafik] = useState<1|2>(1)
 
   // Bağımsız seri listeleri
   const [seriler1, setSeriler1] = useState<Seri[]>([])
@@ -558,13 +545,16 @@ export default function TrendPage() {
             <GrafikPaneli idx={0} bolge={selBolge} yas={selYas}
               bRef={bRef} dragPayload={dragPayload}
               seriler={seriler1} setSeriler={setSeriler1}
-              aktifDonemler={aktifDonemler} />
+              aktifDonemler={aktifDonemler}
+              locked={aktifGrafik !== 1}
+              onLockToggle={() => setAktifGrafik(1)} />
             <div style={{ borderTop:'1px solid var(--bd)', paddingTop:16 }}>
               <GrafikPaneli idx={1} bolge={selBolge} yas={selYas}
                 bRef={bRef} dragPayload={dragPayload}
                 seriler={seriler2} setSeriler={setSeriler2}
                 aktifDonemler={aktifDonemler}
-                locked={seriler1.length === 0} />
+                locked={aktifGrafik !== 2}
+                onLockToggle={() => setAktifGrafik(seriler1.length > 0 ? 2 : 1)} />
             </div>
           </div>
         </div>
@@ -629,5 +619,3 @@ function DragOnlyChip({ label, color, disabled, onDragStart }: {
 }
 
 const selSt: React.CSSProperties = { padding:'3px 7px', borderRadius:5, fontSize:9, fontWeight:600, background:'var(--surf)', border:'1px solid var(--bd)', color:'var(--tx2)', cursor:'pointer' }
-const thSt: React.CSSProperties  = { padding:'5px 8px', textAlign:'left', fontSize:8, fontWeight:700, color:'var(--tx3)', borderBottom:'1px solid var(--bd)', whiteSpace:'nowrap' }
-const tdSt: React.CSSProperties  = { padding:'4px 8px', borderBottom:'1px solid var(--bd)' }
