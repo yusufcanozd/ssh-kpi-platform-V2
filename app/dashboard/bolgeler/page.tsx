@@ -33,10 +33,16 @@ function ScoreCell({ baz, cmp, large }: { baz: number; cmp: number | null; large
   const chg = pct(baz, cmp)
   const clr = chgColor(chg ?? 0)
   return (
-    <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center', background:scoreBg(baz)}}>
-      <div style={{fontFamily:'var(--font-dm-mono)', fontSize:large?14:12, fontWeight:800, color:scoreColor(baz), lineHeight:1}}>{baz||'-'}</div>
-      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{cmp}</div>}
-      {chg!==null && <div style={{fontSize:8, fontWeight:700, color:clr, marginTop:1}}>{chg>=0?'+':''}{chg}%</div>}
+    <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', background:scoreBg(baz)}}>
+      <div style={{position:'relative', minHeight: cmp!==null ? 28 : 16}}>
+        <div style={{fontFamily:'var(--font-dm-mono)', fontSize:large?14:12, fontWeight:800, color:scoreColor(baz), lineHeight:1, position:'absolute', top:0, left:0}}>{baz||'-'}</div>
+        {(cmp!==null || chg!==null) && (
+          <div style={{position:'absolute', bottom:0, right:0, display:'flex', alignItems:'center', gap:3}}>
+            {cmp!==null && <span style={{fontSize:9, color:'var(--tx3)', fontFamily:'var(--font-dm-mono)'}}>{cmp}</span>}
+            {chg!==null && <span style={{fontSize:8, fontWeight:700, color:clr}}>{chg>=0?'+':''}{chg}%</span>}
+          </div>
+        )}
+      </div>
     </td>
   )
 }
@@ -47,11 +53,17 @@ function KpiCell({ baz, cmp, fmt, ref, lob, active }: {
   const hc  = heatColor(baz, ref, !lob)
   const chg = pct(baz, cmp)
   return (
-    <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center',
+    <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)',
       background: hc.bg, outline: active ? `2px solid ${hc.color}55` : 'none', outlineOffset:-1}}>
-      <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:hc.color, lineHeight:1}}>{fmtKpi(baz, fmt)}</div>
-      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtKpi(cmp, fmt)}</div>}
-      {chg!==null && <div style={{fontSize:7, fontWeight:700, marginTop:1, color:chgColor(lob?-chg:chg)}}>{chg>=0?'+':''}{chg}%</div>}
+      <div style={{position:'relative', minHeight: cmp!==null ? 28 : 16}}>
+        <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:hc.color, lineHeight:1, position:'absolute', top:0, left:0}}>{fmtKpi(baz, fmt)}</div>
+        {(cmp!==null || chg!==null) && (
+          <div style={{position:'absolute', bottom:0, right:0, display:'flex', alignItems:'center', gap:3}}>
+            {cmp!==null && <span style={{fontSize:9, color:'var(--tx3)', fontFamily:'var(--font-dm-mono)'}}>{fmtKpi(cmp, fmt)}</span>}
+            {chg!==null && <span style={{fontSize:7, fontWeight:700, color:chgColor(lob?-chg:chg)}}>{chg>=0?'+':''}{chg}%</span>}
+          </div>
+        )}
+      </div>
     </td>
   )
 }
@@ -59,11 +71,17 @@ function KpiCell({ baz, cmp, fmt, ref, lob, active }: {
 function KpiScoreCell({ baz, cmp, active }: { baz: number; cmp: number | null; active: boolean }) {
   const chg = pct(baz, cmp)
   return (
-    <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center',
+    <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)',
       background: kpiScoreBg(baz), outline: active ? `2px solid ${kpiScoreColor(baz)}55` : 'none', outlineOffset:-1}}>
-      <div style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:800, color:kpiScoreColor(baz), lineHeight:1}}>{baz}</div>
-      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{cmp}</div>}
-      {chg!==null && <div style={{fontSize:8, fontWeight:700, marginTop:1, color:chgColor(chg)}}>{chg>=0?'+':''}{chg}%</div>}
+      <div style={{position:'relative', minHeight: cmp!==null ? 28 : 16}}>
+        <div style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:800, color:kpiScoreColor(baz), lineHeight:1, position:'absolute', top:0, left:0}}>{baz}</div>
+        {(cmp!==null || chg!==null) && (
+          <div style={{position:'absolute', bottom:0, right:0, display:'flex', alignItems:'center', gap:3}}>
+            {cmp!==null && <span style={{fontSize:9, color:'var(--tx3)', fontFamily:'var(--font-dm-mono)'}}>{cmp}</span>}
+            {chg!==null && <span style={{fontSize:8, fontWeight:700, color:chgColor(chg)}}>{chg>=0?'+':''}{chg}%</span>}
+          </div>
+        )}
+      </div>
     </td>
   )
 }
@@ -224,7 +242,7 @@ export default function BolgelerPage() {
                   })}
 
                   {mode==='kpiSkor' && trKpiScores.map((v,i)=>(
-                    <KpiScoreCell key={i} baz={v} cmp={trKpiScoresCmp?.[i]??null} active={selKpi===i}/>
+                    <KpiScoreCell key={i} baz={v} cmp={trKpiScoresCmp?.[i]??null} active={selKpi===i} />
                   ))}
 
                   {mode==='kpiDeger' && KPI_META.map((_,i)=>{
@@ -233,11 +251,17 @@ export default function BolgelerPage() {
                     const hc  = {bg:'rgba(251,191,36,.08)', color:'#fbbf24'}
                     const chg = pct(v, cv)
                     return (
-                      <td key={i} style={{padding:'6px 8px', borderBottom:'2px solid var(--bd2)', textAlign:'center',
+                      <td key={i} style={{padding:'6px 8px', borderBottom:'2px solid var(--bd2)',
                         background:hc.bg, outline:selKpi===i?'2px solid #fbbf2466':'none', outlineOffset:-1}}>
-                        <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:hc.color}}>{fmtKpi(v, KPI_META[i].fmt)}</div>
-                        {cv!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtKpi(cv, KPI_META[i].fmt)}</div>}
-                        {chg!==null && <div style={{fontSize:7, fontWeight:700, marginTop:1, color:chgColor(isLowerBetter(i)?-chg:chg)}}>{chg>=0?'+':''}{chg}%</div>}
+                        <div style={{position:'relative', minHeight: cv!==null ? 28 : 16}}>
+                          <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:hc.color, lineHeight:1, position:'absolute', top:0, left:0}}>{fmtKpi(v, KPI_META[i].fmt)}</div>
+                          {(cv!==null || chg!==null) && (
+                            <div style={{position:'absolute', bottom:0, right:0, display:'flex', alignItems:'center', gap:3}}>
+                              {cv!==null && <span style={{fontSize:9, color:'var(--tx3)', fontFamily:'var(--font-dm-mono)'}}>{fmtKpi(cv, KPI_META[i].fmt)}</span>}
+                              {chg!==null && <span style={{fontSize:7, fontWeight:700, color:chgColor(isLowerBetter(i)?-chg:chg)}}>{chg>=0?'+':''}{chg}%</span>}
+                            </div>
+                          )}
+                        </div>
                       </td>
                     )
                   })}
@@ -267,13 +291,19 @@ export default function BolgelerPage() {
 
                       {mode==='kpiSkor' && b.kpiScores.map((v,i)=>(
                         <td key={i} onClick={()=>setSelKpi(i)}
-                          style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center', cursor:'pointer',
+                          style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', cursor:'pointer',
                             background:kpiScoreBg(v), outline:selKpi===i?`2px solid ${kpiScoreColor(v)}55`:'none', outlineOffset:-1}}>
-                          <div style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:800, color:kpiScoreColor(v), lineHeight:1}}>{v}</div>
-                          {b.kpiScoresCmp && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{b.kpiScoresCmp[i]}</div>}
-                          {b.kpiScoresCmp && pct(v,b.kpiScoresCmp[i])!==null && (
-                            <div style={{fontSize:7, fontWeight:700, marginTop:1, color:chgColor(pct(v,b.kpiScoresCmp[i])!)}}>{pct(v,b.kpiScoresCmp[i])!>=0?'+':''}{pct(v,b.kpiScoresCmp[i])}%</div>
-                          )}
+                          <div style={{position:'relative', minHeight: b.kpiScoresCmp ? 28 : 16}}>
+                            <div style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:800, color:kpiScoreColor(v), lineHeight:1, position:'absolute', top:0, left:0}}>{v}</div>
+                            {b.kpiScoresCmp && (
+                              <div style={{position:'absolute', bottom:0, right:0, display:'flex', alignItems:'center', gap:3}}>
+                                <span style={{fontSize:9, color:'var(--tx3)', fontFamily:'var(--font-dm-mono)'}}>{b.kpiScoresCmp[i]}</span>
+                                {pct(v,b.kpiScoresCmp[i])!==null && (
+                                  <span style={{fontSize:7, fontWeight:700, color:chgColor(pct(v,b.kpiScoresCmp[i])!)}}>{pct(v,b.kpiScoresCmp[i])!>=0?'+':''}{pct(v,b.kpiScoresCmp[i])}%</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </td>
                       ))}
 
@@ -285,15 +315,19 @@ export default function BolgelerPage() {
                         const chg = pct(v, cv)
                         return (
                           <td key={i} onClick={()=>setSelKpi(i)}
-                            style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center', cursor:'pointer',
+                            style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', cursor:'pointer',
                               background:hc.bg, outline:selKpi===i?`2px solid ${hc.color}55`:'none', outlineOffset:-1}}>
-                            <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, lineHeight:1, color:hc.color}}>
-                              {fmtKpi(v, KPI_META[i].fmt)}
+                            <div style={{position:'relative', minHeight: cv!==null ? 28 : 16}}>
+                              <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, lineHeight:1, color:hc.color, position:'absolute', top:0, left:0}}>
+                                {fmtKpi(v, KPI_META[i].fmt)}
+                              </div>
+                              {(cv!==null || chg!==null) && (
+                                <div style={{position:'absolute', bottom:0, right:0, display:'flex', alignItems:'center', gap:3}}>
+                                  {cv!==null && <span style={{fontSize:9, color:'var(--tx3)', fontFamily:'var(--font-dm-mono)'}}>{fmtKpi(cv, KPI_META[i].fmt)}</span>}
+                                  {chg!==null && <span style={{fontSize:7, fontWeight:700, color:chgColor(isLowerBetter(i)?-chg:chg)}}>{chg>=0?'+':''}{chg}%</span>}
+                                </div>
+                              )}
                             </div>
-                            {cv!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtKpi(cv, KPI_META[i].fmt)}</div>}
-                            {chg!==null && (
-                              <div style={{fontSize:7, fontWeight:700, marginTop:1, color:chgColor(isLowerBetter(i)?-chg:chg)}}>{chg>=0?'+':''}{chg}%</div>
-                            )}
                           </td>
                         )
                       })}
