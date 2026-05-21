@@ -130,7 +130,7 @@ function KpiBazliTab() {
       {/* Bar Grafik */}
       <div className={styles.card}>
         <div className={styles.cardHd}>
-          <h3>{selKpi === 'ov' ? 'Genel Skor — Marka Karşılaştırması' : `KPI ${activeMeta?.no}: ${activeMeta?.ad} — Puan Karşılaştırması`}</h3>
+          <h3>{selKpi === 'ov' ? 'Genel Skor — Marka Karşılaştırması' : `${activeMeta?.ad} — Puan Karşılaştırması`}</h3>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <button onClick={() => setSelKpi('ov')}
               style={{ padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: `1px solid ${selKpi === 'ov' ? 'var(--blue)' : 'var(--bd)'}`, background: selKpi === 'ov' ? 'rgba(59,130,246,.12)' : 'var(--surf2)', color: selKpi === 'ov' ? 'var(--blue)' : 'var(--tx2)' }}>
