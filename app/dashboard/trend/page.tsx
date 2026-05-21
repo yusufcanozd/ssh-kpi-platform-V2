@@ -302,14 +302,13 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
     <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
       {/* Başlık + kilit butonu */}
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <span style={{ fontSize:10, fontWeight:700, color:'var(--tx2)' }}>Grafik {idx+1}</span>
-        <button onClick={onLockToggle}
-          style={{ display:'flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:20,
-            fontSize:9, fontWeight:600, cursor:'pointer',
+        <button onClick={onLockToggle} title={locked ? 'Kilidi aç' : 'Kilitle'}
+          style={{ display:'flex', alignItems:'center', justifyContent:'center',
+            width:28, height:28, borderRadius:8, cursor:'pointer',
             border:`1px solid ${locked ? 'var(--bd)' : 'var(--blue)'}`,
             background: locked ? 'var(--surf2)' : 'rgba(59,130,246,.1)',
-            color: locked ? 'var(--tx3)' : 'var(--blue)' }}>
-          {locked ? '🔒 Kilitli — düzenlemek için tıkla' : '🔓 Aktif — sürükle & bırak'}
+            fontSize:14, lineHeight:1 }}>
+          {locked ? '🔒' : '🔓'}
         </button>
         {seriler.length > 0 && (
           <button onClick={() => setSeriler([])}
