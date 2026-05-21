@@ -343,10 +343,10 @@ export default function OzetRaporPage() {
         )}
 
         {raporData && !generating && (
-          <div id="rapor-icerik" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div id="rapor-icerik" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
 
-            {/* ══ SAYFA 1 ══════════════════════════════════════════════════════ */}
-
+            {/* ══ SAYFA 1: Kapak + Genel Özet + Segment Skoru ══════════════════ */}
+            <div className="rapor-sayfa" style={{ marginBottom: 32 }}>
             {/* Kapak bandı */}
             <div style={{ background: 'linear-gradient(135deg, #0f1c2e 0%, #1e3a5f 50%, #0f2744 100%)',
               borderRadius: 12, padding: '28px 32px', color: '#fff', position: 'relative', overflow: 'hidden' }}>
@@ -473,6 +473,11 @@ export default function OzetRaporPage() {
               )}
             </Kart>
 
+            </div>{/* ── Sayfa 1 sonu ── */}
+
+            {/* ══ SAYFA 2: KPI Analizi + Kategori Analizi ══════════════════════ */}
+            <div className="rapor-sayfa" style={{ marginBottom: 32 }}>
+
             {/* ══ KPI Analizi ══════════════════════════════════════════════════ */}
             <Kart>
               <KartBaslik>📊 KPI Performans Analizi</KartBaslik>
@@ -524,6 +529,11 @@ export default function OzetRaporPage() {
                 </div>
               )}
             </Kart>
+
+            </div>{/* ── Sayfa 2 sonu ── */}
+
+            {/* ══ SAYFA 3: Bölgesel + Yaş Kırılımı + Trend ════════════════════ */}
+            <div className="rapor-sayfa" style={{ marginBottom: 32 }}>
 
             {/* ══ Bölgesel + Yaş ══════════════════════════════════════════════ */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -617,6 +627,11 @@ export default function OzetRaporPage() {
               </div>
             </Kart>
 
+            </div>{/* ── Sayfa 3 sonu ── */}
+
+            {/* ══ SAYFA 4: Puan Kayıpları + Öneriler + Sonuç ══════════════════ */}
+            <div className="rapor-sayfa">
+
             {/* ══ Puan Kayıpları ═══════════════════════════════════════════════ */}
             {raporData.kayiplar.length > 0 && (
               <Kart style={{ borderLeft: '4px solid #ef4444' }}>
@@ -700,15 +715,42 @@ export default function OzetRaporPage() {
               </div>
             </div>
 
+            </div>{/* ── Kapanış bandı sonu ── */}
+
+            </div>{/* ── Sayfa 4 sonu ── */}
+
           </div>
         )}
       </div>
 
       <style>{`
+        .rapor-sayfa {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
         @media print {
+          @page {
+            size: A4;
+            margin: 12mm 14mm;
+          }
           body * { visibility: hidden !important; }
           #rapor-icerik, #rapor-icerik * { visibility: visible !important; }
-          #rapor-icerik { position: fixed; top: 0; left: 0; width: 100%; }
+          #rapor-icerik {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+          }
+          .rapor-sayfa {
+            page-break-after: always;
+            break-after: page;
+            page-break-inside: avoid;
+          }
+          .rapor-sayfa:last-child {
+            page-break-after: auto;
+            break-after: auto;
+          }
         }
       `}</style>
     </div>
