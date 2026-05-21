@@ -61,11 +61,6 @@ export default function BolgelerPage() {
 
   const filterLabel = [selSeg||'Tüm Seg.',selYas==='Tümü'?'Tüm Yaş':selYas+'y',selDonem||'Tüm Dönem'].join(' · ')
 
-  function chgPct(baz:number, cmp:number|null) {
-    if(!cmp) return null
-    return Math.round((baz-cmp)/Math.abs(cmp)*1000)/10
-  }
-
   return (
     <div className={styles.wrap}>
       <Topbar title="Bölge Analizi"
@@ -467,6 +462,11 @@ export default function BolgelerPage() {
       </div>
     </div>
   )
+}
+
+function chgPct(baz:number, cmp:number|null): number|null {
+  if(!cmp) return null
+  return Math.round((baz-cmp)/Math.abs(cmp)*1000)/10
 }
 
 const thS: React.CSSProperties = {padding:'8px 10px',textAlign:'left',fontSize:9,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',color:'var(--tx3)',borderBottom:'1px solid var(--bd)',whiteSpace:'nowrap'}
