@@ -413,19 +413,6 @@ export default function BolgelerPage() {
         {/* ══ KPI SKOR ══ */}
         {activeTab === 'kpiSkor' && (
           <div>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6, marginBottom:14}}>
-              {KPI_META.map(function(k, i) {
-                const trV  = trKpiScores[i] || 0
-                const trVC = trKpiScoresCmp ? (trKpiScoresCmp[i] || 0) : 0
-                const isAct = selKpi === i
-                return (
-                  <ScoreCard key={i} label={k.ad + (kpiUnit(k.fmt) ? ' (' + kpiUnit(k.fmt) + ')' : '')}
-                    bazG={trV} cmpG={selCmpDonem ? trVC : null}
-                    bazDonem={selDonem} cmpDonem={selCmpDonem}
-                    isActive={isAct} onClick={function() { setSelKpi(i) }}/>
-                )
-              })}
-            </div>
 
             <div className={styles.card} style={{padding:0, overflow:'hidden', marginBottom:14}}>
               <div style={{overflowX:'auto'}}>
@@ -563,38 +550,6 @@ export default function BolgelerPage() {
         {/* ══ KPI DEĞERLERİ ══ */}
         {activeTab === 'kpiDeger' && (
           <div>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:14}}>
-              {KPI_META.map(function(k, i) {
-                const trV  = trKpis[i] || 0
-                const trVC = trKpisCmp ? (trKpisCmp[i] || 0) : 0
-                const chg  = chgPct(trV, selCmpDonem ? trVC : null)
-                const isAct = selKpi === i
-                return (
-                  <div key={i} onClick={function() { setSelKpi(i) }}
-                    style={{background: isAct ? 'rgba(59,130,246,.08)' : 'var(--surf2)',
-                      border: '1px solid ' + (isAct ? 'var(--blue)' : 'var(--bd)'),
-                      borderRadius:8, padding:'12px 14px', cursor:'pointer', transition:'all .12s'}}>
-                    <div style={{fontSize:10, fontWeight:600, lineHeight:1.4, marginBottom:8, color: isAct ? 'var(--blue)' : 'var(--tx2)'}}>
-                      {k.ad}{kpiUnit(k.fmt) ? ' (' + kpiUnit(k.fmt) + ')' : ''}
-                    </div>
-                    <div style={{display:'flex', alignItems:'flex-end', gap:8}}>
-                      <div>
-                        {selDonem && <div style={{fontSize:8, color:'var(--tx3)', marginBottom:2}}>{selDonem}</div>}
-                        <div style={{fontSize:22, fontWeight:800, fontFamily:'var(--font-dm-mono)', color: isAct ? 'var(--blue)' : 'var(--tx)', lineHeight:1}}>{fmtKpi(trV, k.fmt)}</div>
-                      </div>
-                      {selCmpDonem && (
-                        <div style={{paddingBottom:3}}>
-                          <div style={{fontSize:8, color:'var(--tx3)', marginBottom:2}}>{selCmpDonem}</div>
-                          <div style={{fontSize:14, fontWeight:600, fontFamily:'var(--font-dm-mono)', color:'var(--tx2)', lineHeight:1}}>{fmtKpi(trVC, k.fmt)}</div>
-                        </div>
-                      )}
-                      {chg !== null && (
-                        <div style={{marginLeft:'auto', paddingBottom:3, fontSize:12, fontWeight:700, color:chgColor(lob ? -chg : chg)}}>
-                          {chg >= 0 ? '+' : ''}{chg}%
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 )
               })}
             </div>
