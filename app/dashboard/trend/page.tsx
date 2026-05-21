@@ -128,10 +128,8 @@ export default function TrendPage() {
 
   // ── Grafik builder state ──────────────────────────────────────────────────
   const [seriler, setSeriler] = useState<Seri[]>([])
-  const [dragOver, setDragOver]   = useState(false)
-
-  // Geçici builder state — hangi seg ve kat seçili (drag sırasında birikiyor)
-  const builderRef = useRef<{
+  const [dragOver, setDragOver] = useState(false)
+  const [builderState, setBuilderState] = useState<{
     segment: string | null
     katKey:  string | null
     tip:     SeriTip | null
@@ -150,45 +148,51 @@ export default function TrendPage() {
     const item = dragItemRef.current
     if (!item) return
 
-    const b = builderRef.current
-
     if (item.grup === 'segment') {
-      builderRef.current = { ...b, segment: item.seg }
+      setBuilderState(b => ({ ...b, segment: item.seg }))
       return
     }
     if (item.grup === 'kategori') {
-      builderRef.current = { ...b, katKey: item.katKey }
+      setBuilderState(b => ({ ...b, katKey: item.katKey }))
       return
     }
     if (item.grup === 'deger' || item.grup === 'puan') {
-      builderRef.current = { ...b, tip: item.grup }
-      tryCreateSeri()
+      // Tip seçildi — eğer KPI veya kat varsa seri oluştur
+      setBuilderState(b => {
+        const newB = { ...b, tip: item.grup as SeriTip }
+        tryCreateSeriFromState(newB)
+        return newB
+      })
       return
     }
     if (item.grup === 'kpi') {
-      // KPI sürüklendiğinde tip de deger olarak varsay eğer yoksa
-      const tip = b.tip ?? 'deger'
-      const seg = b.segment ?? ''
-      const color = SERI_RENKLER[seriler.length % SERI_RENKLER.length]
-      const segLabel = seg ? seg : 'Tüm TR'
-      const yeniSeri: Seri = {
-        id: makeSeriId(),
-        label: `${segLabel} · ${item.label}`,
-        color,
-        tip,
-        segment: seg,
-        kpiIdx: item.kpiIdx,
-        katKey: null,
-      }
-      setSeriler(prev => [...prev, yeniSeri])
+      // KPI sürüklenince tip ZORUNLU — tip yoksa ekleme, uyarı göster
+      setBuilderState(b => {
+        if (!b.tip) {
+          // tip seçilmemiş — sadece kpiIdx'i pending olarak tut, seri oluşturma
+          return { ...b }
+        }
+        const seg = b.segment ?? ''
+        const color = SERI_RENKLER[seriler.length % SERI_RENKLER.length]
+        const segLabel = seg ? seg : 'Tüm TR'
+        const yeniSeri: Seri = {
+          id: makeSeriId(),
+          label: `${segLabel} · ${item.label}`,
+          color,
+          tip: b.tip,
+          segment: seg,
+          kpiIdx: item.kpiIdx,
+          katKey: null,
+        }
+        setSeriler(prev => [...prev, yeniSeri])
+        return b
+      })
       return
     }
   }
 
-  function tryCreateSeri() {
-    const b = builderRef.current
+  function tryCreateSeriFromState(b: { segment: string | null; katKey: string | null; tip: SeriTip | null }) {
     if (!b.tip) return
-
     const seg = b.segment ?? ''
     const color = SERI_RENKLER[seriler.length % SERI_RENKLER.length]
     const segLabel = seg ? seg : 'Tüm TR'
@@ -207,21 +211,8 @@ export default function TrendPage() {
         katKey: b.katKey,
       }
       setSeriler(prev => [...prev, yeniSeri])
-    } else {
-      // değer — eğer KPI seçili değilse ilk KPI'yı koy
-      const kpiIdx = 0
-      const kpiLabel = KPI_META[kpiIdx]?.ad ?? ''
-      const yeniSeri: Seri = {
-        id: makeSeriId(),
-        label: `${segLabel} · ${kpiLabel}`,
-        color,
-        tip: 'deger',
-        segment: seg,
-        kpiIdx,
-        katKey: null,
-      }
-      setSeriler(prev => [...prev, yeniSeri])
     }
+    // deger tipinde — KPI sürüklenince eklenir, burada değil
   }
 
   function removeSeri(id: string) {
@@ -249,10 +240,10 @@ export default function TrendPage() {
 
   // KPI listesi — seçili katKey varsa filtrele
   const filteredKpis = useMemo(() => {
-    if (!builderRef.current.katKey) return KPI_META.map((k, i) => ({ ...k, i }))
-    const katLabel = KATEGORILER.find(k => k.key === builderRef.current.katKey)?.label
+    if (!builderState.katKey) return KPI_META.map((k, i) => ({ ...k, i }))
+    const katLabel = KATEGORILER.find(k => k.key === builderState.katKey)?.label
     return KPI_META.map((k, i) => ({ ...k, i })).filter(k => k.kat === katLabel)
-  }, [seriler]) // seriler değişince re-render tetikler
+  }, [builderState.katKey])
 
   // ── Render ────────────────────────────────────────────────────────────────
   const periyotler: { key: Periyot; label: string; disabled: boolean }[] = [
@@ -372,18 +363,17 @@ export default function TrendPage() {
 
             {/* KPI grubu — katKey varsa filtreli */}
             <PanelGrup title="KPI" icon="📊"
-              hint={builderRef.current.katKey
-                ? `Filtre: ${KATEGORILER.find(k=>k.key===builderRef.current.katKey)?.label}`
+              hint={builderState.katKey
+                ? `Filtre: ${KATEGORILER.find(k=>k.key===builderState.katKey)?.label}`
                 : 'Kategori seçince filtreler'}>
               <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {KPI_META.map((k, i) => {
-                  const katLabel = KATEGORILER.find(kat => kat.label === k.kat)?.label
+                {filteredKpis.map(k => {
                   const katColor = CAT_COLORS[k.kat] || '#8496b0'
                   return (
-                    <DragChip key={i}
+                    <DragChip key={k.i}
                       label={k.ad}
                       color={katColor}
-                      onDragStart={() => handleDragStart({ grup: 'kpi', kpiIdx: i, label: k.ad, katKey: k.kat })}
+                      onDragStart={() => handleDragStart({ grup: 'kpi', kpiIdx: k.i, label: k.ad, katKey: k.kat })}
                     />
                   )
                 })}
@@ -398,18 +388,36 @@ export default function TrendPage() {
                 onDragStart={() => handleDragStart({ grup: 'puan' })} />
             </PanelGrup>
 
-            {/* Builder adımları ipucu */}
-            <div style={{
-              background: 'var(--surf2)', border: '1px dashed var(--bd)',
-              borderRadius: 8, padding: '10px 12px', fontSize: 9, color: 'var(--tx3)', lineHeight: 1.7,
-            }}>
+            {/* Seçili parametreler göstergesi */}
+            <div style={{ background: 'var(--surf2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '10px 12px' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--tx3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.06em' }}>Seçili Parametreler</div>
+              {[
+                { label: 'Segment', value: builderState.segment !== null ? (builderState.segment || 'Tüm TR') : '—', color: builderState.segment !== null ? (SEGMENT_HEX[builderState.segment] || '#8496b0') : 'var(--tx3)' },
+                { label: 'Kategori', value: builderState.katKey ? (KATEGORILER.find(k=>k.key===builderState.katKey)?.label ?? '—') : '—', color: builderState.katKey ? (KATEGORILER.find(k=>k.key===builderState.katKey)?.color ?? 'var(--tx3)') : 'var(--tx3)' },
+                { label: 'Tip', value: builderState.tip === 'deger' ? 'Değer' : builderState.tip === 'puan' ? 'Puan' : '—', color: builderState.tip === 'deger' ? '#3b82f6' : builderState.tip === 'puan' ? '#10b981' : 'var(--tx3)' },
+              ].map(row => (
+                <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: 9, color: 'var(--tx3)' }}>{row.label}</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: row.color }}>{row.value}</span>
+                </div>
+              ))}
+              {!builderState.tip && (
+                <div style={{ marginTop: 6, fontSize: 8, color: '#f59e0b', fontWeight: 600 }}>⚠ KPI eklemek için önce Tip sürükle</div>
+              )}
+              <button onClick={() => setBuilderState({ segment: null, katKey: null, tip: null })}
+                style={{ marginTop: 8, width: '100%', padding: '3px 0', borderRadius: 4, fontSize: 9, cursor: 'pointer', border: '1px solid var(--bd)', background: 'var(--surf)', color: 'var(--tx3)' }}>
+                Parametreleri Sıfırla
+              </button>
+            </div>
+
+            {/* Nasıl kullanılır */}
+            <div style={{ background: 'var(--surf2)', border: '1px dashed var(--bd)', borderRadius: 8, padding: '10px 12px', fontSize: 9, color: 'var(--tx3)', lineHeight: 1.7 }}>
               <div style={{ fontWeight: 700, marginBottom: 4, color: 'var(--tx2)' }}>Nasıl Kullanılır?</div>
-              <div>1. Segment sürükle → Grafiğe bırak</div>
-              <div>2. Kategori sürükle → Grafiğe bırak <span style={{color:'var(--tx3)'}}>(opsiyonel)</span></div>
-              <div>3. KPI sürükle → Grafiğe bırak <span style={{color:'var(--tx3)'}}>(değer serisi)</span></div>
-              <div>&nbsp;&nbsp;&nbsp;<em>veya</em></div>
-              <div>3. Puan sürükle → Grafiğe bırak <span style={{color:'var(--tx3)'}}>(skor serisi)</span></div>
-              <div style={{ marginTop: 6, color: 'var(--tx2)', fontWeight: 600 }}>Seriyi kaldırmak için × tıkla</div>
+              <div>1. <b>Segment</b> → Grafiğe sürükle</div>
+              <div>2. <b>Kategori</b> → Grafiğe sürükle <em>(KPI filtreler)</em></div>
+              <div>3. <b>Değer</b> veya <b>Puan</b> → Grafiğe sürükle</div>
+              <div>4. <b>KPI</b> → Grafiğe sürükle <em>(değer tipinde)</em></div>
+              <div style={{ marginTop: 4 }}>Seriyi kaldırmak için <b>×</b> tıkla</div>
             </div>
           </div>
 
@@ -447,7 +455,7 @@ export default function TrendPage() {
                 </div>
               ) : (
                 <>
-                  <div style={{ height: 320 }}>
+                  <div style={{ height: 360 }}>
                     <Line
                       data={chartData}
                       options={{
@@ -472,18 +480,55 @@ export default function TrendPage() {
                               },
                             },
                           },
+                          datalabels: false as any,
                         },
                         scales: {
                           y: {
                             grid: { color: 'rgba(255,255,255,.05)' },
                             ticks: { color: '#8496b0', font: { size: 9 } },
+                            // Değer aralığını veriden %20 açık tut — dalgalanma yumuşar
+                            afterDataLimits: (scale: any) => {
+                              const range = scale.max - scale.min
+                              const pad = range * 0.3
+                              scale.min = Math.max(0, scale.min - pad)
+                              scale.max = scale.max + pad
+                            },
                           },
                           x: {
                             grid: { display: false },
                             ticks: { color: '#8496b0', font: { size: 9 }, maxRotation: 45, autoSkip: false },
                           },
                         },
-                      }}
+                        // Nokta üstü etiket — custom plugin
+                        animation: {
+                          onComplete: function(this: any) {
+                            const chart = this.chart
+                            if (!chart) return
+                            const ctx2 = chart.ctx
+                            chart.data.datasets.forEach((ds: any, di: number) => {
+                              const meta = chart.getDatasetMeta(di)
+                              meta.data.forEach((pt: any, pi: number) => {
+                                const s = seriler[di]
+                                if (!s) return
+                                const raw = ds.data[pi]
+                                if (raw == null || raw === 0) return
+                                const label = s.tip === 'puan'
+                                  ? `${Math.round(raw)}`
+                                  : s.kpiIdx !== null
+                                    ? fmtKpi(raw, KPI_META[s.kpiIdx].fmt)
+                                    : `${raw}`
+                                ctx2.save()
+                                ctx2.fillStyle = ds.borderColor
+                                ctx2.font = 'bold 8px sans-serif'
+                                ctx2.textAlign = 'center'
+                                ctx2.textBaseline = 'bottom'
+                                ctx2.fillText(label, pt.x, pt.y - 5)
+                                ctx2.restore()
+                              })
+                            })
+                          }
+                        },
+                      } as any}
                     />
                   </div>
 
@@ -535,7 +580,7 @@ export default function TrendPage() {
                 </div>
 
                 {/* Tüm serileri temizle */}
-                <button onClick={() => { setSeriler([]); builderRef.current = { segment: null, katKey: null, tip: null } }}
+                <button onClick={() => { setSeriler([]); setBuilderState({ segment: null, katKey: null, tip: null }) }}
                   style={{
                     marginTop: 8, padding: '4px 12px', borderRadius: 6, fontSize: 10,
                     fontWeight: 600, cursor: 'pointer', border: '1px solid var(--bd)',
