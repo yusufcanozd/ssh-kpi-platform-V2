@@ -304,10 +304,10 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
         <button onClick={onLockToggle} title={locked ? 'Kilidi aç' : 'Kilitle'}
           style={{ display:'flex', alignItems:'center', justifyContent:'center',
-            width:28, height:28, borderRadius:8, cursor:'pointer',
-            border:`1px solid ${locked ? 'var(--bd)' : 'var(--blue)'}`,
-            background: locked ? 'var(--surf2)' : 'rgba(59,130,246,.1)',
-            fontSize:14, lineHeight:1 }}>
+            width:22, height:22, borderRadius:6, cursor:'pointer',
+            border:`1px solid ${locked ? '#c9d4e0' : '#a8c4e8'}`,
+            background: locked ? '#eef1f5' : '#ddeaf8',
+            fontSize:11, lineHeight:1, color: locked ? '#8fa3b8' : '#6b9fc4' }}>
           {locked ? '🔒' : '🔓'}
         </button>
         {seriler.length > 0 && (
