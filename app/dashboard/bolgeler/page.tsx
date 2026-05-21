@@ -59,12 +59,14 @@ export default function BolgelerPage() {
   const barCmpData = bolgeList.map(b=>selCmpDonem?getKpisFromCube(selSeg,b,selYas,selCmpDonem)[selKpi]??0:0)
   const barMax = Math.max(...barBazData,...barCmpData,trKpis[selKpi]||0,0.001)
 
-  const filterLabel = [selSeg||'Tüm Seg.',selYas==='Tümü'?'Tüm Yaş':selYas+'y',selDonem||'Tüm Dönem'].join(' · ')
+  const isAllYas = selYas === 'Tümü'
+  const yasLabel = isAllYas ? 'Tum Yas' : selYas + 'y'
+  const filterLabel = [selSeg || 'Tum Seg.', yasLabel, selDonem || 'Tum Donem'].join(' - ')
 
   return (
     <div className={styles.wrap}>
       <Topbar title="Bölge Analizi"
-        subtitle={`${bolgeList.length} bölge · ${filterLabel}${selCmpDonem?' vs '+selCmpDonem:''}`}/>
+        subtitle={bolgeList.length + ' bolge - ' + filterLabel + (selCmpDonem ? ' vs ' + selCmpDonem : '')}/>
       <div className={styles.content}>
 
         {/* Tab seçici */}
