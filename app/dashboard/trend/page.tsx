@@ -304,32 +304,35 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
         )}
       </div>
 
-      {/* Drop zone */}
+      {/* Drop zone — her zaman görünür, sadece aktif değilse sürükleme kabul etmez */}
       <div onDragOver={e=>{e.preventDefault(); if(!locked) setDragOver(true)}} onDragLeave={()=>setDragOver(false)} onDrop={handleDrop}
-        style={{ background: locked ? 'var(--surf3)' : 'var(--surf)',
-          border:`2px ${dragOver?'solid var(--blue)': locked ? 'dashed var(--bd)' : 'dashed var(--bd)'}`,
-          borderRadius:10, padding:12, minHeight:280, position:'relative', transition:'border-color .15s',
-          opacity: locked ? .55 : 1 }}>
-        {locked ? (
+        style={{ background:'var(--surf)',
+          border:`2px ${locked ? 'solid transparent' : dragOver ? 'solid var(--blue)' : 'dashed var(--bd)'}`,
+          borderRadius:10, padding:12, minHeight:280, position:'relative', transition:'border-color .15s' }}>
+
+        {seriler.length===0 ? (
           <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column',
-            alignItems:'center', justifyContent:'center', gap:8, color:'var(--tx3)' }}>
-            <div style={{ fontSize:28 }}>🔒</div>
-            <div style={{ fontSize:11, fontWeight:600 }}>Önce Grafik 1'i oluşturun</div>
-            <div style={{ fontSize:10 }}>Grafik 1'e en az bir seri ekleyin</div>
-          </div>
-        ) : seriler.length===0 ? (
-          <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column',
-            alignItems:'center', justifyContent:'center', gap:8, color:dragOver?'var(--blue)':'var(--tx3)' }}>
-            <div style={{ fontSize:34 }}>📈</div>
-            <div style={{ fontSize:12, fontWeight:600 }}>{dragOver?'Bırak!':'Buraya sürükle & bırak'}</div>
-            <div style={{ fontSize:10 }}>Değer veya Skor grubunu sürükle</div>
+            alignItems:'center', justifyContent:'center', gap:8,
+            color: locked ? 'var(--tx3)' : dragOver ? 'var(--blue)' : 'var(--tx3)' }}>
+            <div style={{ fontSize:34 }}>{locked ? '🔒' : '📈'}</div>
+            <div style={{ fontSize:12, fontWeight:600 }}>
+              {locked ? 'Kilidi aç → sürükle & bırak' : dragOver ? 'Bırak!' : 'Buraya sürükle & bırak'}
+            </div>
+            {!locked && <div style={{ fontSize:10 }}>Değer veya Skor grubunu sürükle</div>}
           </div>
         ) : (
           <div style={{ height:280 }}>
             <Line data={chartData} options={chartOptions as any} />
           </div>
         )}
-        {dragOver && seriler.length>0 && (
+
+        {/* Kilitli overlay — sadece seri yokken tam, seri varsa ince şerit */}
+        {locked && seriler.length > 0 && (
+          <div style={{ position:'absolute', top:0, left:0, right:0,
+            background:'rgba(0,0,0,.0)', pointerEvents:'none' }} />
+        )}
+
+        {dragOver && !locked && seriler.length>0 && (
           <div style={{ position:'absolute', inset:0, background:'rgba(59,130,246,.06)',
             border:'2px solid var(--blue)', borderRadius:10, display:'flex', alignItems:'center',
             justifyContent:'center', fontSize:13, fontWeight:700, color:'var(--blue)', pointerEvents:'none' }}>
