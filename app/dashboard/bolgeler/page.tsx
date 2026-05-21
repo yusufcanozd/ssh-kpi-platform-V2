@@ -202,22 +202,112 @@ export default function BolgelerPage() {
         {/* ══ KATEGORİ SKOR ══ */}
         {activeTab === 'katSkor' && (
           <div>
-            {/* Kategori kartları */}
-            <div style={{display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:8, marginBottom:14}}>
-              {KATS.map(function(k) {
-                const trV  = trBaz  ? (k.key === 'genel' ? trBaz.genel  : ((trBaz[k.key  as keyof typeof trBaz]  as number) || 0)) : 0
-                const trVC = trCmp  ? (k.key === 'genel' ? trCmp.genel  : ((trCmp[k.key  as keyof typeof trCmp]  as number) || 0)) : 0
-                return (
-                  <ScoreCard key={k.key} label={k.label}
-                    bazG={trV} cmpG={selCmpDonem ? trVC : null}
-                    bazDonem={selDonem} cmpDonem={selCmpDonem}
-                    isActive={selKat === k.key}
-                    onClick={function() { setSelKat(k.key) }}/>
-                )
-              })}
+            {/* Tablo */}
+            <div className={styles.card} style={{padding:0, overflow:'hidden', marginBottom:14}}>
+              <div style={{overflowX:'auto'}}>
+                <table style={{width:'100%', borderCollapse:'collapse', fontSize:11}}>
+                  <thead>
+                    <tr style={{background:'var(--surf2)'}}>
+                      <th style={thS}>Bolge</th>
+                      {KATS.map(function(k) {
+                        return (
+                          <th key={k.key} onClick={function() { setSelKat(k.key) }}
+                            style={{...thS, textAlign:'center', minWidth:90, cursor:'pointer',
+                              color: selKat === k.key ? 'var(--blue)' : 'var(--tx3)',
+                              background: selKat === k.key ? 'rgba(59,130,246,.06)' : 'var(--surf2)'}}>
+                            {k.label}{selKat === k.key ? ' ↓' : ''}
+                          </th>
+                        )
+                      })}
+                      <th style={{...thS, textAlign:'center', minWidth:80, position:'sticky', right:0, background:'var(--surf2)'}}>
+                        Skor{selCmpDonem ? ' / ' + selCmpDonem.replace('20','') : ''}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{borderBottom:'2px solid var(--bd2)', background:'rgba(251,191,36,.05)'}}>
+                      <td style={{...tdS, fontWeight:700, color:'#fbbf24'}}>Tum TR</td>
+                      {KATS.map(function(k) {
+                        const v  = trBaz ? (k.key === 'genel' ? trBaz.genel  : ((trBaz[k.key  as keyof typeof trBaz]  as number) || 0)) : 0
+                        const vc = trCmp ? (k.key === 'genel' ? trCmp.genel  : ((trCmp[k.key  as keyof typeof trCmp]  as number) || 0)) : null
+                        const chg = chgPct(v, vc)
+                        return (
+                          <td key={k.key} style={{...tdS, textAlign:'center', background:scoreBg(v),
+                            outline: selKat === k.key ? '2px solid ' + scoreColor(v) + '77' : 'none', outlineOffset:-1}}>
+                            <div style={{fontFamily:'var(--font-dm-mono)', fontSize:13, fontWeight:800, color:scoreColor(v)}}>{v}</div>
+                            {vc !== null && <div style={{fontSize:9, color:'var(--tx3)'}}>{vc}</div>}
+                            {chg !== null && <div style={{fontSize:8, fontWeight:700, color:chgColor(chg)}}>{chg >= 0 ? '+' : ''}{chg}%</div>}
+                          </td>
+                        )
+                      })}
+                      <td style={{...tdS, textAlign:'center', position:'sticky', right:0, background:'var(--surf)'}}>
+                        <div style={{fontFamily:'var(--font-dm-mono)', fontSize:13, fontWeight:800, color:scoreColor(trBaz ? trBaz.genel : 0)}}>{trBaz ? trBaz.genel : '-'}</div>
+                        {trCmp && <div style={{fontSize:9, color:'var(--tx3)'}}>{trCmp.genel}</div>}
+                      </td>
+                    </tr>
+                    {bolgeData.map(function(b, bi) {
+                      const bazG = b.bazScore ? b.bazScore.genel : 0
+                      const cmpG = b.cmpScore ? b.cmpScore.genel : null
+                      const allBazSorted = bolgeData.slice().sort(function(a,b2) { return (b2.bazScore ? b2.bazScore.genel : 0) - (a.bazScore ? a.bazScore.genel : 0) })
+                      const allCmpSorted = bolgeData.slice().sort(function(a,b2) { return (b2.cmpScore ? b2.cmpScore.genel : 0) - (a.cmpScore ? a.cmpScore.genel : 0) })
+                      const bazRank = allBazSorted.findIndex(function(x) { return x.bolge === b.bolge }) + 1
+                      const cmpRank = selCmpDonem ? allCmpSorted.findIndex(function(x) { return x.bolge === b.bolge }) + 1 : null
+                      const rankDiff = cmpRank ? bazRank - cmpRank : null
+                      return (
+                        <tr key={b.bolge} style={{borderBottom:'1px solid var(--bd)'}}>
+                          <td style={{...tdS, fontWeight:600}}>{b.bolge}</td>
+                          {KATS.map(function(k) {
+                            const bv = b.bazScore ? (k.key === 'genel' ? b.bazScore.genel : ((b.bazScore[k.key as keyof typeof b.bazScore] as number) || 0)) : 0
+                            const cv = b.cmpScore ? (k.key === 'genel' ? b.cmpScore.genel : ((b.cmpScore[k.key as keyof typeof b.cmpScore] as number) || null)) : null
+                            const chg = chgPct(bv, cv)
+                            return (
+                              <td key={k.key} style={{...tdS, textAlign:'center', background:scoreBg(bv),
+                                outline: selKat === k.key ? '2px solid ' + scoreColor(bv) + '77' : 'none', outlineOffset:-1}}>
+                                <div style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:800, color:scoreColor(bv)}}>{bv || '-'}</div>
+                                {cv !== null && <div style={{fontSize:9, color:'var(--tx3)'}}>{cv}</div>}
+                                {chg !== null && <div style={{fontSize:8, fontWeight:700, color:chgColor(chg)}}>{chg >= 0 ? '+' : ''}{chg}%</div>}
+                              </td>
+                            )
+                          })}
+                          <td style={{...tdS, textAlign:'center', position:'sticky', right:0, background:'var(--surf)'}}>
+                            <div style={{display:'flex', alignItems:'center', gap:4}}>
+                              <div style={{flex:1, background:'var(--surf3)', borderRadius:3, height:4, overflow:'hidden', minWidth:28}}>
+                                <div style={{width:Math.min(bazG,100)+'%', height:4, borderRadius:3, background:scoreColor(bazG)+'99'}}/>
+                              </div>
+                              <div>
+                                <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:scoreColor(bazG)}}>{bazG}</div>
+                                {cmpG !== null && <div style={{fontSize:8, color:'var(--tx3)'}}>{cmpG}</div>}
+                                {rankDiff !== null && (
+                                  <div style={{fontSize:8, fontWeight:700, color:rankDiff > 0 ? '#10b981' : rankDiff < 0 ? '#f87171' : 'var(--tx3)'}}>
+                                    {rankDiff > 0 ? '+' + rankDiff : rankDiff < 0 ? rankDiff : '-'}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            {/* Tablo */}
+            <div className={styles.card}>
+              <div className={styles.cardHd}>
+                <h3>{KATS.find(function(k) { return k.key === selKat })?.label} — Bolge Karsilastirmasi</h3>
+                <span className={styles.hint}>Kategori tıklayarak degistir</span>
+              </div>
+              <div style={{height:220}}>
+                {barChart(['Tum TR'].concat(bolgeList), [trKatBaz].concat(barKatBaz), [trKatCmp].concat(barKatCmp), barKatMax, 'int', true)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ KPI SKOR ══ */}
+        {activeTab === 'kpiSkor' && (
+          <div>
             <div className={styles.card} style={{padding:0, overflow:'hidden', marginBottom:14}}>
               <div style={{overflowX:'auto'}}>
                 <table style={{width:'100%', borderCollapse:'collapse', fontSize:11}}>
@@ -337,6 +427,74 @@ export default function BolgelerPage() {
               })}
             </div>
 
+            <div className={styles.card} style={{padding:0, overflow:'hidden', marginBottom:14}}>
+              <div style={{overflowX:'auto'}}>
+                <table style={{width:'100%', borderCollapse:'collapse', fontSize:11}}>
+                  <thead>
+                    <tr style={{background:'var(--surf2)'}}>
+                      <th style={thS}>Bolge</th>
+                      {KPI_META.map(function(k, i) {
+                        return (
+                          <th key={i} onClick={function() { setSelKpi(i) }}
+                            style={{...thS, textAlign:'center', cursor:'pointer', minWidth:68, whiteSpace:'normal', wordBreak:'break-word',
+                              color: selKpi === i ? 'var(--blue)' : 'var(--tx3)',
+                              background: selKpi === i ? 'rgba(59,130,246,.06)' : 'var(--surf2)'}}>
+                            <div style={{fontSize:8, lineHeight:1.3}}>{k.ad}{kpiUnit(k.fmt) ? ' (' + kpiUnit(k.fmt) + ')' : ''}</div>
+                          </th>
+                        )
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{borderBottom:'2px solid var(--bd2)', background:'rgba(251,191,36,.05)'}}>
+                      <td style={{...tdS, fontWeight:700, color:'#fbbf24'}}>Tum TR</td>
+                      {trKpiScores.map(function(v, i) {
+                        return (
+                          <td key={i} style={{...tdS, textAlign:'center', background:kpiScoreBg(v), fontFamily:'var(--font-dm-mono)', fontWeight:700, color:kpiScoreColor(v)}}>
+                            {v}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                    {bolgeData.map(function(b) {
+                      return (
+                        <tr key={b.bolge} style={{borderBottom:'1px solid var(--bd)'}}>
+                          <td style={{...tdS, fontWeight:600}}>{b.bolge}</td>
+                          {b.bazKpiScores.map(function(bv, i) {
+                            const cv  = b.cmpKpiScores ? b.cmpKpiScores[i] : null
+                            const chg = chgPct(bv, cv)
+                            return (
+                              <td key={i} onClick={function() { setSelKpi(i) }}
+                                style={{...tdS, textAlign:'center', background:kpiScoreBg(bv), cursor:'pointer',
+                                  outline: selKpi === i ? '2px solid ' + kpiScoreColor(bv) + '77' : 'none', outlineOffset:-1}}>
+                                <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:kpiScoreColor(bv)}}>{bv}</div>
+                                {cv !== null && <div style={{fontSize:8, color:'var(--tx3)'}}>{cv}</div>}
+                                {chg !== null && <div style={{fontSize:7, fontWeight:700, color:chgColor(chg)}}>{chg >= 0 ? '+' : ''}{chg}%</div>}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className={styles.card}>
+              <div className={styles.cardHd}>
+                <h3>{meta.ad} — KPI Puan Karsilastirmasi</h3>
+              </div>
+              <div style={{height:220}}>
+                {barChart(['Tum TR'].concat(bolgeList), [trKpiScores[selKpi]].concat(barKpiScoreBaz), [trKpiScoresCmp ? trKpiScoresCmp[selKpi] : 0].concat(barKpiScoreCmp), barKpiScoreMax, 'int', true)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ KPI DEĞERLERİ ══ */}
+        {activeTab === 'kpiDeger' && (
+          <div>
             <div className={styles.card} style={{padding:0, overflow:'hidden', marginBottom:14}}>
               <div style={{overflowX:'auto'}}>
                 <table style={{width:'100%', borderCollapse:'collapse', fontSize:11}}>
