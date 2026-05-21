@@ -196,11 +196,14 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
       const yeni: Seri[] = []
       segs.forEach(seg => {
         b.pendingKpis.forEach(kpi => {
+          // Aynı segment + kpiIdx + tip zaten varsa ekleme
+          const zatenVar = seriler.some(s => s.tip==='deger' && s.segment===seg && s.kpiIdx===kpi.kpiIdx)
+          if (zatenVar) return
           const color = SERI_RENKLER[(seriler.length + yeni.length) % SERI_RENKLER.length]
           yeni.push({ id:makeSeriId(), label:`${seg||'Tüm TR'} · ${kpi.label} (Değer)`, color, tip:'deger', segment:seg, kpiIdx:kpi.kpiIdx, katKey:null })
         })
       })
-      setSeriler(prev => [...prev, ...yeni])
+      if (yeni.length) setSeriler(prev => [...prev, ...yeni])
       return
     }
 
@@ -209,6 +212,8 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
       if (b.pendingKpis.length > 0) {
         segs.forEach(seg => {
           b.pendingKpis.forEach(kpi => {
+            const zatenVar = seriler.some(s => s.tip==='skor' && s.segment===seg && s.kpiIdx===kpi.kpiIdx)
+            if (zatenVar) return
             const color = SERI_RENKLER[(seriler.length + yeni.length) % SERI_RENKLER.length]
             yeni.push({ id:makeSeriId(), label:`${seg||'Tüm TR'} · ${kpi.label} (Skor)`, color, tip:'skor', segment:seg, kpiIdx:kpi.kpiIdx, katKey:null })
           })
@@ -216,6 +221,8 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
       } else if (b.kategoriler.length > 0) {
         segs.forEach(seg => {
           b.kategoriler.forEach(katKey => {
+            const zatenVar = seriler.some(s => s.tip==='skor' && s.segment===seg && s.katKey===katKey && s.kpiIdx===null)
+            if (zatenVar) return
             const katLabel = KATEGORILER.find(k=>k.key===katKey)?.label ?? 'Genel'
             const color = SERI_RENKLER[(seriler.length + yeni.length) % SERI_RENKLER.length]
             yeni.push({ id:makeSeriId(), label:`${seg||'Tüm TR'} · ${katLabel} Skoru`, color, tip:'skor', segment:seg, kpiIdx:null, katKey })
@@ -223,11 +230,13 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
         })
       } else {
         segs.forEach(seg => {
+          const zatenVar = seriler.some(s => s.tip==='skor' && s.segment===seg && s.kpiIdx===null && s.katKey===null)
+          if (zatenVar) return
           const color = SERI_RENKLER[(seriler.length + yeni.length) % SERI_RENKLER.length]
           yeni.push({ id:makeSeriId(), label:`${seg||'Tüm TR'} · Genel Skor`, color, tip:'skor', segment:seg, kpiIdx:null, katKey:null })
         })
       }
-      setSeriler(prev => [...prev, ...yeni])
+      if (yeni.length) setSeriler(prev => [...prev, ...yeni])
       return
     }
   }
