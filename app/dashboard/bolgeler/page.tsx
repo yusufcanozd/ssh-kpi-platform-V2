@@ -80,26 +80,36 @@ function KpiScoreCell({ baz, cmp, active }: { baz: number; cmp: number | null; a
   )
 }
 
-function SkorSutun({ bazG, cmpG, bazRank, cmpRank }: { bazG:number; cmpG:number|null; bazRank:number; cmpRank:number|null }) {
-  const rankDiff = cmpRank !== null ? bazRank - cmpRank : null
+function SkorSutun({ bazG, cmpG, bazRank, cmpRank, hasCmp }: { bazG:number; cmpG:number|null; bazRank:number; cmpRank:number|null; hasCmp:boolean }) {
+  const rankDiff  = cmpRank !== null ? cmpRank - bazRank : null
+  const scoreDiff = cmpG !== null ? bazG - cmpG : null
   const sc = bazG>=80?'#10b981':bazG>=65?'#3b82f6':bazG>=50?'#f59e0b':'#ef4444'
   return (
-    <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', position:'sticky', right:0, background:'var(--surf)', minWidth:80}}>
-      <div style={{display:'flex', alignItems:'center', gap:4}}>
-        <div style={{flex:1, background:'var(--surf3)', borderRadius:3, height:4, overflow:'hidden', minWidth:28}}>
-          <div style={{width:Math.min(bazG,100)+'%', height:4, borderRadius:3, background:sc+'99'}}/>
-        </div>
-        <div style={{textAlign:'right'}}>
-          <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:sc}}>{bazG}</div>
-          {cmpG!==null && <div style={{fontSize:8, color:'var(--tx3)'}}>{cmpG}</div>}
-          {rankDiff!==null && (
-            <div style={{fontSize:8, fontWeight:700, color:rankDiff>0?'#10b981':rankDiff<0?'#f87171':'var(--tx3)'}}>
-              {rankDiff>0?`+${rankDiff}`:rankDiff<0?rankDiff:'-'}
-            </div>
+    <>
+      <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', position:'sticky', right:hasCmp?50:0, background:'var(--surf)', minWidth:90}}>
+        <div style={{display:'flex', alignItems:'center', gap:4}}>
+          <div style={{flex:1, background:'var(--surf3)', borderRadius:4, height:4, overflow:'hidden', minWidth:32}}>
+            <div style={{width:`${Math.min(bazG,100)}%`, height:4, borderRadius:4, background:sc}}/>
+          </div>
+          <span style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:sc, minWidth:20, textAlign:'right'}}>
+            {bazG}
+          </span>
+          {hasCmp && cmpG!==null && (
+            <span style={{fontSize:9, fontWeight:600,
+              color:scoreDiff!==null&&scoreDiff>0?'#10b981':scoreDiff!==null&&scoreDiff<0?'#f87171':'var(--tx3)'}}>
+              {scoreDiff!==null&&scoreDiff>0?`+${scoreDiff}`:scoreDiff}
+            </span>
           )}
         </div>
-      </div>
-    </td>
+      </td>
+      {hasCmp && (
+        <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', fontFamily:'var(--font-dm-mono)', fontSize:10, fontWeight:700,
+          textAlign:'center', position:'sticky', right:0, background:'var(--surf)',
+          color:rankDiff===null?'var(--tx3)':rankDiff>0?'#10b981':rankDiff<0?'#f87171':'var(--tx3)'}}>
+          {rankDiff===null?'—':rankDiff>0?`▲${rankDiff}`:rankDiff<0?`▼${Math.abs(rankDiff)}`:'—'}
+        </td>
+      )}
+    </>
   )
 }
 
@@ -208,7 +218,18 @@ export default function BolgelerPage() {
                     </th>
                   ))}
 
-                  {mode!=='katSkor' && KPI_META.map((k,i)=>(
+                  {mode==='kpiSkor' && KPI_META.map((k,i)=>(
+                    <th key={i} onClick={()=>setSelKpi(i)}
+                      style={{...thC, cursor:'pointer', minWidth:70, whiteSpace:'normal', wordBreak:'break-word',
+                        color:selKpi===i?'var(--blue)':'var(--tx3)',
+                        background:selKpi===i?'rgba(59,130,246,.06)':'var(--surf2)'}}>
+                      <div style={{fontSize:8, lineHeight:1.3}}>
+                        {k.ad}{selKpi===i?' ↓':''}
+                      </div>
+                    </th>
+                  ))}
+
+                  {mode==='kpiDeger' && KPI_META.map((k,i)=>(
                     <th key={i} onClick={()=>setSelKpi(i)}
                       style={{...thC, cursor:'pointer', minWidth:70, whiteSpace:'normal', wordBreak:'break-word',
                         color:selKpi===i?'var(--blue)':'var(--tx3)',
@@ -219,9 +240,11 @@ export default function BolgelerPage() {
                     </th>
                   ))}
 
-                  <th style={{...thC, position:'sticky', right:0, background:'var(--surf2)', minWidth:90}}>
-                    Skor{selCmpDonem?' / Δ Sıra':''}
+                  <th style={{...thC, position:'sticky', right:selCmpDonem?50:0, background:'var(--surf2)', minWidth:90}}>
+                    Skor{selCmpDonem?'':''}{' ↓'}
+                    {selCmpDonem&&<div style={{fontSize:7,fontWeight:400,color:'var(--tx3)'}}>{selCmpDonem}</div>}
                   </th>
+                  {selCmpDonem&&<th style={{...thC, position:'sticky', right:0, background:'var(--surf2)', minWidth:50}}>Δ Sıra</th>}
                 </tr>
               </thead>
               <tbody>
@@ -258,10 +281,19 @@ export default function BolgelerPage() {
                     )
                   })}
 
-                  <td style={{padding:'6px 8px', borderBottom:'2px solid var(--bd2)', position:'sticky', right:0, background:'var(--surf)', textAlign:'center'}}>
-                    <span style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:700, color:scoreColor(trScore?.genel||0)}}>{trScore?.genel||'-'}</span>
-                    {trScoreCmp && <div style={{fontSize:9, color:'var(--tx3)'}}>{trScoreCmp.genel}</div>}
+                  <td style={{padding:'6px 8px', borderBottom:'2px solid var(--bd2)', position:'sticky', right:selCmpDonem?50:0, background:'var(--surf)'}}>
+                    <div style={{display:'flex', alignItems:'center', gap:4}}>
+                      <div style={{flex:1, background:'var(--surf3)', borderRadius:4, height:4, overflow:'hidden', minWidth:32}}>
+                        <div style={{width:`${Math.min(trScore?.genel||0,100)}%`, height:4, borderRadius:4,
+                          background:(trScore?.genel||0)>=80?'#10b981':(trScore?.genel||0)>=65?'#3b82f6':(trScore?.genel||0)>=50?'#f59e0b':'#ef4444'}}/>
+                      </div>
+                      <span style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:700,
+                        color:scoreColor(trScore?.genel||0), minWidth:20, textAlign:'right'}}>
+                        {trScore?.genel||'-'}
+                      </span>
+                    </div>
                   </td>
+                  {selCmpDonem&&<td style={{padding:'6px 8px', borderBottom:'2px solid var(--bd2)', position:'sticky', right:0, background:'var(--surf)', textAlign:'center', color:'var(--tx3)', fontSize:10}}>—</td>}
                 </tr>
 
                 {/* Bölge satırları */}
@@ -320,7 +352,7 @@ export default function BolgelerPage() {
                         )
                       })}
 
-                      <SkorSutun bazG={bazG} cmpG={cmpG} bazRank={bazRank} cmpRank={cmpRank}/>
+                      <SkorSutun bazG={bazG} cmpG={cmpG} bazRank={bazRank} cmpRank={cmpRank} hasCmp={!!selCmpDonem}/>
                     </tr>
                   )
                 })}
