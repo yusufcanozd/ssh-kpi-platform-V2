@@ -323,7 +323,12 @@ function KategoriBazliTabKpi() {
       ...m,
       bazScore: getScore(m.segment, selBolge, selYas, selDonem),
       cmpScore2: selCmpDonem ? getScore(m.segment, selBolge, selYas, selCmpDonem) : null,
-    })).sort((a, b) => getKatVal(b.bazScore, selKat) - getKatVal(a.bazScore, selKat))
+    })).sort((a, b) => {
+      const av = getKatVal(a.bazScore, selKat)
+      const bv = getKatVal(b.bazScore, selKat)
+      if (bv !== av) return bv - av
+      return b.score - a.score
+    })
   }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, selKat])
 
   // Segment ortalama çizgileri — seçili kategori değeri
