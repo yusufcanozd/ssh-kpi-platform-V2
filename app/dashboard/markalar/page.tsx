@@ -277,20 +277,29 @@ function KategoriBazliTabMarkalar() {
     })),
     [selSeg, selBolge, selYas, selDonem, selCmpDonem])
 
-  // Marka sıralaması — seçili kategoriye göre sırala
+  // Marka sıralaması — genel skora göre sırala (kategori bazlı marka skoru veri modelinde yok)
+  // Her marka kendi segmentinin kategori skorunu gösterir; sıralama genel skora göre yapılır
   const markalar = useMemo(() => {
     const ranked = getMarkaRanking(selSeg, selBolge, selYas, selDonem)
     const cmpRanked = selCmpDonem ? getMarkaRanking(selSeg, selBolge, selYas, selCmpDonem) : []
-    return ranked.map(m => ({
-      ...m,
-      bazScore: getScore(m.segment, selBolge, selYas, selDonem),
-      cmpScore2: selCmpDonem ? getScore(m.segment, selBolge, selYas, selCmpDonem) : null,
-      cmpOverallScore: cmpRanked.find(x => x.marka === m.marka)?.score ?? null,
-      cmpRank: cmpRanked.findIndex(x => x.marka === m.marka) + 1,
-    })).sort((a, b) => {
+    return ranked.map(m => {
+      const bazScore = getScore(m.segment, selBolge, selYas, selDonem)
+      const cmpScore2 = selCmpDonem ? getScore(m.segment, selBolge, selYas, selCmpDonem) : null
+      const cmpM = cmpRanked.find(x => x.marka === m.marka)
+      return {
+        ...m,
+        bazScore,
+        cmpScore2,
+        cmpOverallScore: cmpM?.score ?? null,
+        cmpRank: cmpRanked.findIndex(x => x.marka === m.marka) + 1,
+      }
+    }).sort((a, b) => {
+      // Seçili kategoriye göre segment skoruyla sırala
       const av = getKatVal(a.bazScore, selKat)
       const bv = getKatVal(b.bazScore, selKat)
-      return bv - av
+      if (bv !== av) return bv - av
+      // Eşit ise genel skora göre sırala
+      return b.score - a.score
     })
   }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, selKat])
 
