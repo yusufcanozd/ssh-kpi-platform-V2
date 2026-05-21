@@ -166,14 +166,15 @@ interface GrafikPaneliProps {
   idx: number
   bolge: string
   yas: string
-  bSnap: BuilderState
+  bRef: React.MutableRefObject<BuilderState>
   dragPayload: React.MutableRefObject<string>
   seriler: Seri[]
   setSeriler: React.Dispatch<React.SetStateAction<Seri[]>>
   aktifDonemler: string[]
+  locked?: boolean  // Grafik 2 için — grafik 1 dolmadan kilitli
 }
 
-function GrafikPaneli({ idx, bolge, yas, bSnap, dragPayload, seriler, setSeriler, aktifDonemler }: GrafikPaneliProps) {
+function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler, aktifDonemler, locked }: GrafikPaneliProps) {
   const [dragOver, setDragOver] = useState(false)
 
   const hasDeger = seriler.some(s => s.tip === 'deger')
@@ -183,9 +184,10 @@ function GrafikPaneli({ idx, bolge, yas, bSnap, dragPayload, seriler, setSeriler
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
     setDragOver(false)
+    if (locked) return
     let payload: any
     try { payload = JSON.parse(dragPayload.current) } catch { return }
-    const b = bSnap
+    const b = bRef.current  // her zaman güncel
     const segs = b.segmentler.length ? b.segmentler : ['']
 
     if (payload.grup === 'deger') {
@@ -284,10 +286,20 @@ function GrafikPaneli({ idx, bolge, yas, bSnap, dragPayload, seriler, setSeriler
       <div style={{ fontSize:10, fontWeight:700, color:'var(--tx3)', padding:'4px 0' }}>Grafik {idx+1}</div>
 
       {/* Drop zone */}
-      <div onDragOver={e=>{e.preventDefault();setDragOver(true)}} onDragLeave={()=>setDragOver(false)} onDrop={handleDrop}
-        style={{ background:'var(--surf)', border:`2px ${dragOver?'solid var(--blue)':'dashed var(--bd)'}`,
-          borderRadius:10, padding:12, minHeight:280, position:'relative', transition:'border-color .15s' }}>
-        {seriler.length===0 ? (
+      <div onDragOver={e=>{e.preventDefault(); if(!locked) setDragOver(true)}} onDragLeave={()=>setDragOver(false)} onDrop={handleDrop}
+        style={{ background: locked ? 'var(--surf3)' : 'var(--surf)',
+          border:`2px ${dragOver?'solid var(--blue)': locked ? 'dashed var(--bd)' : 'dashed var(--bd)'}`,
+          borderRadius:10, padding:12, minHeight:280, position:'relative', transition:'border-color .15s',
+          opacity: locked ? .55 : 1 }}>
+        {locked ? (
+          <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column',
+            alignItems:'center', justifyContent:'center', gap:8, color:'var(--tx3)' }}>
+            <div style={{ fontSize:28 }}>🔒</div>
+            <div style={{ fontSize:11, fontWeight:600 }}>Önce Grafik 1'i oluşturun</div>
+            <div style={{ fontSize:10 }}>Grafik 1'e en az bir seri ekleyin</div>
+          </div>
+        ) : seriler.length===0 ? (
+        ) : seriler.length===0 ? (
           <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column',
             alignItems:'center', justifyContent:'center', gap:8, color:dragOver?'var(--blue)':'var(--tx3)' }}>
             <div style={{ fontSize:34 }}>📈</div>
@@ -450,22 +462,18 @@ export default function TrendPage() {
           <div style={{ fontSize:9, fontWeight:700, color:'var(--tx3)', textTransform:'uppercase',
             letterSpacing:'.06em', marginBottom:10 }}>Dönem Aralığı</div>
           <div style={{ display:'flex', gap:14, alignItems:'flex-start', flexWrap:'wrap' }}>
-            <DonemSecici value={bas} onChange={v => { setBas(v); if (donemSira(donemSecToStr(v))>donemSira(donemSecToStr(bit))) setBit({...v}) }} />
+            <DonemSecici value={bas} onChange={v => {
+              setBas(v)
+              // Bitiş de aynı periyot+alt'a default gelsin, yıl olarak son yılı koy
+              const altlarBit = getAltlar(v.periyot)
+              setBit({ yil: sonYil, periyot: v.periyot, alt: altlarBit[altlarBit.length - 1] ?? v.alt })
+            }} />
             <div style={{ display:'flex', alignItems:'center', gap:8, paddingTop:4 }}>
               <span style={{ color:'var(--tx3)', fontSize:18 }}>→</span>
               <span style={{ fontSize:9, color:'var(--tx3)', whiteSpace:'nowrap' }}>{aktifDonemler.length} dönem</span>
             </div>
             <DonemSecici value={bit} onChange={v => { setBit(v); if (donemSira(donemSecToStr(v))<donemSira(donemSecToStr(bas))) setBas({...v}) }} />
           </div>
-          {aktifDonemler.length>0 && (
-            <div style={{ display:'flex', gap:2, flexWrap:'wrap', marginTop:10 }}>
-              {aktifDonemler.map(d=>(
-                <span key={d} style={{ padding:'1px 6px', borderRadius:3, fontSize:8,
-                  background:'rgba(59,130,246,.12)', color:'var(--blue)',
-                  border:'1px solid rgba(59,130,246,.25)', lineHeight:1.5 }}>{d}</span>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* ── Sol panel + Sağda 2 grafik ── */}
@@ -549,14 +557,15 @@ export default function TrendPage() {
           {/* Sağ — 2 grafik alt alta */}
           <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
             <GrafikPaneli idx={0} bolge={selBolge} yas={selYas}
-              bSnap={bSnap} dragPayload={dragPayload}
+              bRef={bRef} dragPayload={dragPayload}
               seriler={seriler1} setSeriler={setSeriler1}
               aktifDonemler={aktifDonemler} />
             <div style={{ borderTop:'1px solid var(--bd)', paddingTop:16 }}>
               <GrafikPaneli idx={1} bolge={selBolge} yas={selYas}
-                bSnap={bSnap} dragPayload={dragPayload}
+                bRef={bRef} dragPayload={dragPayload}
                 seriler={seriler2} setSeriler={setSeriler2}
-                aktifDonemler={aktifDonemler} />
+                aktifDonemler={aktifDonemler}
+                locked={seriler1.length === 0} />
             </div>
           </div>
         </div>
