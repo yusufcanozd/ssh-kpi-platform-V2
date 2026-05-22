@@ -74,9 +74,10 @@ function getSeriVeri(s: Seri, donemler: string[], bolge: string, yas: string): n
 const pointLabelPlugin = {
   id: 'trendPointLabel',
   afterDatasetsDraw(chart: any) {
-    // Eğer options'da display:false varsa çizme
     const opts = (chart.config?.options?.plugins as any)?.trendPointLabel
     if (opts?.display === false) return
+    // Sadece line chart'ta çalış
+    if (chart.config?.type !== 'line') return
     const { ctx } = chart
     chart.data.datasets.forEach((ds: any, di: number) => {
       const meta = chart.getDatasetMeta(di)
