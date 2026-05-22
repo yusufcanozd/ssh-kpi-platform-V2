@@ -74,6 +74,28 @@ function getSeriVeri(s: Seri, donemler: string[], bolge: string, yas: string): n
 const pointLabelPlugin = {
   id: 'trendPointLabel',
   afterDatasetsDraw(chart: any) {
+    // Eğer options'da display:false varsa çizme
+    const opts = (chart.config?.options?.plugins as any)?.trendPointLabel
+    if (opts?.display === false) return
+    const { ctx } = chart
+    chart.data.datasets.forEach((ds: any, di: number) => {
+      const meta = chart.getDatasetMeta(di)
+      if (meta.hidden) return
+      meta.data.forEach((pt: any, pi: number) => {
+        const raw = ds.data[pi]
+        if (!raw) return
+        const lbl = ds._fmt ? ds._fmt(raw) : String(Math.round(raw))
+        ctx.save()
+        ctx.fillStyle = ds.borderColor
+        ctx.font = '700 8px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'bottom'
+        ctx.fillText(lbl, pt.x, pt.y - 5)
+        ctx.restore()
+      })
+    })
+  }
+}
     const ctx = chart.ctx
     chart.data.datasets.forEach((ds: any, di: number) => {
       const meta = chart.getDatasetMeta(di)
@@ -94,6 +116,7 @@ const pointLabelPlugin = {
   }
 }
 // pointLabelPlugin global register edilmiyor — sadece trend sayfasında kullanılıyor
+ChartJS.register(pointLabelPlugin)
 
 // ── Dönem seçici ──────────────────────────────────────────────────────────────
 type DonemPeriyot = 'ay' | 'Q' | 'FY'
@@ -285,8 +308,12 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
           if(s.kpiIdx!==null) return `${s.label}: ${fmtKpi(v,KPI_META[s.kpiIdx].fmt)}`
           return `${s.label}: ${v}`
         }}},
-        // @ts-ignore — global pointLabel plugin'ini kapat
-        pointLabel: false,
+        // @ts-ignore — global plugin'leri kapat
+        pointLabel: { display: false },
+        // @ts-ignore
+        barLabel: { display: false },
+        // @ts-ignore — kendi plugin'imizi burada AÇIK bırak
+        trendPointLabel: { display: true },
       },
       scales:{
         y:{ type:'linear' as const, position:'left' as const, min:dB.min, max:dB.max,
@@ -339,7 +366,7 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
           </div>
         ) : (
           <div style={{ height:280 }}>
-            <Line data={chartData} options={chartOptions as any} plugins={[pointLabelPlugin]} />
+            <Line data={chartData} options={chartOptions as any} />
           </div>
         )}
 
