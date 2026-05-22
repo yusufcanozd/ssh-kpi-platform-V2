@@ -118,18 +118,49 @@ export function heatColor(val: number, ref: number, higherIsBetter=true): {bg:st
   if(ratio>=0.95) return {bg:'rgba(245,158,11,.12)',color:'#fbbf24'}
   return              {bg:'rgba(239,68,68,.15)',   color:'#f87171'}
 }
-export function isLowerBetter(i: number): boolean { return i===6 }
+export function isLowerBetter(i: number): boolean { return i===3 || i===6 }
 
 // ── Normalize skor ────────────────────────────────────────────
+// 5 kategori ağırlıklı, 12 KPI tam kapsam, Rule of V5 matrisine uygun
 export function overallScoreFromKpis(kpis: number[], seg: string, bolge='', yas='Tümü'): number {
-  const idxList = [0,2,3,4,5,6,8,9,10,11]
-  const scores = idxList.map(i => {
-    const avg = getSegAvg(seg, i, bolge, yas)
-    if(!avg||!kpis[i]) return 50
-    const ratio = isLowerBetter(i) ? avg/kpis[i] : kpis[i]/avg
-    return Math.min(100, Math.max(0, Math.round(ratio*70)))
-  })
-  return Math.round(scores.reduce((a,b)=>a+b,0)/scores.length)
+  // KPI ağırlıkları (indeks → ağırlık %)
+  const agirliklar: Record<number, number> = {
+    0:7, 1:11, 2:7,      // Müşteri Sadakati ve Deneyimi (%25)
+    3:7, 4:8,  5:10,     // Finansal Verimlilik ve Rasyo Analizi (%25)
+    6:12, 7:13,          // Süreç ve Operasyonel Akış (%25)
+    8:7.5, 9:7.5,        // Bayi Ağı Kapasite Yönetimi (%15)
+    10:5, 11:5,          // Stratejik Kapsam Dağılımı (%10)
+  }
+
+  // Kategori tanımları: [indeksler], toplam ağırlık %
+  const kategoriler = [
+    { idxler:[0,1,2],   katAgirlik:25 },  // Müşteri
+    { idxler:[3,4,5],   katAgirlik:25 },  // Finansal
+    { idxler:[6,7],     katAgirlik:25 },  // Operasyonel
+    { idxler:[8,9],     katAgirlik:15 },  // Bayi Ağı
+    { idxler:[10,11],   katAgirlik:10 },  // Kapsam
+  ]
+
+  let nihaiEndeks = 0
+
+  for (const kat of kategoriler) {
+    let katToplam = 0
+    for (const i of kat.idxler) {
+      const avg = getSegAvg(seg, i, bolge, yas)
+      const kpiVal = kpis[i]
+      // Veri yoksa ratio = 1.0 (nötr)
+      const ratio = (!avg || !kpiVal)
+        ? 1.0
+        : isLowerBetter(i) ? avg / kpiVal : kpiVal / avg
+      katToplam += ratio * agirliklar[i]
+    }
+    // Kategori skoru = ağırlıklı ratio toplamı / kategori toplam ağırlığı
+    const katSkoru = katToplam / kat.katAgirlik
+    nihaiEndeks += katSkoru * (kat.katAgirlik / 100)
+  }
+
+  // 100 puanlık sisteme oturt: nihai endeksi 70 taban puanla çarp
+  return Math.round(nihaiEndeks * 70)
 }
 
 // ── Skor Cube ─────────────────────────────────────────────────
@@ -192,7 +223,18 @@ export function getMarkaRanking(
     if (selSeg && r[1] !== selSeg) continue
     seen.set(r[0], { marka: r[0], segment: r[1], score: r[5] })
   }
-  return Array.from(seen.values()).sort((a, b) => b.score - a.score)
+  const sonuc = Array.from(seen.values()).sort((a, b) => b.score - a.score)
+
+  // ── Rule of 3: Rekabet hukuku koruma kalkanı ──────────────────
+  // Oyuncu sayısı <= 3 ise marka kimliklerini maskele
+  if (sonuc.length <= 3) {
+    return sonuc.map(item => ({
+      ...item,
+      marka: 'Gizli Teşebbüs (Yetersiz Veri Oyuncu Eşiği)',
+    }))
+  }
+
+  return sonuc
 }
 
 // ── KPI Bazlı Puan Hesaplama ──────────────────────────────────
