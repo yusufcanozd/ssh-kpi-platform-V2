@@ -84,7 +84,7 @@ export const SEGMENT_HEX_BG: Record<string,string> = {
   Premium: 'rgba(192,132,252,.25)', Mass: 'rgba(96,165,250,.25)', EV: 'rgba(52,211,153,.25)',
 }
 export const CAT_COLORS: Record<string,string> = {
-  'Müşteri':'#10b981','Ticari':'#3b82f6','Operasyonel':'#f59e0b','Bayi Ağı':'#8b5cf6','Kapsam':'#ef4444'
+  'Müşteri Sadakati ve Deneyimi':'#10b981','Finansal Verimlilik ve Rasyo Analizi':'#3b82f6','Süreç ve Operasyonel Akış':'#f59e0b','Bayi Ağı Kapasite Yönetimi':'#8b5cf6','Stratejik Kapsam Dağılımı':'#ef4444'
 }
 export const YAS_COLORS: Record<string,string> = {
   'Tümü':'#8496b0','0-3':'#10b981','3-7':'#3b82f6','7+':'#f59e0b'
