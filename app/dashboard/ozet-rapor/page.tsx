@@ -235,7 +235,7 @@ export default function OzetRaporPage() {
   const cmpStr = cmpAktif ? donemSecToStr(cmp) : null
   const d = rapor
 
-  const olustur = async () => {
+  async function olustur() {
     setGenerating(true)
     setProgress(5)
     const data = buildData(bazStr, cmpStr, selBolge, selYas)
@@ -276,18 +276,25 @@ export default function OzetRaporPage() {
       return dt + ':' + (sc?.genel ?? 0)
     }).join(' → ')
 
-    const karsilastirma = cmpStr ? [
-      bazStr, 'vs', cmpStr, 'karşılaştırması: Genel skor', trGCmp + '→' + trG,
-      '(' + (deltaPuan !== null && deltaPuan > 0 ? '+' : '') + deltaPuan + ' puan).',
-      'Kategori değişimleri:', KATEGORILER.map(k => {
-        const kat = data.katData.find(x => x.key === k.key)
-        return k.label + ':' + (kat?.cmpVal ?? 0) + '→' + (kat?.trVal ?? 0)
-      }).join(', ') + '.',
-      data.kayiplar.length > 0
-        ? 'Kritik gerileme: ' + data.kayiplar.slice(0,3).map((x:any) => x.ad + ' ' + x.pct + '%').join(', ') + '.'
-        : '',
-      'Kapsamlı dönem karşılaştırması yap.',
-    ].filter(Boolean).join(' ') : ''
+    const katDegisimStr = KATEGORILER.map(k => {
+      const kat = data.katData.find(x => x.key === k.key)
+      return k.label + ':' + (kat?.cmpVal ?? 0) + '->' + (kat?.trVal ?? 0)
+    }).join(', ')
+
+    const kayipStr = data.kayiplar.length > 0
+      ? 'Kritik gerileme: ' + data.kayiplar.slice(0,3).map((x:any) => x.ad + ' ' + x.pct + '%').join(', ') + '.'
+      : ''
+
+    let karsilastirma = ''
+    if (cmpStr) {
+      karsilastirma = [
+        bazStr, 'vs', cmpStr, 'karsılastırması: Genel skor', trGCmp + '->' + trG,
+        '(' + (deltaPuan !== null && deltaPuan > 0 ? '+' : '') + deltaPuan + ' puan).',
+        'Kategori degisimleri:', katDegisimStr + '.',
+        kayipStr,
+        'Kapsamlı donem karsılastırması yap.',
+      ].filter(Boolean).join(' ')
+    }
 
     const strateji = [
       'SSH rekabet analizi', bazStr, 'stratejik değerlendirme:',
