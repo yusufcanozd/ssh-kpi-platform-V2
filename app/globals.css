@@ -42,7 +42,9 @@
   --skor-kirmizi:#ef4444;
 }
 
-/* ── Açık tema ── */
+/* ── Açık tema — html.light ile kontrol edilir (flash önleme için) ── */
+html.light,
+html.light body,
 body.light {
   --bg:      #f0f4f8;
   --surf:    #e8eef5;
@@ -89,7 +91,7 @@ html, body {
   font-family: var(--font-dm-sans), 'DM Sans', sans-serif;
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
-  transition: background .2s, color .2s;
+  /* transition kaldırıldı — tema flash'ını önler */
 }
 
 a { color: var(--blue); text-decoration: none; }
@@ -178,7 +180,8 @@ select:focus, input:focus {
   border-color: var(--blue);
 }
 
-/* Tema flash önleme */
+/* Tema flash önleme — inline script html.light class'ı ekler, CSS hemen devreye girer */
+html.light,
 html.light-pre body,
 html.light-pre {
   background: #f0f4f8 !important;
