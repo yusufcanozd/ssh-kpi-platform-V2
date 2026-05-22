@@ -300,7 +300,14 @@ export default function OzetRaporPage() {
               {cmpAktif && <DonemSecici label="" value={cmp} onChange={setCmp} />}
             </div>
             <div style={{ marginLeft:'auto', display:'flex', gap:10, alignItems:'center' }}>
-              {d && <button onClick={() => window.print()}
+              {d && <button onClick={() => {
+                // Tarayıcı header/footer'sız yazdır
+                const style = document.createElement('style')
+                style.innerHTML = `@media print { @page { margin: 10mm 12mm; } }`
+                document.head.appendChild(style)
+                window.print()
+                setTimeout(() => document.head.removeChild(style), 1000)
+              }}
                 style={{ padding:'8px 16px', borderRadius:8, fontSize:11, fontWeight:600, cursor:'pointer',
                   border:'1px solid var(--bd)', background:'var(--surf)', color:'var(--tx2)' }}>🖨 PDF</button>}
               <button onClick={olustur} disabled={generating}
@@ -354,9 +361,14 @@ export default function OzetRaporPage() {
                       </div>
                     </div>
                     <div style={{ textAlign:'right' }}>
-                      <div style={{ fontSize:9, color:'#93c5fd', marginBottom:4 }}>DÖNEM</div>
+                      <div style={{ fontSize:9, color:'#93c5fd', marginBottom:4, textTransform:'uppercase', letterSpacing:'.1em' }}>BAZ DÖNEM</div>
                       <div style={{ fontSize:16, fontWeight:800, color:'#e2e8f0', fontFamily:'var(--font-dm-mono)' }}>{d.baz}</div>
-                      {d.cmp && <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>vs {d.cmp}</div>}
+                      {d.cmp && (
+                        <div style={{ marginTop:6 }}>
+                          <div style={{ fontSize:9, color:'#93c5fd', marginBottom:2, textTransform:'uppercase', letterSpacing:'.1em' }}>KARŞILAŞTIRMA DÖNEMİ</div>
+                          <div style={{ fontSize:14, fontWeight:700, color:'#94a3b8', fontFamily:'var(--font-dm-mono)' }}>{d.cmp}</div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -895,13 +907,34 @@ export default function OzetRaporPage() {
       </div>
 
       <style>{`
+        .rapor-sayfa {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
         @media print {
-          @page { size: A4; margin: 10mm 12mm; }
-          body * { visibility: hidden !important; }
-          #rapor-icerik, #rapor-icerik * { visibility: visible !important; }
-          #rapor-icerik { position: absolute; top: 0; left: 0; width: 100%; }
-          .rapor-sayfa { page-break-after: always; break-after: page; }
-          .rapor-sayfa:last-child { page-break-after: auto; break-after: auto; }
+          @page {
+            size: A4;
+            margin: 10mm 12mm;
+          }
+          /* Tarayıcı header/footer'ını kaldır */
+          @page { margin-top: 10mm; margin-bottom: 10mm; }
+          head { display: none; }
+          .rapor-sayfa {
+            page-break-after: always;
+            break-after: page;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          .rapor-sayfa:last-child {
+            page-break-after: auto;
+            break-after: auto;
+          }
+          /* Kartların ortada bölünmesini önle */
+          .rapor-sayfa > * {
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
         }
       `}</style>
     </div>
