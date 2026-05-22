@@ -279,7 +279,9 @@ export default function KpilerPage() {
                     // @ts-ignore
                     segmentAvgLine:{ lines: allLines },
                     // @ts-ignore
-                    barLabel:{ fmt: meta.fmt }
+                    barLabel:{ fmt: meta.fmt },
+                    // @ts-ignore
+                    trendPointLabel:{ display: false },
                   },
                   scales:{
                     y:{min:0,max:maxVal*1.25,grid:{color:'rgba(255,255,255,.05)'},
