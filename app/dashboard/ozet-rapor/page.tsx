@@ -285,7 +285,14 @@ export default function OzetRaporPage() {
         {/* ── Dönem Seçici ── */}
         <div style={{ background:'var(--surf2)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 18px', marginBottom:16 }}>
           <div style={{ display:'flex', gap:24, alignItems:'flex-start', flexWrap:'wrap' }}>
-            <DonemSecici label="Baz Dönem" value={baz} onChange={setBaz} />
+            <DonemSecici label="Baz Dönem" value={baz} onChange={v => {
+              // Periyot tipi değişince cmp'yi de aynı periyota sync et
+              if (v.periyot !== baz.periyot) {
+                const cmpAlt = v.periyot === 'FY' ? 'FY' : v.periyot === 'Q' ? '4' : '12'
+                setCmp(prev => ({ ...prev, periyot: v.periyot, alt: cmpAlt, yil: prev.yil }))
+              }
+              setBaz(v)
+            }} />
             <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                 <span style={{ fontSize:9, fontWeight:700, color:'var(--tx3)', textTransform:'uppercase', letterSpacing:'.06em' }}>Karşılaştırma Dönemi</span>
