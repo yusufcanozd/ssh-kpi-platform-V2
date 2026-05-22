@@ -56,28 +56,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     )
 
-    // ── Sayfa kapatılınca / tab kapatılınca oturumu sonlandır ──
-    const handleUnload = () => {
-      // sessionStorage'a flag koy — tab kapandı
-      sessionStorage.setItem('tab_closing', '1')
+    // ── Tab kapatılınca oturumu sonlandır ──
+    // NOT: beforeunload + visibilitychange kombinasyonu
+    // normal navigasyonda da tetiklenebilir, bu yüzden
+    // sadece gerçek tab kapatmada çalışacak şekilde düzenlendi
+    let isClosing = false
+
+    const handleBeforeUnload = () => {
+      isClosing = true
+      // 500ms sonra sıfırla (navigasyon ise tekrar false olur)
+      setTimeout(() => { isClosing = false }, 500)
     }
 
     const handleVisibilityChange = async () => {
-      // Sayfa gizlenince (tab kapatma veya başka sekmeye geçme)
-      // Tab kapatılıyorsa (beforeunload tetiklendiyse) çıkış yap
-      if (document.visibilityState === 'hidden' &&
-          sessionStorage.getItem('tab_closing') === '1') {
-        sessionStorage.removeItem('tab_closing')
+      if (document.visibilityState === 'hidden' && isClosing) {
+        isClosing = false
         await supabase.auth.signOut()
       }
     }
 
-    window.addEventListener('beforeunload', handleUnload)
+    window.addEventListener('beforeunload', handleBeforeUnload)
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       subscription.unsubscribe()
-      window.removeEventListener('beforeunload', handleUnload)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,9 +89,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       await supabase.auth.signOut()
-      // router.replace SIGNED_OUT event'inde çalışacak
+      router.replace('/login')
     } catch (e) {
-      // Hata olursa direkt yönlendir
       router.replace('/login')
     }
   }
