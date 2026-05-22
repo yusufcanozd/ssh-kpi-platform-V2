@@ -153,7 +153,7 @@ function DonemSecici({ label, value, onChange }: { label: string; value: DonemSe
                 style={{ padding:'2px 7px', borderRadius:4, fontSize:9, fontWeight:600, cursor:dis?'not-allowed':'pointer',
                   border:`1px solid ${value.periyot===p?'var(--blue)':'var(--bd)'}`,
                   background:value.periyot===p?'rgba(59,130,246,.12)':'var(--surf)',
-                  color:dis?'var(--tx3)':value.periyot===p?'var(--blue)':'var(--tx2)', opacity:dis?0.5:1 }}>
+                  color:dis?'var(--tx3)':value.periyot===p?'var(--blue)':'var(--tx2)', opacity:dis?.5:1 }}>
                 {p==='ay'?'Aylık':p==='Q'?'Çeyreklik':'Yıllık'}
               </button>
             )
@@ -224,8 +224,8 @@ async function buildRapor(
   selYas: string,
   setGenerating: (v: boolean) => void,
   setProgress: (v: number) => void,
-  setRapor: (v: ReturnType<typeof buildData>) => void,
-  setYorumlar: (v: Record<string,string>) => void,
+  setRapor: (v: any) => void,
+  setYorumlar: (v: any) => void,
 ) {
   setGenerating(true)
   setProgress(5)
@@ -343,7 +343,7 @@ export default function OzetRaporPage() {
   const olustur = () => buildRapor(
     bazStr, cmpStr, selBolge, selYas,
     setGenerating, setProgress,
-    setRapor as any, setYorumlar
+    setRapor, setYorumlar
   )
 
   return (
