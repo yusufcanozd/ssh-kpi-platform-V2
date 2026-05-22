@@ -18,7 +18,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointEleme
 
 const KAT_LIST = ['musteri','ticari','operasyonel','bayi','kapsam'] as const
 const KAT_LABELS: Record<string,string> = {
-  musteri:'Müşteri',ticari:'Ticari',operasyonel:'Operasyonel',bayi:'Bayi Ağı',kapsam:'Kapsam'
+  musteri:'Müşteri Sadakati ve Deneyimi',ticari:'Finansal Verimlilik ve Rasyo Analizi',operasyonel:'Süreç ve Operasyonel Akış',bayi:'Bayi Ağı Kapasite Yönetimi',kapsam:'Stratejik Kapsam Dağılımı'
 }
 
 export default function DashboardPage() {
@@ -326,11 +326,11 @@ function KatDetayKutu({ label, score, color, bg }:{
   )
 
   const cats = [
-    {key:'musteri',   label:'Müşteri'},
-    {key:'ticari',    label:'Ticari'},
-    {key:'operasyonel',label:'Operasyonel'},
-    {key:'bayi',      label:'Bayi Ağı'},
-    {key:'kapsam',    label:'Kapsam'},
+    {key:'musteri',   label:'Müşteri Sadakati ve Deneyimi'},
+    {key:'ticari',    label:'Finansal Verimlilik ve Rasyo Analizi'},
+    {key:'operasyonel',label:'Süreç ve Operasyonel Akış'},
+    {key:'bayi',      label:'Bayi Ağı Kapasite Yönetimi'},
+    {key:'kapsam',    label:'Stratejik Kapsam Dağılımı'},
   ]
 
   return (
@@ -448,7 +448,7 @@ function BolgeSkorGrid({ selSeg, selBolge, selYas, selDonem, selCmpDonem }:{
 }
 
 // ── Kategori Skor Karşılaştırması ────────────────────────────
-// Her kategori (Müşteri, Ticari, Operasyonel, Bayi Ağı, Kapsam) için
+// Her kategori (Müşteri Sadakati ve Deneyimi, Finansal Verimlilik, Süreç ve Operasyonel Akış, Bayi Ağı Kapasite Yönetimi, Stratejik Kapsam Dağılımı) için
 // segment + TR skorları — baz ve cmp dönem ortalama çizgileriyle
 function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, selBolge, selYas }:{
   visibleSegs: {seg:string; baz:SegmentScore|null; cmp:SegmentScore|null}[]
@@ -457,11 +457,11 @@ function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, s
   selBolge: string; selYas: string
 }) {
   const KATS = [
-    {key:'musteri',    label:'Müşteri'},
-    {key:'ticari',     label:'Ticari'},
-    {key:'operasyonel',label:'Operasyonel'},
-    {key:'bayi',       label:'Bayi Ağı'},
-    {key:'kapsam',     label:'Kapsam'},
+    {key:'musteri',    label:'Müşteri Sadakati ve Deneyimi'},
+    {key:'ticari',     label:'Finansal Verimlilik ve Rasyo Analizi'},
+    {key:'operasyonel',label:'Süreç ve Operasyonel Akış'},
+    {key:'bayi',       label:'Bayi Ağı Kapasite Yönetimi'},
+    {key:'kapsam',     label:'Stratejik Kapsam Dağılımı'},
   ]
 
   // Segment renkleri hex (Chart.js canvas)
