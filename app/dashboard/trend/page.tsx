@@ -93,7 +93,7 @@ const pointLabelPlugin = {
     })
   }
 }
-ChartJS.register(pointLabelPlugin)
+// pointLabelPlugin global register edilmiyor — sadece trend sayfasında kullanılıyor
 
 // ── Dönem seçici ──────────────────────────────────────────────────────────────
 type DonemPeriyot = 'ay' | 'Q' | 'FY'
@@ -337,7 +337,7 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
           </div>
         ) : (
           <div style={{ height:280 }}>
-            <Line data={chartData} options={chartOptions as any} />
+            <Line data={chartData} options={chartOptions as any} plugins={[pointLabelPlugin]} />
           </div>
         )}
 
