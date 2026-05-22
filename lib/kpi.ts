@@ -202,12 +202,31 @@ type MarkaScoreRow = [string, string, string, string, string, number]
 const MARKA_SCORE_CUBE: MarkaScoreRow[] = (MARKA_RAW ?? []) as MarkaScoreRow[]
 
 export function getMarkaScore(marka: string, bolge = '', yas = 'Tümü', donem = ''): number | null {
-  const r = MARKA_SCORE_CUBE.find(x => x[0]===marka && x[2]===bolge && x[3]===yas && x[4]===donem)
+  // MARKA_SCORE_CUBE'da bu marka için ham KPI verisi var mı kontrol et
+  // Önce segment bilgisini bul
+  const segmentRow = MARKA_SCORE_CUBE.find(x => x[0] === marka)
+  if (!segmentRow) return null
+  const segment = segmentRow[1]
+
+  // MARKA_CUBE'da ham KPI dizisi var mı? (dolu ise dinamik hesapla)
+  const markaKubeRow = (MARKA_CUBE as any[]).find((r: any) =>
+    r[0] === marka && r[2] === bolge && r[3] === yas && r[4] === donem
+  )
+  if (markaKubeRow && Array.isArray(markaKubeRow[5])) {
+    // Ham KPI mevcut → dinamik hesapla
+    const markaKpis = (markaKubeRow[5] as (number|null)[]).map(v => v ?? 0)
+    return overallScoreFromKpis(markaKpis, segment, bolge, yas)
+  }
+
+  // Ham KPI yok → MARKA_SCORE_CUBE'dan hazır skoru oku (fallback)
+  const r = MARKA_SCORE_CUBE.find(x =>
+    x[0] === marka && x[2] === bolge && x[3] === yas && x[4] === donem
+  )
   return r ? r[5] : null
 }
 
 export function getMarkaSegment(marka: string): string {
-  const r = MARKA_SCORE_CUBE.find(x => x[0]===marka)
+  const r = MARKA_SCORE_CUBE.find(x => x[0] === marka)
   return r ? r[1] : ''
 }
 
@@ -216,13 +235,32 @@ export function getMarkaRanking(
   selSeg = '', selBolge = '', selYas = 'Tümü', donem = ''
 ): { marka: string; segment: string; score: number }[] {
   const seen = new Map<string, { marka: string; segment: string; score: number }>()
-  for (const r of MARKA_SCORE_CUBE) {
-    if (r[2] !== selBolge) continue
-    if (r[3] !== selYas)   continue
-    if (r[4] !== donem)    continue
-    if (selSeg && r[1] !== selSeg) continue
-    seen.set(r[0], { marka: r[0], segment: r[1], score: r[5] })
+
+  // MARKA_CUBE dolu ise dinamik hesapla
+  const markaKubeDolu = (MARKA_CUBE as any[]).length > 0
+
+  if (markaKubeDolu) {
+    // Dinamik yol: ham KPI → overallScoreFromKpis
+    for (const r of (MARKA_CUBE as any[])) {
+      if (r[2] !== selBolge) continue
+      if (r[3] !== selYas)   continue
+      if (r[4] !== donem)    continue
+      if (selSeg && r[1] !== selSeg) continue
+      const markaKpis = (r[5] as (number|null)[]).map((v: number|null) => v ?? 0)
+      const dinamikSkor = overallScoreFromKpis(markaKpis, r[1], selBolge, selYas)
+      seen.set(r[0], { marka: r[0], segment: r[1], score: dinamikSkor })
+    }
+  } else {
+    // Fallback yol: hazır MARKA_SCORE_CUBE skorlarını kullan
+    for (const r of MARKA_SCORE_CUBE) {
+      if (r[2] !== selBolge) continue
+      if (r[3] !== selYas)   continue
+      if (r[4] !== donem)    continue
+      if (selSeg && r[1] !== selSeg) continue
+      seen.set(r[0], { marka: r[0], segment: r[1], score: r[5] })
+    }
   }
+
   const sonuc = Array.from(seen.values()).sort((a, b) => b.score - a.score)
 
   // ── Rule of 3: Rekabet hukuku koruma kalkanı ──────────────────
