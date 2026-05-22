@@ -96,25 +96,6 @@ const pointLabelPlugin = {
     })
   }
 }
-    const ctx = chart.ctx
-    chart.data.datasets.forEach((ds: any, di: number) => {
-      const meta = chart.getDatasetMeta(di)
-      if (meta.hidden) return
-      meta.data.forEach((pt: any, pi: number) => {
-        const raw = ds.data[pi]
-        if (!raw) return
-        const lbl = ds._fmt ? ds._fmt(raw) : String(Math.round(raw))
-        ctx.save()
-        ctx.fillStyle = ds.borderColor
-        ctx.font = '700 8px sans-serif'
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'bottom'
-        ctx.fillText(lbl, pt.x, pt.y - 5)
-        ctx.restore()
-      })
-    })
-  }
-}
 // pointLabelPlugin global register edilmiyor — sadece trend sayfasında kullanılıyor
 ChartJS.register(pointLabelPlugin)
 
