@@ -216,11 +216,116 @@ function ScoreBand({ val }: { val: number }) {
   return <span style={{ background:bg, color:c, borderRadius:6, padding:'2px 8px', fontSize:12, fontWeight:800, fontFamily:'var(--font-dm-mono)', border:`1px solid ${c}44` }}>{val}</span>
 }
 
+// ── Rapor oluşturma fonksiyonu — component dışında ──────────────────────────
+async function buildRapor(
+  bazStr: string,
+  cmpStr: string | null,
+  selBolge: string,
+  selYas: string,
+  setGenerating: (v: boolean) => void,
+  setProgress: (v: number) => void,
+  setRapor: (v: ReturnType<typeof buildData>) => void,
+  setYorumlar: (v: Record<string,string>) => void,
+) {
+  setGenerating(true)
+  setProgress(5)
+  const data = buildData(bazStr, cmpStr, selBolge, selYas)
+  setRapor(data)
+  setProgress(20)
+
+  const trG = data.trScore?.genel ?? 0
+  const trGCmp = data.trScoreCmp?.genel ?? 0
+  const deltaPuan = cmpStr ? trG - trGCmp : null
+  const katSirali = [...data.katData].sort((a,b) => b.trVal - a.trVal)
+  const katEn = katSirali[0]
+  const katZayif = [...data.katData].sort((a,b) => a.trVal - b.trVal)[0]
+
+  const deltaPuanStr = deltaPuan !== null
+    ? 'onceki doneme (' + cmpStr + ') gore ' + (deltaPuan > 0 ? '+' : '') + deltaPuan + ' puan.'
+    : ''
+
+  const genelBakis = [
+    'Turkiye SSH sektoru', bazStr, 'donemi genel skor:', String(trG),
+    deltaPuanStr,
+    'Segment skorlari:', data.segData.map(s => s.seg + ':' + (s.score?.genel ?? 0)).join(', '),
+    'Genel tabloyu 3-4 cumle editorial yorumla.',
+  ].filter(Boolean).join(' ')
+
+  const markaStr = data.tumMarkalar.slice(0,6).map((m,i) =>
+    (i+1) + '.' + m.marka + '(' + m.segment + ') ' + m.score + ' puan' +
+    (m.cmpScore !== null ? ' onceki:' + m.cmpScore : '')
+  ).join('; ')
+
+  const kpiStr = KPI_META.slice(0,6).map((k,i) =>
+    k.ad + ': ' + fmtKpi(data.trKpis[i], k.fmt) +
+    (data.trKpisCmp ? ' (onceki:' + fmtKpi(data.trKpisCmp[i], k.fmt) + ')' : '')
+  ).join('; ')
+
+  const bolgeStr = data.bolgeData.slice(0,5).map(b =>
+    (b.bolge || 'TR') + ':' + (b.score?.genel ?? 0) +
+    (b.scoreCmp ? ' (onceki:' + b.scoreCmp.genel + ')' : '')
+  ).join(', ')
+
+  const trendStr = data.trendDonemler.map(dt => {
+    const sc = getScore('', selBolge, selYas, dt)
+    return dt + ':' + (sc?.genel ?? 0)
+  }).join(', ')
+
+  const katDegisimStr = KATEGORILER.map(k => {
+    const kat = data.katData.find(x => x.key === k.key)
+    return k.label + ':' + (kat?.cmpVal ?? 0) + '->' + (kat?.trVal ?? 0)
+  }).join(', ')
+
+  const kayipStr = data.kayiplar.length > 0
+    ? 'Kritik gerileme: ' + data.kayiplar.slice(0,3).map((x:any) => x.ad + ' ' + x.pct + '%').join(', ') + '.'
+    : ''
+
+  let karsilastirma = ''
+  if (cmpStr) {
+    karsilastirma = [
+      bazStr, 'vs', cmpStr, 'karsılastırması: Genel skor', trGCmp + '->' + trG,
+      '(' + (deltaPuan !== null && deltaPuan > 0 ? '+' : '') + deltaPuan + ' puan).',
+      'Kategori degisimleri:', katDegisimStr + '.',
+      kayipStr,
+      'Kapsamlı donem karsılastırması yap.',
+    ].filter(Boolean).join(' ')
+  }
+
+  const strateji = [
+    'SSH rekabet analizi', bazStr, 'stratejik degerlendirme:',
+    'Genel skor', String(trG) + ',',
+    'en guclu kategori', (katEn?.label ?? '') + '(' + (katEn?.trVal ?? 0) + '),',
+    'en zayif', (katZayif?.label ?? '') + '(' + (katZayif?.trVal ?? 0) + ').',
+    data.kayiplar.length > 0 ? data.kayiplar.length + ' KPI gerileme gosterdi.' : '',
+    cmpStr ? (cmpStr + ' doneminden bu yana genel skor ' + (deltaPuan !== null && deltaPuan > 0 ? 'artti' : 'geriledi') + '.') : '',
+    '3 kritik stratejik oneri ver.',
+  ].filter(Boolean).join(' ')
+
+  const prompts: Record<string,string> = {
+    genelBakis,
+    marka: 'SSH marka sıralaması ' + bazStr + ': ' + markaStr + '. Marka dinamiklerini yorumla.',
+    kpiDetay: 'KPI analizi ' + bazStr + ': ' + kpiStr + '. En kritik KPI bulgularını yorumla.',
+    bolge: 'Bolgesel SSH skorları ' + bazStr + ': ' + bolgeStr + '. Cografi farklılıkları yorumla.',
+    trend: 'Son ' + data.trendDonemler.length + ' donem SSH trend: ' + trendStr + '. Trendi yorumla.',
+    karsilastirma,
+    strateji,
+  }
+
+  const keys = Object.keys(prompts).filter(k => prompts[k])
+  const yeni: Record<string,string> = {}
+  for (let i = 0; i < keys.length; i++) {
+    yeni[keys[i]] = await getYorum(prompts[keys[i]])
+    setProgress(20 + Math.round((i+1)/keys.length * 75))
+  }
+  setYorumlar(yeni)
+  setProgress(100)
+  setGenerating(false)
+}
+
 // ── Ana bileşen ───────────────────────────────────────────────────────────────
 export default function OzetRaporPage() {
   const { selBolge, selYas } = useDashboardCtx()
 
-  const ilkYil = TUM_YILLAR[0] ?? 2024
   const sonYil = TUM_YILLAR[TUM_YILLAR.length-1] ?? 2024
 
   const [baz, setBaz] = useState<DonemSec>({ yil:sonYil, periyot:'Q', alt:'4' })
@@ -235,101 +340,11 @@ export default function OzetRaporPage() {
   const cmpStr = cmpAktif ? donemSecToStr(cmp) : null
   const d = rapor
 
-  async function olustur() {
-    setGenerating(true)
-    setProgress(5)
-    const data = buildData(bazStr, cmpStr, selBolge, selYas)
-    setRapor(data)
-    setProgress(20)
-
-    const trG = data.trScore?.genel ?? 0
-    const trGCmp = data.trScoreCmp?.genel ?? 0
-    const deltaPuan = cmpStr ? trG - trGCmp : null
-    const katSirali = [...data.katData].sort((a,b) => b.trVal - a.trVal)
-    const katEn = katSirali[0]
-    const katZayif = [...data.katData].sort((a,b) => a.trVal - b.trVal)[0]
-
-    const deltaPuanStr = deltaPuan !== null
-      ? 'onceki doneme (' + cmpStr + ') gore ' + (deltaPuan > 0 ? '+' : '') + deltaPuan + ' puan.'
-      : ''
-
-    const genelBakis = [
-      'Turkiye SSH sektoru', bazStr, 'donemi genel skor:', trG,
-      deltaPuanStr,
-      'Segment skorlari:', data.segData.map(s => s.seg + ':' + (s.score?.genel ?? 0)).join(', '),
-      'Genel tabloyu 3-4 cumle editorial yorumla.',
-    ].filter(Boolean).join(' ')
-
-    const markaStr = data.tumMarkalar.slice(0,6).map((m,i) =>
-      (i+1) + '.' + m.marka + '(' + m.segment + ') ' + m.score + ' puan' +
-      (m.cmpScore !== null ? ' önceki:' + m.cmpScore : '')
-    ).join('; ')
-
-    const kpiStr = KPI_META.slice(0,6).map((k,i) =>
-      k.ad + ': ' + fmtKpi(data.trKpis[i], k.fmt) +
-      (data.trKpisCmp ? ' (önceki:' + fmtKpi(data.trKpisCmp[i], k.fmt) + ')' : '')
-    ).join('; ')
-
-    const bolgeStr = data.bolgeData.slice(0,5).map(b =>
-      (b.bolge || 'TR') + ':' + (b.score?.genel ?? 0) +
-      (b.scoreCmp ? ' (önceki:' + b.scoreCmp.genel + ')' : '')
-    ).join(', ')
-
-    const trendStr = data.trendDonemler.map(dt => {
-      const sc = getScore('', selBolge, selYas, dt)
-      return dt + ':' + (sc?.genel ?? 0)
-    }).join(' → ')
-
-    const katDegisimStr = KATEGORILER.map(k => {
-      const kat = data.katData.find(x => x.key === k.key)
-      return k.label + ':' + (kat?.cmpVal ?? 0) + '->' + (kat?.trVal ?? 0)
-    }).join(', ')
-
-    const kayipStr = data.kayiplar.length > 0
-      ? 'Kritik gerileme: ' + data.kayiplar.slice(0,3).map((x:any) => x.ad + ' ' + x.pct + '%').join(', ') + '.'
-      : ''
-
-    let karsilastirma = ''
-    if (cmpStr) {
-      karsilastirma = [
-        bazStr, 'vs', cmpStr, 'karsılastırması: Genel skor', trGCmp + '->' + trG,
-        '(' + (deltaPuan !== null && deltaPuan > 0 ? '+' : '') + deltaPuan + ' puan).',
-        'Kategori degisimleri:', katDegisimStr + '.',
-        kayipStr,
-        'Kapsamlı donem karsılastırması yap.',
-      ].filter(Boolean).join(' ')
-    }
-
-    const strateji = [
-      'SSH rekabet analizi', bazStr, 'stratejik değerlendirme:',
-      'Genel skor', trG + ',',
-      'en güçlü kategori', (katEn?.label ?? '') + '(' + (katEn?.trVal ?? 0) + '),',
-      'en zayıf', (katZayif?.label ?? '') + '(' + (katZayif?.trVal ?? 0) + ').',
-      data.kayiplar.length > 0 ? data.kayiplar.length + ' KPI gerileme gösterdi.' : '',
-      cmpStr ? (cmpStr + ' döneminden bu yana genel skor ' + (deltaPuan !== null && deltaPuan > 0 ? 'arttı' : 'geriledi') + '.') : '',
-      '3 kritik stratejik öneri ver.',
-    ].filter(Boolean).join(' ')
-
-    const prompts: Record<string,string> = {
-      genelBakis,
-      marka: 'SSH marka sıralaması ' + bazStr + ': ' + markaStr + '. Marka dinamiklerini ve segment rekabetini yorumla.',
-      kpiDetay: 'KPI analizi ' + bazStr + ': ' + kpiStr + '. En kritik KPI bulgularını yorumla.',
-      bolge: 'Bölgesel SSH skorları ' + bazStr + ': ' + bolgeStr + '. Coğrafi farklılıkları ve bölgesel dinamikleri yorumla.',
-      trend: 'Son ' + data.trendDonemler.length + ' dönem SSH trend: ' + trendStr + '. Dönemsel gidişatı ve trendi yorumla.',
-      karsilastirma,
-      strateji,
-    }
-
-    const keys = Object.keys(prompts).filter(k => prompts[k])
-    const yeni: Record<string,string> = {}
-    for (let i = 0; i < keys.length; i++) {
-      yeni[keys[i]] = await getYorum(prompts[keys[i]])
-      setProgress(20 + Math.round((i+1)/keys.length * 75))
-    }
-    setYorumlar(yeni)
-    setProgress(100)
-    setGenerating(false)
-  }
+  const olustur = () => buildRapor(
+    bazStr, cmpStr, selBolge, selYas,
+    setGenerating, setProgress,
+    setRapor as any, setYorumlar
+  )
 
   return (
     <div className={styles.wrap}>
