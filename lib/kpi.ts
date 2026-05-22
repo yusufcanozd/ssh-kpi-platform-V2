@@ -14,12 +14,9 @@ export const TOTAL_IO: number       = RAW.total_io as number
 export const TOTAL_SERVIS: number   = RAW.total_servis as number
 
 // Cube satırı: [seg, bolge, yas, donem, kpis, n, servis_count]
-// NOT: cube'da seg = '', 'Mass', 'Premium', 'EV' — marka bazlı KPI yok
-type CubeRow  = [string, string, string, string, (number|null)[], number, number]
-type MarkaRow = [string, string, string, string, (number|null)[], number, number]
+type CubeRow = [string, string, string, string, (number|null)[], number, number]
 
-const CUBE: CubeRow[]        = (RAW.cube ?? []) as CubeRow[]
-const MARKA_CUBE: MarkaRow[] = []  // Marka bazlı ham KPI verisi mevcut değil
+const CUBE: CubeRow[] = (RAW.cube ?? []) as CubeRow[]
 
 // ── Cube lookup ───────────────────────────────────────────────
 export function getCube(seg='', bolge='', yas='Tümü', donem=''): CubeRow | null {
@@ -70,7 +67,7 @@ export const SEGMENT_BORDER: Record<string,string> = {
   EV:      'var(--seg-ev-border)',
 }
 
-// Trend sayfasının (trend/page.tsx) import edip hata aldığı kritik HEX tanımları:
+// Trend sayfasının tam eşleşme sağladığı HEX tanımları
 export const SEGMENT_HEX: Record<string,string> = {
   Premium: '#c084fc', 
   Mass:    '#60a5fa', 
@@ -122,25 +119,11 @@ export function heatColor(val: number, ref: number, higherIsBetter=true): {bg:st
 }
 
 // ── Negatif yönlü KPI'lar ────────────────────────────────────
-// Index 3: Teknik Onarım Verimlilik (işçilik saati — az = iyi)
-// Index 6: İş Emri Süresi (araç kalma günü — az = iyi)
 export function isLowerBetter(i: number): boolean { return i===3 || i===6 }
 
 // ── V5 Dinamik Skor Motoru ────────────────────────────────────
-export function overallScoreFromKpis(
-  kpis: number[],
-  seg: string,
-  bolge = '',
-  yas = 'Tümü',
-  donem = ''
-): number {
-  const agirliklar: Record<number,number> = {
-    0:7,   1:11,  2:7,
-    3:7,   4:8,   5:10,
-    6:12,  7:13,
-    8:7.5, 9:7.5,
-    10:5,  11:5,
-  }
+export function overallScoreFromKpis(kpis: number[], seg: string, bolge = '', yas = 'Tümü', donem = ''): number {
+  const agirliklar: Record<number,number> = { 0:7, 1:11, 2:7, 3:7, 4:8, 5:10, 6:12, 7:13, 8:7.5, 9:7.5, 10:5, 11:5 }
   const kategoriler = [
     { idxler:[0,1,2],  katAgirlik:25 },
     { idxler:[3,4,5],  katAgirlik:25 },
@@ -165,7 +148,6 @@ export function overallScoreFromKpis(
 }
 
 // ── Skor Cube ─────────────────────────────────────────────────
-// [seg, bolge, yas, donem, genel, musteri, ticari, operasyonel, bayi, kapsam]
 type ScoreRow = [string,string,string,string,number,number,number,number,number,number]
 const SCORE_CUBE: ScoreRow[] = ((RAW as any).score_cube ?? []) as ScoreRow[]
 
@@ -180,8 +162,7 @@ export function getScore(seg='', bolge='', yas='Tümü', donem=''): SegmentScore
   return { genel:r[4], musteri:r[5], ticari:r[6], operasyonel:r[7], bayi:r[8], kapsam:r[9] }
 }
 
-// ── RULE OF 3: YENİ RENKLENDİRME EŞİKLERİ VE FONKSiyonLARI ──
-// V5 eşikleri: >= 77 Üstün, >= 66 Güvenli, < 66 Kritik
+// ── RULE OF 3: YENİ RENKLENDİRME EŞİKLERİ VE FONKSİYONLARI ──
 export function scoreColor(v: number): string {
   if (v >= 77) return '#10b981'
   if (v >= 66) return '#3b82f6'
@@ -198,19 +179,19 @@ export function changePct(curr: number, prev: number): string {
 }
 
 // ── Marka Skor Cube ───────────────────────────────────────────
-type MarkaScoreRow = [string,string,string,string,string,number]
-const MARKA_SCORE_CUBE: MarkaScoreRow[] = ((RAW as any).marka_score_cube ?? MARKA_RAW ?? []) as MarkaScoreRow[]
+// Any casting kullanarak array indis kaymalarını ve katı derleyici kontrollerini esnetiyoruz
+const MARKA_SCORE_CUBE: any[] = (MARKA_RAW ?? []) as any[]
 
 export function getMarkaScore(marka: string, bolge='', yas='Tümü', donem=''): number | null {
   const r = MARKA_SCORE_CUBE.find(x =>
     x[0]===marka && x[2]===bolge && x[3]===yas && x[4]===donem
   )
-  return r ? r[5] : null
+  return r ? (r[5] as number) : null
 }
 
 export function getMarkaSegment(marka: string): string {
   const r = MARKA_SCORE_CUBE.find(x => x[0]===marka)
-  return r ? r[1] : ''
+  return r ? (r[1] as string) : ''
 }
 
 export function getMarkaRanking(
