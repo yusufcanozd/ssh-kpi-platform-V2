@@ -51,18 +51,20 @@ ChartJS.register(segmentAvgLinePlugin)
 // ── Bar üstü label plugin — fmtKpi ile formatlanmış değer ──────────────────
 const barLabelPlugin = {
   id: 'barLabel',
-  afterDatasetsDraw(chart: any, _: any, opts: any) {
+  afterDatasetsDraw(chart: any) {
     const { ctx } = chart
-    const fmt: string = opts?.fmt ?? ''
+    // Chart.js v3+ plugin options doğru yolu
+    const fmt: string = (chart.config?.options?.plugins as any)?.barLabel?.fmt ?? ''
     chart.data.datasets.forEach((ds: any, di: number) => {
       const meta = chart.getDatasetMeta(di)
       if (meta.hidden) return
       meta.data.forEach((bar: any, pi: number) => {
         const raw = ds.data[pi]
         if (raw == null || raw === 0) return
-        const label = fmt ? fmtKpi(raw as number, fmt) : String(raw)
+        const label = fmt ? fmtKpi(raw as number, fmt) : raw.toLocaleString('tr-TR')
         ctx.save()
-        ctx.fillStyle = ds.borderColor?.[pi] ?? ds.borderColor ?? '#8496b0'
+        const color = Array.isArray(ds.borderColor) ? ds.borderColor[pi] : ds.borderColor
+        ctx.fillStyle = color ?? '#8496b0'
         ctx.font = '700 8px sans-serif'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'bottom'
