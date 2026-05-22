@@ -266,12 +266,10 @@ export default function OzetRaporPage() {
             <div style={{ marginLeft:'auto', display:'flex', gap:10, alignItems:'center' }}>
               {d && (
                 <button onClick={() => {
-                  const s = document.querySelector('aside') as HTMLElement | null
-                  const h = document.querySelector('header') as HTMLElement | null
-                  if (s) s.style.display = 'none'
-                  if (h) h.style.display = 'none'
+                  const prev = document.title
+                  document.title = ' '
                   window.print()
-                  setTimeout(() => { if (s) s.style.display = ''; if (h) h.style.display = '' }, 500)
+                  setTimeout(() => { document.title = prev }, 500)
                 }}
                   style={{ padding:'8px 16px', borderRadius:8, fontSize:11, fontWeight:600, cursor:'pointer', border:'1px solid var(--bd)', background:'var(--surf)', color:'var(--tx2)' }}>
                   🖨 PDF
@@ -732,8 +730,9 @@ export default function OzetRaporPage() {
         .rapor-sayfa { display:flex; flex-direction:column; gap:14px; margin-bottom:32px; }
         @media print {
           @page { size:A4; margin:10mm 12mm; }
-          body > * { display:none !important; }
-          #rapor-print-wrapper { display:block !important; position:fixed; top:0; left:0; width:100%; z-index:99999; }
+          body * { visibility:hidden !important; }
+          #rapor-print-wrapper, #rapor-print-wrapper * { visibility:visible !important; }
+          #rapor-print-wrapper { position:fixed; top:0; left:0; width:100%; z-index:99999; }
           .rapor-sayfa { page-break-after:always; break-after:page; margin-bottom:0; }
           .rapor-sayfa:last-child { page-break-after:auto; break-after:auto; }
           .rapor-sayfa > * { page-break-inside:avoid; break-inside:avoid; }
