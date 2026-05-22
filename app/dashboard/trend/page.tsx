@@ -72,7 +72,7 @@ function getSeriVeri(s: Seri, donemler: string[], bolge: string, yas: string): n
 
 // ── Nokta etiketi plugin ──────────────────────────────────────────────────────
 const pointLabelPlugin = {
-  id: 'pointLabel',
+  id: 'trendPointLabel',
   afterDatasetsDraw(chart: any) {
     const ctx = chart.ctx
     chart.data.datasets.forEach((ds: any, di: number) => {
@@ -285,6 +285,8 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
           if(s.kpiIdx!==null) return `${s.label}: ${fmtKpi(v,KPI_META[s.kpiIdx].fmt)}`
           return `${s.label}: ${v}`
         }}},
+        // @ts-ignore — global pointLabel plugin'ini kapat
+        pointLabel: false,
       },
       scales:{
         y:{ type:'linear' as const, position:'left' as const, min:dB.min, max:dB.max,
