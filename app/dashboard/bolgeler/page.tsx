@@ -17,11 +17,11 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 const KATS = [
   {key:'genel',       label:'Genel'},
-  {key:'musteri',     label:'Müşteri'},
-  {key:'ticari',      label:'Ticari'},
-  {key:'operasyonel', label:'Operasyonel'},
-  {key:'bayi',        label:'Bayi Ağı'},
-  {key:'kapsam',      label:'Kapsam'},
+  {key:'musteri',     label:'Müşteri Sadakati ve Deneyimi'},
+  {key:'ticari',      label:'Finansal Verimlilik ve Rasyo Analizi'},
+  {key:'operasyonel', label:'Süreç ve Operasyonel Akış'},
+  {key:'bayi',        label:'Bayi Ağı Kapasite Yönetimi'},
+  {key:'kapsam',      label:'Stratejik Kapsam Dağılımı'},
 ]
 
 function pct(a: number, b: number | null): number | null {
