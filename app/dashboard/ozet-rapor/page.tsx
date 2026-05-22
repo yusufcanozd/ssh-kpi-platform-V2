@@ -95,8 +95,8 @@ function DonemSec2({ label, value, onChange }: {
 function YorumBlok({ text, color }: { text: string; color?: string }) {
   if (!text) return null
   return (
-    <div style={{ background:'var(--surf2)', borderRadius:8, padding:'10px 14px', marginTop:10,
-      fontSize:10, lineHeight:1.8, color:'var(--tx2)', borderLeft:'3px solid ' + (color || '#3b82f6') }}>
+    <div style={{ background:'var(--surf2)', borderRadius:8, padding:'12px 16px', marginTop:10,
+      fontSize:12, lineHeight:1.9, color:'var(--tx2)', borderLeft:'3px solid ' + (color || '#3b82f6') }}>
       {text}
     </div>
   )
@@ -274,15 +274,22 @@ export default function OzetRaporPage() {
             {/* Butonlar */}
             <div style={{ display:'flex', gap:10, alignItems:'flex-end', paddingBottom:2 }}>
               {d && (
-                <button onClick={() => {
-                  const prev = document.title
-                  document.title = ' '
-                  window.print()
-                  setTimeout(() => { document.title = prev }, 500)
-                }}
-                  style={{ padding:'8px 16px', borderRadius:8, fontSize:11, fontWeight:600, cursor:'pointer', border:'1px solid var(--bd)', background:'var(--surf)', color:'var(--tx2)' }}>
-                  🖨 PDF
-                </button>
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4 }}>
+                  <button onClick={() => {
+                    const prev = document.title
+                    document.title = 'SSH Platform _ Türkiye Otomotiv Sektörü SSH Raporu'
+                    setTimeout(() => {
+                      window.print()
+                      setTimeout(() => { document.title = prev }, 1000)
+                    }, 100)
+                  }}
+                    style={{ padding:'8px 16px', borderRadius:8, fontSize:11, fontWeight:600, cursor:'pointer', border:'1px solid var(--bd)', background:'var(--surf)', color:'var(--tx2)' }}>
+                    🖨 PDF
+                  </button>
+                  <div style={{ fontSize:8, color:'var(--tx3)', textAlign:'right', maxWidth:160, lineHeight:1.4 }}>
+                    Print dialog'da "Üstbilgi ve altbilgi" seçeneğini kapatın
+                  </div>
+                </div>
               )}
               <button onClick={handleOlustur} disabled={generating}
                 style={{ padding:'8px 22px', borderRadius:8, fontSize:11, fontWeight:700,
@@ -737,14 +744,51 @@ export default function OzetRaporPage() {
 
       <style>{`
         .rapor-sayfa { display:flex; flex-direction:column; gap:14px; margin-bottom:32px; }
+
         @media print {
-          @page { size:A4; margin:10mm 12mm; }
-          body * { visibility:hidden !important; }
-          #rapor-print-wrapper, #rapor-print-wrapper * { visibility:visible !important; }
-          #rapor-print-wrapper { position:fixed; top:0; left:0; width:100%; z-index:99999; }
-          .rapor-sayfa { page-break-after:always; break-after:page; margin-bottom:0; }
-          .rapor-sayfa:last-child { page-break-after:auto; break-after:auto; }
-          .rapor-sayfa > * { page-break-inside:avoid; break-inside:avoid; }
+          @page {
+            size: A4;
+            margin: 0;
+          }
+
+          /* Tarayıcı header/footer'ı gizle */
+          html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+          /* Tüm sayfayı gizle */
+          body { margin:0; padding:0; }
+          body > * { display:none !important; }
+
+          /* Sadece rapor içeriğini göster */
+          #rapor-print-wrapper {
+            display: block !important;
+            width: 100%;
+            margin: 0;
+            padding: 10mm 12mm;
+            box-sizing: border-box;
+          }
+
+          #rapor-icerik {
+            display: block !important;
+          }
+
+          .rapor-sayfa {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 14px !important;
+            margin-bottom: 0 !important;
+            page-break-after: always;
+            break-after: page;
+          }
+
+          .rapor-sayfa:last-child {
+            page-break-after: auto;
+            break-after: auto;
+          }
+
+          .rapor-sayfa > * {
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
         }
       `}</style>
     </div>
