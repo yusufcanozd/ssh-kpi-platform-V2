@@ -308,12 +308,17 @@ export default function OzetRaporPage() {
             </div>
             <div style={{ marginLeft:'auto', display:'flex', gap:10, alignItems:'center' }}>
               {d && <button onClick={() => {
-                // Tarayıcı header/footer'sız yazdır
-                const style = document.createElement('style')
-                style.innerHTML = `@media print { @page { margin: 10mm 12mm; } }`
-                document.head.appendChild(style)
+                // Sidebar ve diğer UI'ı geçici olarak gizle
+                const sidebar = document.querySelector('aside') as HTMLElement | null
+                const topbar = document.querySelector('header') as HTMLElement | null
+                if (sidebar) sidebar.style.display = 'none'
+                if (topbar) topbar.style.display = 'none'
                 window.print()
-                setTimeout(() => document.head.removeChild(style), 1000)
+                // Print sonrası geri getir
+                setTimeout(() => {
+                  if (sidebar) sidebar.style.display = ''
+                  if (topbar) topbar.style.display = ''
+                }, 500)
               }}
                 style={{ padding:'8px 16px', borderRadius:8, fontSize:11, fontWeight:600, cursor:'pointer',
                   border:'1px solid var(--bd)', background:'var(--surf)', color:'var(--tx2)' }}>🖨 PDF</button>}
@@ -343,6 +348,7 @@ export default function OzetRaporPage() {
         )}
 
         {d && !generating && (
+          <div id="rapor-print-wrapper" style={{ display: 'block' }}>
           <div id="rapor-icerik">
 
             {/* ══════════════════════════════════════════════════════════════════
@@ -909,7 +915,8 @@ export default function OzetRaporPage() {
               </div>
             </Sayfa>
 
-          </div>
+          </div>{/* rapor-icerik sonu */}
+          </div>{/* rapor-print-wrapper sonu */}
         )}
       </div>
 
@@ -921,23 +928,30 @@ export default function OzetRaporPage() {
         }
         @media print {
           @page {
-            size: A4;
-            margin: 10mm 12mm;
+            size: A4 portrait;
+            margin: 12mm 14mm;
           }
-          /* Tarayıcı header/footer'ını kaldır */
-          @page { margin-top: 10mm; margin-bottom: 10mm; }
-          head { display: none; }
+
+          /* Her şeyi gizle */
+          body > * { display: none !important; }
+
+          /* Sadece rapor içeriğini göster */
+          #rapor-print-wrapper {
+            display: block !important;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            z-index: 99999;
+          }
+
           .rapor-sayfa {
             page-break-after: always;
             break-after: page;
-            page-break-inside: avoid;
-            break-inside: avoid;
           }
           .rapor-sayfa:last-child {
             page-break-after: auto;
             break-after: auto;
           }
-          /* Kartların ortada bölünmesini önle */
           .rapor-sayfa > * {
             page-break-inside: avoid;
             break-inside: avoid;
