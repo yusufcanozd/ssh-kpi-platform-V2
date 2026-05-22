@@ -35,12 +35,8 @@ function ScoreCell({ baz, cmp, large }: { baz: number; cmp: number | null; large
   return (
     <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center', background:scoreBg(baz)}}>
       <div style={{fontFamily:'var(--font-dm-mono)', fontSize:large?14:12, fontWeight:800, color:scoreColor(baz), lineHeight:1}}>{baz||'-'}</div>
-      {(cmp!==null || chg!==null) && (
-        <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:3, marginTop:3}}>
-          {cmp!==null && <span style={{fontSize:9, color:'var(--tx3)', fontFamily:'var(--font-dm-mono)'}}>{cmp}</span>}
-          {chg!==null && <span style={{fontSize:8, fontWeight:700, color:clr}}>{chg>=0?'+':''}{chg}%</span>}
-        </div>
-      )}
+      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{cmp}</div>}
+      {chg!==null && <div style={{fontSize:8, fontWeight:700, color:clr, marginTop:1}}>{chg>=0?'+':''}{chg}%</div>}
     </td>
   )
 }
@@ -54,12 +50,8 @@ function KpiCell({ baz, cmp, fmt, ref, lob, active }: {
     <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center',
       background: hc.bg, outline: active ? `2px solid ${hc.color}55` : 'none', outlineOffset:-1}}>
       <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:hc.color, lineHeight:1}}>{fmtKpi(baz, fmt)}</div>
-      {(cmp!==null || chg!==null) && (
-        <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:3, marginTop:3}}>
-          {cmp!==null && <span style={{fontSize:9, color:'var(--tx3)', fontFamily:'var(--font-dm-mono)'}}>{fmtKpi(cmp, fmt)}</span>}
-          {chg!==null && <span style={{fontSize:7, fontWeight:700, color:chgColor(lob?-chg:chg)}}>{chg>=0?'+':''}{chg}%</span>}
-        </div>
-      )}
+      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtKpi(cmp, fmt)}</div>}
+      {chg!==null && <div style={{fontSize:7, fontWeight:700, marginTop:1, color:chgColor(lob?-chg:chg)}}>{chg>=0?'+':''}{chg}%</div>}
     </td>
   )
 }
@@ -70,46 +62,32 @@ function KpiScoreCell({ baz, cmp, active }: { baz: number; cmp: number | null; a
     <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center',
       background: kpiScoreBg(baz), outline: active ? `2px solid ${kpiScoreColor(baz)}55` : 'none', outlineOffset:-1}}>
       <div style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:800, color:kpiScoreColor(baz), lineHeight:1}}>{baz}</div>
-      {(cmp!==null || chg!==null) && (
-        <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:3, marginTop:3}}>
-          {cmp!==null && <span style={{fontSize:9, color:'var(--tx3)', fontFamily:'var(--font-dm-mono)'}}>{cmp}</span>}
-          {chg!==null && <span style={{fontSize:8, fontWeight:700, color:chgColor(chg)}}>{chg>=0?'+':''}{chg}%</span>}
-        </div>
-      )}
+      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{cmp}</div>}
+      {chg!==null && <div style={{fontSize:8, fontWeight:700, marginTop:1, color:chgColor(chg)}}>{chg>=0?'+':''}{chg}%</div>}
     </td>
   )
 }
 
-function SkorSutun({ bazG, cmpG, bazRank, cmpRank, hasCmp }: { bazG:number; cmpG:number|null; bazRank:number; cmpRank:number|null; hasCmp:boolean }) {
-  const rankDiff  = cmpRank !== null ? cmpRank - bazRank : null
-  const scoreDiff = cmpG !== null ? bazG - cmpG : null
+function SkorSutun({ bazG, cmpG, bazRank, cmpRank }: { bazG:number; cmpG:number|null; bazRank:number; cmpRank:number|null }) {
+  const rankDiff = cmpRank !== null ? bazRank - cmpRank : null
   const sc = bazG>=80?'#10b981':bazG>=65?'#3b82f6':bazG>=50?'#f59e0b':'#ef4444'
   return (
-    <>
-      <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', position:'sticky', right:hasCmp?50:0, background:'var(--surf)', minWidth:90}}>
-        <div style={{display:'flex', alignItems:'center', gap:4}}>
-          <div style={{flex:1, background:'var(--surf3)', borderRadius:4, height:4, overflow:'hidden', minWidth:32}}>
-            <div style={{width:`${Math.min(bazG,100)}%`, height:4, borderRadius:4, background:sc}}/>
-          </div>
-          <span style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:sc, minWidth:20, textAlign:'right'}}>
-            {bazG}
-          </span>
-          {hasCmp && cmpG!==null && (
-            <span style={{fontSize:9, fontWeight:600,
-              color:scoreDiff!==null&&scoreDiff>0?'#10b981':scoreDiff!==null&&scoreDiff<0?'#f87171':'var(--tx3)'}}>
-              {scoreDiff!==null&&scoreDiff>0?`+${scoreDiff}`:scoreDiff}
-            </span>
+    <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', position:'sticky', right:0, background:'var(--surf)', minWidth:80}}>
+      <div style={{display:'flex', alignItems:'center', gap:4}}>
+        <div style={{flex:1, background:'var(--surf3)', borderRadius:3, height:4, overflow:'hidden', minWidth:28}}>
+          <div style={{width:Math.min(bazG,100)+'%', height:4, borderRadius:3, background:sc+'99'}}/>
+        </div>
+        <div style={{textAlign:'right'}}>
+          <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:sc}}>{bazG}</div>
+          {cmpG!==null && <div style={{fontSize:8, color:'var(--tx3)'}}>{cmpG}</div>}
+          {rankDiff!==null && (
+            <div style={{fontSize:8, fontWeight:700, color:rankDiff>0?'#10b981':rankDiff<0?'#f87171':'var(--tx3)'}}>
+              {rankDiff>0?`+${rankDiff}`:rankDiff<0?rankDiff:'-'}
+            </div>
           )}
         </div>
-      </td>
-      {hasCmp && (
-        <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', fontFamily:'var(--font-dm-mono)', fontSize:10, fontWeight:700,
-          textAlign:'center', position:'sticky', right:0, background:'var(--surf)',
-          color:rankDiff===null?'var(--tx3)':rankDiff>0?'#10b981':rankDiff<0?'#f87171':'var(--tx3)'}}>
-          {rankDiff===null?'—':rankDiff>0?`▲${rankDiff}`:rankDiff<0?`▼${Math.abs(rankDiff)}`:'—'}
-        </td>
-      )}
-    </>
+      </div>
+    </td>
   )
 }
 
@@ -218,18 +196,7 @@ export default function BolgelerPage() {
                     </th>
                   ))}
 
-                  {mode==='kpiSkor' && KPI_META.map((k,i)=>(
-                    <th key={i} onClick={()=>setSelKpi(i)}
-                      style={{...thC, cursor:'pointer', minWidth:70, whiteSpace:'normal', wordBreak:'break-word',
-                        color:selKpi===i?'var(--blue)':'var(--tx3)',
-                        background:selKpi===i?'rgba(59,130,246,.06)':'var(--surf2)'}}>
-                      <div style={{fontSize:8, lineHeight:1.3}}>
-                        {k.ad}{selKpi===i?' ↓':''}
-                      </div>
-                    </th>
-                  ))}
-
-                  {mode==='kpiDeger' && KPI_META.map((k,i)=>(
+                  {mode!=='katSkor' && KPI_META.map((k,i)=>(
                     <th key={i} onClick={()=>setSelKpi(i)}
                       style={{...thC, cursor:'pointer', minWidth:70, whiteSpace:'normal', wordBreak:'break-word',
                         color:selKpi===i?'var(--blue)':'var(--tx3)',
@@ -240,11 +207,9 @@ export default function BolgelerPage() {
                     </th>
                   ))}
 
-                  <th style={{...thC, position:'sticky', right:selCmpDonem?50:0, background:'var(--surf2)', minWidth:90}}>
-                    Skor{selCmpDonem?'':''}{' ↓'}
-                    {selCmpDonem&&<div style={{fontSize:7,fontWeight:400,color:'var(--tx3)'}}>{selCmpDonem}</div>}
+                  <th style={{...thC, position:'sticky', right:0, background:'var(--surf2)', minWidth:90}}>
+                    Skor{selCmpDonem?' / Δ Sıra':''}
                   </th>
-                  {selCmpDonem&&<th style={{...thC, position:'sticky', right:0, background:'var(--surf2)', minWidth:50}}>Δ Sıra</th>}
                 </tr>
               </thead>
               <tbody>
@@ -259,7 +224,7 @@ export default function BolgelerPage() {
                   })}
 
                   {mode==='kpiSkor' && trKpiScores.map((v,i)=>(
-                    <KpiScoreCell key={i} baz={v} cmp={trKpiScoresCmp?.[i]??null} active={selKpi===i} />
+                    <KpiScoreCell key={i} baz={v} cmp={trKpiScoresCmp?.[i]??null} active={selKpi===i}/>
                   ))}
 
                   {mode==='kpiDeger' && KPI_META.map((_,i)=>{
@@ -270,30 +235,17 @@ export default function BolgelerPage() {
                     return (
                       <td key={i} style={{padding:'6px 8px', borderBottom:'2px solid var(--bd2)', textAlign:'center',
                         background:hc.bg, outline:selKpi===i?'2px solid #fbbf2466':'none', outlineOffset:-1}}>
-                        <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:hc.color, lineHeight:1}}>{fmtKpi(v, KPI_META[i].fmt)}</div>
-                        {(cv!==null || chg!==null) && (
-                          <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:3, marginTop:3}}>
-                            {cv!==null && <span style={{fontSize:9, color:'var(--tx3)', fontFamily:'var(--font-dm-mono)'}}>{fmtKpi(cv, KPI_META[i].fmt)}</span>}
-                            {chg!==null && <span style={{fontSize:7, fontWeight:700, color:chgColor(isLowerBetter(i)?-chg:chg)}}>{chg>=0?'+':''}{chg}%</span>}
-                          </div>
-                        )}
+                        <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:hc.color}}>{fmtKpi(v, KPI_META[i].fmt)}</div>
+                        {cv!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtKpi(cv, KPI_META[i].fmt)}</div>}
+                        {chg!==null && <div style={{fontSize:7, fontWeight:700, marginTop:1, color:chgColor(isLowerBetter(i)?-chg:chg)}}>{chg>=0?'+':''}{chg}%</div>}
                       </td>
                     )
                   })}
 
-                  <td style={{padding:'6px 8px', borderBottom:'2px solid var(--bd2)', position:'sticky', right:selCmpDonem?50:0, background:'var(--surf)'}}>
-                    <div style={{display:'flex', alignItems:'center', gap:4}}>
-                      <div style={{flex:1, background:'var(--surf3)', borderRadius:4, height:4, overflow:'hidden', minWidth:32}}>
-                        <div style={{width:`${Math.min(trScore?.genel||0,100)}%`, height:4, borderRadius:4,
-                          background:(trScore?.genel||0)>=80?'#10b981':(trScore?.genel||0)>=65?'#3b82f6':(trScore?.genel||0)>=50?'#f59e0b':'#ef4444'}}/>
-                      </div>
-                      <span style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:700,
-                        color:scoreColor(trScore?.genel||0), minWidth:20, textAlign:'right'}}>
-                        {trScore?.genel||'-'}
-                      </span>
-                    </div>
+                  <td style={{padding:'6px 8px', borderBottom:'2px solid var(--bd2)', position:'sticky', right:0, background:'var(--surf)', textAlign:'center'}}>
+                    <span style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:700, color:scoreColor(trScore?.genel||0)}}>{trScore?.genel||'-'}</span>
+                    {trScoreCmp && <div style={{fontSize:9, color:'var(--tx3)'}}>{trScoreCmp.genel}</div>}
                   </td>
-                  {selCmpDonem&&<td style={{padding:'6px 8px', borderBottom:'2px solid var(--bd2)', position:'sticky', right:0, background:'var(--surf)', textAlign:'center', color:'var(--tx3)', fontSize:10}}>—</td>}
                 </tr>
 
                 {/* Bölge satırları */}
@@ -318,13 +270,9 @@ export default function BolgelerPage() {
                           style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center', cursor:'pointer',
                             background:kpiScoreBg(v), outline:selKpi===i?`2px solid ${kpiScoreColor(v)}55`:'none', outlineOffset:-1}}>
                           <div style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:800, color:kpiScoreColor(v), lineHeight:1}}>{v}</div>
-                          {b.kpiScoresCmp && (
-                            <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:3, marginTop:3}}>
-                              <span style={{fontSize:9, color:'var(--tx3)', fontFamily:'var(--font-dm-mono)'}}>{b.kpiScoresCmp[i]}</span>
-                              {pct(v,b.kpiScoresCmp[i])!==null && (
-                                <span style={{fontSize:7, fontWeight:700, color:chgColor(pct(v,b.kpiScoresCmp[i])!)}}>{pct(v,b.kpiScoresCmp[i])!>=0?'+':''}{pct(v,b.kpiScoresCmp[i])}%</span>
-                              )}
-                            </div>
+                          {b.kpiScoresCmp && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{b.kpiScoresCmp[i]}</div>}
+                          {b.kpiScoresCmp && pct(v,b.kpiScoresCmp[i])!==null && (
+                            <div style={{fontSize:7, fontWeight:700, marginTop:1, color:chgColor(pct(v,b.kpiScoresCmp[i])!)}}>{pct(v,b.kpiScoresCmp[i])!>=0?'+':''}{pct(v,b.kpiScoresCmp[i])}%</div>
                           )}
                         </td>
                       ))}
@@ -342,17 +290,15 @@ export default function BolgelerPage() {
                             <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, lineHeight:1, color:hc.color}}>
                               {fmtKpi(v, KPI_META[i].fmt)}
                             </div>
-                            {(cv!==null || chg!==null) && (
-                              <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:3, marginTop:3}}>
-                                {cv!==null && <span style={{fontSize:9, color:'var(--tx3)', fontFamily:'var(--font-dm-mono)'}}>{fmtKpi(cv, KPI_META[i].fmt)}</span>}
-                                {chg!==null && <span style={{fontSize:7, fontWeight:700, color:chgColor(isLowerBetter(i)?-chg:chg)}}>{chg>=0?'+':''}{chg}%</span>}
-                              </div>
+                            {cv!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtKpi(cv, KPI_META[i].fmt)}</div>}
+                            {chg!==null && (
+                              <div style={{fontSize:7, fontWeight:700, marginTop:1, color:chgColor(isLowerBetter(i)?-chg:chg)}}>{chg>=0?'+':''}{chg}%</div>
                             )}
                           </td>
                         )
                       })}
 
-                      <SkorSutun bazG={bazG} cmpG={cmpG} bazRank={bazRank} cmpRank={cmpRank} hasCmp={!!selCmpDonem}/>
+                      <SkorSutun bazG={bazG} cmpG={cmpG} bazRank={bazRank} cmpRank={cmpRank}/>
                     </tr>
                   )
                 })}
