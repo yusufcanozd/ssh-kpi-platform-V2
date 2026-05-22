@@ -52,9 +52,14 @@ ChartJS.register(segmentAvgLinePlugin)
 const barLabelPlugin = {
   id: 'barLabel',
   afterDatasetsDraw(chart: any) {
+    // Sadece bar chart'ta ve display:false değilse çalış
+    const pluginOpts = (chart.config?.options?.plugins as any)?.barLabel
+    if (pluginOpts?.display === false) return
+    const chartType = chart.config?.type
+    if (chartType !== 'bar') return  // Line/diğer chart'larda çalışma
+
     const { ctx } = chart
-    // Chart.js v3+ plugin options doğru yolu
-    const fmt: string = (chart.config?.options?.plugins as any)?.barLabel?.fmt ?? ''
+    const fmt: string = pluginOpts?.fmt ?? ''
     chart.data.datasets.forEach((ds: any, di: number) => {
       const meta = chart.getDatasetMeta(di)
       if (meta.hidden) return
