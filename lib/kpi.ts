@@ -14,11 +14,12 @@ export const TOTAL_IO: number       = RAW.total_io as number
 export const TOTAL_SERVIS: number   = RAW.total_servis as number
 
 // Cube satırı: [seg, bolge, yas, donem, kpis, n, servis_count]
+// NOT: cube'da seg = '', 'Mass', 'Premium', 'EV' — marka bazlı KPI yok
 type CubeRow  = [string, string, string, string, (number|null)[], number, number]
 type MarkaRow = [string, string, string, string, (number|null)[], number, number]
 
-const CUBE: CubeRow[]       = (RAW.cube ?? []) as CubeRow[]
-const MARKA_CUBE: MarkaRow[] = []  // marka_bolge kaldırıldı
+const CUBE: CubeRow[]        = (RAW.cube ?? []) as CubeRow[]
+const MARKA_CUBE: MarkaRow[] = []  // Marka bazlı ham KPI verisi mevcut değil
 
 // ── Cube lookup ───────────────────────────────────────────────
 export function getCube(seg='', bolge='', yas='Tümü', donem=''): CubeRow | null {
@@ -47,8 +48,7 @@ export interface MarkaData {
 }
 export function getMarkaList(bolge='', yas='Tümü'): MarkaData[] { return [] }
 
-// ── Segment ortalaması — dönem dahil ─────────────────────────
-// Segment'in seçili bölge + yaş + DÖNEM'deki ortalama KPI değeri
+// ── Segment ortalaması ────────────────────────────────────────
 export function getSegAvg(seg: string, kpiIdx: number, bolge='', yas='Tümü', donem=''): number {
   return getKpisFromCube(seg, bolge, yas, donem)[kpiIdx] ?? 0
 }
@@ -121,36 +121,34 @@ export function isLowerBetter(i: number): boolean { return i===3 || i===6 }
 
 // ── V5 Dinamik Skor Motoru ────────────────────────────────────
 //
-// HESAPLAMA:
-//   1) Her KPI için segment ortalamasına göre rasyo hesapla
-//      - Büyükse iyi: rasyo = markaKpiVal / segOrtalama
-//      - Küçükse iyi: rasyo = segOrtalama / markaKpiVal
-//      - Veri yoksa: rasyo = 1.0 (nötr)
-//   2) Rasyoyu KPI ağırlığıyla çarp → kategori toplamına ekle
-//   3) Kategori toplamını kategori ağırlığına böl → kategori skoru
-//   4) Kategori skorunu kategori ağırlığıyla çarp → nihai endekse ekle
-//   5) Nihai endeks × 70 = 0-100 ölçeğinde genel performans skoru
+// AMAÇ: Segment veya TR bazlı görünümler için KPI dizisini
+//       segment ortalamasına göre normalize ederek 0-100 skor üret.
 //
-// DÖNEM PARAMETRESİ: Segment ortalaması da aynı dönemden alınır —
-// böylece "2024-Q1 Mass ortalama" ile "2024-Q1 Chery değeri" karşılaştırılır.
+// KAPSAM: Bu fonksiyon SEGMENT bazlı hesaplamalar içindir.
+//         Marka bazlı skorlar için getMarkaScore / getMarkaRanking kullanılır
+//         (marka bazlı ham KPI verisi mevcut olmadığından backend skorları kullanılır).
+//
+// HESAPLAMA:
+//   rasyo = kpiVal / segOrtalama  (büyükse iyi)
+//   rasyo = segOrtalama / kpiVal  (küçükse iyi — index 3,6)
+//   katSkoru = Σ(rasyo × kpiAğırlık) / kategoriToplamAğırlık
+//   nihaiEndeks = Σ(katSkoru × kategoriAğırlık/100)
+//   skor = round(nihaiEndeks × 70)
 //
 export function overallScoreFromKpis(
   kpis: number[],
   seg: string,
   bolge = '',
   yas = 'Tümü',
-  donem = ''   // ← Dönem eklendi: segment avg ile aynı dönem
+  donem = ''
 ): number {
-
-  // KPI ağırlıkları (indeks → ağırlık %)
   const agirliklar: Record<number,number> = {
-    0:7,   1:11,  2:7,   // Müşteri Sadakati ve Deneyimi  — toplam %25
-    3:7,   4:8,   5:10,  // Finansal Verimlilik            — toplam %25
-    6:12,  7:13,         // Süreç ve Operasyonel Akış      — toplam %25
-    8:7.5, 9:7.5,        // Bayi Ağı Kapasite Yönetimi     — toplam %15
-    10:5,  11:5,         // Stratejik Kapsam Dağılımı      — toplam %10
+    0:7,   1:11,  2:7,
+    3:7,   4:8,   5:10,
+    6:12,  7:13,
+    8:7.5, 9:7.5,
+    10:5,  11:5,
   }
-
   const kategoriler = [
     { idxler:[0,1,2],  katAgirlik:25 },
     { idxler:[3,4,5],  katAgirlik:25 },
@@ -158,40 +156,23 @@ export function overallScoreFromKpis(
     { idxler:[8,9],    katAgirlik:15 },
     { idxler:[10,11],  katAgirlik:10 },
   ]
-
   let nihaiEndeks = 0
-
   for (const kat of kategoriler) {
     let katToplam = 0
     for (const i of kat.idxler) {
-      // Segment ortalaması — aynı bölge + yaş + DÖNEM
       const segOrtalama = getSegAvg(seg, i, bolge, yas, donem)
       const kpiVal      = kpis[i]
-
-      let rasyo: number
-      if (!segOrtalama || !kpiVal) {
-        rasyo = 1.0  // Veri yoksa nötr
-      } else if (isLowerBetter(i)) {
-        rasyo = segOrtalama / kpiVal  // Küçükse iyi: seg/marka
-      } else {
-        rasyo = kpiVal / segOrtalama  // Büyükse iyi: marka/seg
-      }
-
+      const rasyo = (!segOrtalama || !kpiVal) ? 1.0
+        : isLowerBetter(i) ? segOrtalama / kpiVal
+        : kpiVal / segOrtalama
       katToplam += rasyo * agirliklar[i]
     }
-
-    // Kategori skoru = ağırlıklı rasyo toplamı / kategori toplam ağırlığı
-    const katSkoru = katToplam / kat.katAgirlik
-
-    // Nihai endekse katkı = kategori skoru × kategori ağırlığı
-    nihaiEndeks += katSkoru * (kat.katAgirlik / 100)
+    nihaiEndeks += (katToplam / kat.katAgirlik) * (kat.katAgirlik / 100)
   }
-
-  // 0-100 ölçeğine oturt: nihai endeks × 70 (taban başarı puanı)
   return Math.round(nihaiEndeks * 70)
 }
 
-// ── Skor Cube (kategori skorları) ────────────────────────────
+// ── Skor Cube ─────────────────────────────────────────────────
 // [seg, bolge, yas, donem, genel, musteri, ticari, operasyonel, bayi, kapsam]
 type ScoreRow = [string,string,string,string,number,number,number,number,number,number]
 const SCORE_CUBE: ScoreRow[] = ((RAW as any).score_cube ?? []) as ScoreRow[]
@@ -201,16 +182,15 @@ export interface SegmentScore {
   musteri: number; ticari: number; operasyonel: number; bayi: number; kapsam: number
 }
 
-// getScore: SCORE_CUBE'dan kategori skorlarını döner
-// (segment bazlı görünümler için — marka skor motoru değil)
+// getScore: segment/TR bazlı kategori skorlarını SCORE_CUBE'dan döner
 export function getScore(seg='', bolge='', yas='Tümü', donem=''): SegmentScore | null {
   const r = SCORE_CUBE.find(x => x[0]===seg && x[1]===bolge && x[2]===yas && x[3]===donem)
   if (!r) return null
   return { genel:r[4], musteri:r[5], ticari:r[6], operasyonel:r[7], bayi:r[8], kapsam:r[9] }
 }
 
-// ── Semantik Renk Fonksiyonları — V5 Eşikleri ─────────────────
-// >= 77: Üstün (Yeşil), >= 66: Güvenli (Mavi), < 66: Kritik (Kırmızı)
+// ── Renk Fonksiyonları ────────────────────────────────────────
+// V5 eşikleri: >= 77 Üstün, >= 66 Güvenli, < 66 Kritik
 export function scoreColor(v: number): string {
   if (v >= 77) return '#10b981'
   if (v >= 66) return '#3b82f6'
@@ -227,19 +207,20 @@ export function changePct(curr: number, prev: number): string {
 }
 
 // ── Marka Skor Cube ───────────────────────────────────────────
-// [marka, segment, bolge, yas, donem, genel_skor]
+// Şema: [marka, segment, bolge, yas, donem, genel]
+// NOT: Backend'de marka bazlı ham KPI verisi hesaplanarak bu küpe yazılmıştır.
+//      Frontend'de marka ham KPI'ına erişim mümkün değildir.
+//      Bu nedenle marka skorları doğrudan bu küpten okunur.
 type MarkaScoreRow = [string,string,string,string,string,number]
-const MARKA_SCORE_CUBE: MarkaScoreRow[] = (MARKA_RAW ?? []) as MarkaScoreRow[]
+const MARKA_SCORE_CUBE: MarkaScoreRow[] = ((RAW as any).marka_score_cube ?? MARKA_RAW ?? []) as MarkaScoreRow[]
 
-// getMarkaScore: statik r[5] BAYPAS
-// → markanın segmenti + filtreler → getKpisFromCube → overallScoreFromKpis(dönem dahil)
+// getMarkaScore: marka_score_cube'dan hazır genel skoru döner
+// (backend'de hesaplanmış, marka bazlı ham KPI içermez)
 export function getMarkaScore(marka: string, bolge='', yas='Tümü', donem=''): number | null {
-  const r = MARKA_SCORE_CUBE.find(x => x[0]===marka && x[2]===bolge && x[3]===yas && x[4]===donem)
-  if (!r) return null
-  const segment     = r[1]
-  const segmentKpis = getKpisFromCube(segment, bolge, yas, donem)
-  // Dönem parametresi overallScoreFromKpis'e geçiliyor
-  return overallScoreFromKpis(segmentKpis, segment, bolge, yas, donem)
+  const r = MARKA_SCORE_CUBE.find(x =>
+    x[0]===marka && x[2]===bolge && x[3]===yas && x[4]===donem
+  )
+  return r ? r[5] : null
 }
 
 export function getMarkaSegment(marka: string): string {
@@ -247,7 +228,7 @@ export function getMarkaSegment(marka: string): string {
   return r ? r[1] : ''
 }
 
-// getMarkaRanking: dinamik V5 skorlama + Rule of 3 koruma kalkanı
+// getMarkaRanking: marka_score_cube'dan sıralama + Rule of 3 koruma kalkanı
 export function getMarkaRanking(
   selSeg='', selBolge='', selYas='Tümü', donem=''
 ): { marka: string; segment: string; score: number }[] {
@@ -258,14 +239,8 @@ export function getMarkaRanking(
     if (r[3] !== selYas)   continue
     if (r[4] !== donem)    continue
     if (selSeg && r[1] !== selSeg) continue
-
-    const segment = r[1]
-    // Segmentin ham KPI değerleri — aynı bölge + yaş + dönem
-    const segKpis = getKpisFromCube(segment, selBolge, selYas, donem)
-    // Dönem dahil dinamik skor hesabı
-    const dinamikSkor = overallScoreFromKpis(segKpis, segment, selBolge, selYas, donem)
-
-    seen.set(r[0], { marka: r[0], segment, score: dinamikSkor })
+    // Backend'de hesaplanmış gerçek marka skorunu kullan
+    seen.set(r[0], { marka: r[0], segment: r[1], score: r[5] })
   }
 
   const sonuc = Array.from(seen.values()).sort((a,b) => b.score - a.score)
@@ -282,7 +257,7 @@ export function getMarkaRanking(
 }
 
 // ── KPI Bazlı Puan Hesaplama ──────────────────────────────────
-// Her KPI için segmentin Tüm TR referansına göre normalize et → 0-100
+// Segment değerini Tüm TR referansına göre normalize et → 0-100
 export function getKpiScores(seg: string, bolge='', yas='Tümü', donem=''): number[] {
   const segKpis = getKpisFromCube(seg, bolge, yas, donem)
   const trKpis  = getKpisFromCube('', bolge, yas, donem)
@@ -294,7 +269,6 @@ export function getKpiScores(seg: string, bolge='', yas='Tümü', donem=''): num
   })
 }
 
-// KPI puan rengi — V5 eşikleri
 export function kpiScoreColor(v: number): string {
   if (v >= 77) return '#10b981'
   if (v >= 66) return '#3b82f6'
@@ -306,7 +280,6 @@ export function kpiScoreBg(v: number): string {
   return 'rgba(239,68,68,.12)'
 }
 
-// Değişim % rengi
 export function chgColor(chg: number | null): string {
   if (chg === null) return 'var(--tx3)'
   if (chg >= 0)    return '#10b981'
@@ -320,7 +293,6 @@ export function chgBg(chg: number | null): string {
   return 'rgba(239,68,68,.1)'
 }
 
-// KPI birim etiketi
 export function kpiUnit(fmt: string): string {
   switch(fmt) {
     case 'pct4': case 'pct2': return '%'
