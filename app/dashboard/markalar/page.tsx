@@ -16,11 +16,11 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 const KATS = [
   { key: 'genel',       label: 'Genel' },
-  { key: 'musteri',     label: 'Müşteri' },
-  { key: 'ticari',      label: 'Ticari' },
-  { key: 'operasyonel', label: 'Operasyonel' },
-  { key: 'bayi',        label: 'Bayi Ağı' },
-  { key: 'kapsam',      label: 'Kapsam' },
+  { key: 'musteri',     label: 'Müşteri Sadakati ve Deneyimi' },
+  { key: 'ticari',      label: 'Finansal Verimlilik ve Rasyo Analizi' },
+  { key: 'operasyonel', label: 'Süreç ve Operasyonel Akış' },
+  { key: 'bayi',        label: 'Bayi Ağı Kapasite Yönetimi' },
+  { key: 'kapsam',      label: 'Stratejik Kapsam Dağılımı' },
 ]
 
 function getKatVal(s: any, key: string): number {
@@ -293,15 +293,9 @@ function KategoriBazliTabMarkalar() {
         cmpOverallScore: cmpM?.score ?? null,
         cmpRank: cmpRanked.findIndex(x => x.marka === m.marka) + 1,
       }
-    }).sort((a, b) => {
-      // Seçili kategoriye göre segment skoruyla sırala
-      const av = getKatVal(a.bazScore, selKat)
-      const bv = getKatVal(b.bazScore, selKat)
-      if (bv !== av) return bv - av
-      // Eşit ise genel skora göre sırala
-      return b.score - a.score
     })
-  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, selKat])
+    // getMarkaRanking zaten genel skora göre sıralı döndürür — sırayı koruyoruz
+  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem])
 
   // Bar grafik
   const barBazData = markalar.map(m => getKatVal(m.bazScore, selKat))
