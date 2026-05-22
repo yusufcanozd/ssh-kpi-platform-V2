@@ -396,13 +396,29 @@ export default function TrendPage() {
   const [bSnap, setBSnap] = useState<BuilderState>(emptyB())
   const dragPayload = useRef('')
 
+  // Her grafiğin kendi kaydedilmiş builder state'i
+  const savedStates = useRef<Record<1|2, BuilderState>>({ 1: emptyB(), 2: emptyB() })
+
   function updateB(patch: Partial<BuilderState>) {
     bRef.current = { ...bRef.current, ...patch }
     setBSnap({ ...bRef.current })
+    // Aktif grafiğin state'ini kaydet
+    savedStates.current[aktifGrafik] = { ...bRef.current }
   }
 
-  // Manuel kilit — sadece kilidi açık grafik seri alır. Başlangıçta grafik1 açık.
+  // Manuel kilit
   const [aktifGrafik, setAktifGrafik] = useState<1|2>(1)
+
+  function switchGrafik(hedef: 1|2) {
+    if (hedef === aktifGrafik) return
+    // Mevcut grafiğin state'ini kaydet
+    savedStates.current[aktifGrafik] = { ...bRef.current }
+    // Hedef grafiğin kayıtlı state'ini yükle
+    const hedefState = savedStates.current[hedef]
+    bRef.current = { ...hedefState }
+    setBSnap({ ...hedefState })
+    setAktifGrafik(hedef)
+  }
 
   // Bağımsız seri listeleri
   const [seriler1, setSeriler1] = useState<Seri[]>([])
@@ -541,7 +557,11 @@ export default function TrendPage() {
                   <span style={{ fontSize:8, fontWeight:700, color:'var(--tx2)', maxWidth:110, textAlign:'right' }}>{r.value}</span>
                 </div>
               ))}
-              <button onClick={()=>{ bRef.current=emptyB(); setBSnap(emptyB()); setSeriler1([]); setSeriler2([]) }}
+              <button onClick={()=>{ 
+                bRef.current=emptyB(); setBSnap(emptyB())
+                savedStates.current={1:emptyB(), 2:emptyB()}
+                setSeriler1([]); setSeriler2([])
+              }}
                 style={{ marginTop:7, width:'100%', padding:'3px 0', borderRadius:4, fontSize:8, cursor:'pointer',
                   border:'1px solid var(--bd)', background:'var(--surf2)', color:'var(--tx3)' }}>
                 Tümünü Sıfırla
@@ -565,14 +585,14 @@ export default function TrendPage() {
               seriler={seriler1} setSeriler={setSeriler1}
               aktifDonemler={aktifDonemler}
               locked={aktifGrafik !== 1}
-              onLockToggle={() => setAktifGrafik(1)} />
+              onLockToggle={() => switchGrafik(1)} />
             <div style={{ borderTop:'1px solid var(--bd)', paddingTop:16 }}>
               <GrafikPaneli idx={1} bolge={selBolge} yas={selYas}
                 bRef={bRef} dragPayload={dragPayload}
                 seriler={seriler2} setSeriler={setSeriler2}
                 aktifDonemler={aktifDonemler}
                 locked={aktifGrafik !== 2}
-                onLockToggle={() => setAktifGrafik(seriler1.length > 0 ? 2 : 1)} />
+                onLockToggle={() => switchGrafik(seriler1.length > 0 ? 2 : 1)} />
             </div>
           </div>
         </div>
