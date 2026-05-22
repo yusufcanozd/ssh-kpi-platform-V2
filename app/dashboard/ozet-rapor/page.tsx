@@ -249,11 +249,15 @@ export default function OzetRaporPage() {
     const katEn = katSirali[0]
     const katZayif = [...data.katData].sort((a,b) => a.trVal - b.trVal)[0]
 
+    const deltaPuanStr = deltaPuan !== null
+      ? 'onceki doneme (' + cmpStr + ') gore ' + (deltaPuan > 0 ? '+' : '') + deltaPuan + ' puan.'
+      : ''
+
     const genelBakis = [
-      'Türkiye SSH sektörü', bazStr, 'dönemi genel skor:', trG,
-      deltaPuan !== null ? `önceki döneme (${cmpStr}) göre ${deltaPuan > 0 ? '+' : ''}${deltaPuan} puan.` : '',
-      'Segment skorları:', data.segData.map(s => s.seg + ':' + (s.score?.genel ?? 0)).join(', '),
-      'Genel tabloyu 3-4 cümle editorial yorumla.',
+      'Turkiye SSH sektoru', bazStr, 'donemi genel skor:', trG,
+      deltaPuanStr,
+      'Segment skorlari:', data.segData.map(s => s.seg + ':' + (s.score?.genel ?? 0)).join(', '),
+      'Genel tabloyu 3-4 cumle editorial yorumla.',
     ].filter(Boolean).join(' ')
 
     const markaStr = data.tumMarkalar.slice(0,6).map((m,i) =>
