@@ -20,21 +20,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="tr" suppressHydrationWarning>
       <head>
-        {/* Tema flash'ını önle — sayfa boyandıktan önce çalışır */}
+        {/* Tema flash'ını önle — paint öncesi çalışır */}
         <script dangerouslySetInnerHTML={{ __html: `
           (function(){
             try {
-              var t = localStorage.getItem('ssh-theme');
-              // Default: light. Sadece 'dark' kaydedilmişse dark uygula.
+              var t = localStorage.getItem('ssh-theme') || 'light';
+              var root = document.documentElement;
               if (t === 'dark') {
-                document.body && document.body.classList.remove('light');
+                root.classList.add('dark');
+                root.classList.remove('light');
               } else {
-                // light veya kayıt yoksa — light class'ını body'e hemen ekle
-                document.addEventListener('DOMContentLoaded', function() {
-                  document.body.classList.add('light');
-                });
+                root.classList.add('light');
+                root.classList.remove('dark');
               }
-            } catch(e) {}
+            } catch(e) {
+              document.documentElement.classList.add('light');
+            }
           })();
         `}} />
       </head>
