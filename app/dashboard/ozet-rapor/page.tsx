@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
@@ -219,8 +219,6 @@ function ScoreBand({ val }: { val: number }) {
 // ── Ana bileşen ───────────────────────────────────────────────────────────────
 export default function OzetRaporPage() {
   const { selBolge, selYas } = useDashboardCtx()
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
 
   const ilkYil = TUM_YILLAR[0] ?? 2024
   const sonYil = TUM_YILLAR[TUM_YILLAR.length-1] ?? 2024
@@ -275,10 +273,8 @@ export default function OzetRaporPage() {
 
   const d = rapor
 
-  if (!mounted) return null
-
   return (
-    <div className={styles.wrap}>
+    <div className={styles.wrap} suppressHydrationWarning>
       <Topbar title="Özet Rapor" subtitle="Türkiye Otomotiv Sektörü SSH Rekabet Analizi" />
       <div className={styles.content}>
 
