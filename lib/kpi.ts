@@ -15,7 +15,6 @@ export const TOTAL_SERVIS: number   = RAW.total_servis as number
 
 // Cube satırı: [seg, bolge, yas, donem, kpis, n, servis_count]
 type CubeRow = [string, string, string, string, (number|null)[], number, number]
-
 const CUBE: CubeRow[] = (RAW.cube ?? []) as CubeRow[]
 
 // ── Cube lookup ───────────────────────────────────────────────
@@ -38,7 +37,7 @@ export function getServisCount(seg='', bolge='', yas='Tümü', donem=''): number
   return r ? r[6] : 0
 }
 
-// ── Marka lookup (eski arayüz uyumu) ──────────────────────────
+// ── Marka lookup (Geriye dönük uyumluluk) ────────────────────
 export interface MarkaData {
   marka: string; segment: string; bolge: string; yas: string
   kpis: number[]; n: number; servis_count: number
@@ -50,7 +49,7 @@ export function getSegAvg(seg: string, kpiIdx: number, bolge='', yas='Tümü', d
   return getKpisFromCube(seg, bolge, yas, donem)[kpiIdx] ?? 0
 }
 
-// ── Renkler & Trend Sayfası Entegrasyonları ───────────────────
+// ── Renkler & Trend Sayfası Bağımlılıkları ───────────────────
 export const SEGMENT_COLORS: Record<string,string> = {
   Premium: 'var(--seg-premium-color)',
   Mass:    'var(--seg-mass-color)',
@@ -67,7 +66,7 @@ export const SEGMENT_BORDER: Record<string,string> = {
   EV:      'var(--seg-ev-border)',
 }
 
-// Trend sayfasının tam eşleşme sağladığı HEX tanımları
+// trend/page.tsx dosyasının aradığı renk haritaları
 export const SEGMENT_HEX: Record<string,string> = {
   Premium: '#c084fc', 
   Mass:    '#60a5fa', 
@@ -91,7 +90,7 @@ export const YAS_COLORS: Record<string,string> = {
 }
 export const BOLGE_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899']
 
-// ── Format ────────────────────────────────────────────────────
+// ── Formatlama Motoru ─────────────────────────────────────────
 export function fmtKpi(val: number|null|undefined, fmt: string): string {
   if (val==null||isNaN(val as number)) return '—'
   const v = val as number
@@ -108,7 +107,7 @@ export function fmtKpi(val: number|null|undefined, fmt: string): string {
   }
 }
 
-// ── Isı rengi ─────────────────────────────────────────────────
+// ── Isı Haritası Renklendirmesi ───────────────────────────────
 export function heatColor(val: number, ref: number, higherIsBetter=true): {bg:string;color:string} {
   if(!ref||!val) return {bg:'rgba(77,96,112,.1)',color:'#4d6070'}
   const ratio = higherIsBetter ? val/ref : ref/val
@@ -118,10 +117,10 @@ export function heatColor(val: number, ref: number, higherIsBetter=true): {bg:st
   return              {bg:'rgba(239,68,68,.15)',   color:'#f87171'}
 }
 
-// ── Negatif yönlü KPI'lar ────────────────────────────────────
+// ── Düşük Olması Daha İyi Olan KPI'lar ────────────────────────
 export function isLowerBetter(i: number): boolean { return i===3 || i===6 }
 
-// ── V5 Dinamik Skor Motoru ────────────────────────────────────
+// ── V5 Dinamik Skorlama Motoru ────────────────────────────────
 export function overallScoreFromKpis(kpis: number[], seg: string, bolge = '', yas = 'Tümü', donem = ''): number {
   const agirliklar: Record<number,number> = { 0:7, 1:11, 2:7, 3:7, 4:8, 5:10, 6:12, 7:13, 8:7.5, 9:7.5, 10:5, 11:5 }
   const kategoriler = [
@@ -147,7 +146,7 @@ export function overallScoreFromKpis(kpis: number[], seg: string, bolge = '', ya
   return Math.round(nihaiEndeks * 70)
 }
 
-// ── Skor Cube ─────────────────────────────────────────────────
+// ── Skor Küpü Metotları ───────────────────────────────────────
 type ScoreRow = [string,string,string,string,number,number,number,number,number,number]
 const SCORE_CUBE: ScoreRow[] = ((RAW as any).score_cube ?? []) as ScoreRow[]
 
@@ -162,7 +161,7 @@ export function getScore(seg='', bolge='', yas='Tümü', donem=''): SegmentScore
   return { genel:r[4], musteri:r[5], ticari:r[6], operasyonel:r[7], bayi:r[8], kapsam:r[9] }
 }
 
-// ── RULE OF 3: YENİ RENKLENDİRME EŞİKLERİ VE FONKSİYONLARI ──
+// ── Rule Of 3 Renklendirme Fonksiyonları ve Eşikleri ──────────
 export function scoreColor(v: number): string {
   if (v >= 77) return '#10b981'
   if (v >= 66) return '#3b82f6'
@@ -178,8 +177,7 @@ export function changePct(curr: number, prev: number): string {
   return ((curr-prev)/prev*100).toFixed(1)
 }
 
-// ── Marka Skor Cube ───────────────────────────────────────────
-// Any casting kullanarak array indis kaymalarını ve katı derleyici kontrollerini esnetiyoruz
+// ── Marka Skor Küpü (Type Safety Esnetilmiş JSON Eşleşmesi) ──
 const MARKA_SCORE_CUBE: any[] = (MARKA_RAW ?? []) as any[]
 
 export function getMarkaScore(marka: string, bolge='', yas='Tümü', donem=''): number | null {
@@ -209,7 +207,7 @@ export function getMarkaRanking(
 
   const sonuc = Array.from(seen.values()).sort((a,b) => b.score - a.score)
 
-  // Rule of 3 — Rekabet hukuku koruma kalkanı: oyuncu sayısı <= 3 ise maskele
+  // Rule of 3 — Rekabet hukuku maskelemesi
   if (sonuc.length <= 3) {
     return sonuc.map(item => ({
       ...item,
@@ -220,7 +218,7 @@ export function getMarkaRanking(
   return sonuc
 }
 
-// ── KPI Bazlı Puan Hesaplama ──────────────────────────────────
+// ── KPI Puan Skoru & Yardımcı Renkler ─────────────────────────
 export function getKpiScores(seg: string, bolge='', yas='Tümü', donem=''): number[] {
   const segKpis = getKpisFromCube(seg, bolge, yas, donem)
   const trKpis  = getKpisFromCube('', bolge, yas, donem)
@@ -228,20 +226,13 @@ export function getKpiScores(seg: string, bolge='', yas='Tümü', donem=''): num
     const r = trKpis[i]
     if (!v || !r) return 50
     const ratio = isLowerBetter(i) ? r / v : v / r
-    return Math.min(100, Math.max(0, Math.round(ratio * 100)))
+    return Math.min(100, Max.max(0, Math.round(ratio * 100)))
   })
 }
 
-export function kpiScoreColor(v: number): string {
-  if (v >= 77) return '#10b981'
-  if (v >= 66) return '#3b82f6'
-  return '#ef4444'
-}
-export function kpiScoreBg(v: number): string {
-  if (v >= 77) return 'rgba(16,185,129,.15)'
-  if (v >= 66) return 'rgba(59,130,246,.12)'
-  return 'rgba(239,68,68,.12)'
-}
+// Geriye dönük tüm sayfalardaki olası imports hatalarını önleyen alias tanımları
+export const kpiScoreColor = scoreColor;
+export const kpiScoreBg = scoreBg;
 
 export function chgColor(chg: number | null): string {
   if (chg === null) return 'var(--tx3)'
