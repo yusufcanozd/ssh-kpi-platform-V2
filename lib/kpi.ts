@@ -19,6 +19,31 @@ type MarkaScoreRow = [string, string, string, string, string, number]
 const CUBE: CubeRow[] = (RAW.cube ?? []) as CubeRow[]
 const MARKA_SCORE_CUBE: MarkaScoreRow[] = (MARKA_RAW ?? []) as MarkaScoreRow[]
 
+// ── 🎨 ESKİ EXPORT'LAR (BUILD HATASINI ÇÖZEN KÖPRÜLER) ─────────
+export const SEGMENT_COLORS: Record<string, string> = {
+  'Mass': '#3b82f6',
+  'Premium': '#8b5cf6',
+  'EV': '#10b981'
+}
+export const SEGMENT_HEX = SEGMENT_COLORS
+export const SEGMENT_BG: Record<string, string> = {
+  'Mass': 'rgba(59,130,246,0.1)',
+  'Premium': 'rgba(139,92,246,0.1)',
+  'EV': 'rgba(16,185,129,0.1)'
+}
+export const SEGMENT_HEX_BG = SEGMENT_BG
+
+// Fixed Kategori Renkleri
+export const CAT_COLORS: Record<string, string> = {
+  'Müşteri Sadakati ve Deneyimi': '#10b981',
+  'Finansal Verimlilik ve Rasyo Analizi': '#3b82f6',
+  'Süreç ve Operasyonel Akış': '#f59e0b',
+  'Bayi Ağı Kapasite Yönetimi': '#8b5cf6',
+  'Stratejik Kapsam Dağılımı': '#ef4444'
+}
+export const YAS_COLORS: Record<string, string> = { 'Tümü': '#8496b0', '0-3': '#10b981', '3-7': '#3b82f6', '7+': '#f59e0b' }
+export const BOLGE_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899']
+
 // ── Cube lookup ───────────────────────────────────────────────
 export function getCube(seg='', bolge='', yas='Tümü', donem=''): CubeRow | null {
   return CUBE.find(r => r[0]===seg && r[1]===bolge && r[2]===yas && r[3]===donem) || null
@@ -44,12 +69,11 @@ export function getSegAvg(seg: string, kpiIdx: number, bolge='', yas='Tümü', d
   return kpis[kpiIdx] ?? 0
 }
 
-// ── Yön Fonksiyonu ────────────────────────────────────────────
 export function isLowerBetter(i: number): boolean { 
   return i === 3 || i === 6 
 }
 
-// ── 🎨 YENİ: Semantik Renk Yönetimi (Sıfırdan Yazıldı) ──────────
+// ── 🎨 YENİ: Semantik Renk Yönetimi (77 ve 66 Kuralları) ───────
 export function getSemanticColor(val: number, isScore100 = false): { hex: string; bg: string } {
   if (isScore100) {
     if (val >= 77) return { hex: '#10b981', bg: 'rgba(16,185,129,0.12)' } // Üstün Performans (Yeşil)
@@ -77,7 +101,7 @@ export function kpiScoreBg(v: number): string    { return getSemanticColor(v, tr
 export function chgColor(chg: number | null): string {
   if (chg === null) return 'var(--tx3)'
   if (chg >= 0) return '#10b981'
-  if (chg >= -5) return '#3b82f6' // Küçük dalgalanma uyarısı maviye döndü
+  if (chg >= -5) return '#3b82f6'
   return '#ef4444'
 }
 export function chgBg(chg: number | null): string {
@@ -86,13 +110,6 @@ export function chgBg(chg: number | null): string {
   if (chg >= -5) return 'rgba(59,130,246,0.08)'
   return 'rgba(239,68,68,0.1)'
 }
-
-// Fixed Segment Renkleri
-export const CAT_COLORS: Record<string,string> = {
-  'Müşteri Sadakati ve Deneyimi':'#10b981','Finansal Verimlilik ve Rasyo Analizi':'#3b82f6','Süreç ve Operasyonel Akış':'#f59e0b','Bayi Ağı Kapasite Yönetimi':'#8b5cf6','Stratejik Kapsam Dağılımı':'#ef4444'
-}
-export const YAS_COLORS: Record<string,string> = { 'Tümü':'#8496b0','0-3':'#10b981','3-7':'#3b82f6','7+':'#f59e0b' }
-export const BOLGE_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899']
 
 // ── V5 Normalize Skor Hesaplama Motoru ─────────────────────────
 export function overallScoreFromKpis(kpis: number[], seg: string, bolge='', yas='Tümü', donem=''): number {
@@ -125,17 +142,21 @@ export function overallScoreFromKpis(kpis: number[], seg: string, bolge='', yas=
     nihaiEndeks += (katToplam / kat.katAgirlik) * (kat.katAgirlik / 100)
   }
 
-  return Math.round(nihaiEndeks * 70) // 70 taban başarı puanlı karne notu dönüşü
+  return Math.round(nihaiEndeks * 70)
 }
 
-// ── 🛠️ TAMAMEN DİNAMİK YAPILAN LOOKUP VE RANKING FONKSİYONLARI ──
+// ── 🛠️ DİNAMİK YAPILAN LOOKUP VE RANKING FONKSİYONLARI ──────────
 export function getMarkaScore(marka: string, bolge = '', yas = 'Tümü', donem = ''): number | null {
   const r = MARKA_SCORE_CUBE.find(x => x[0]===marka && x[2]===bolge && x[3]===yas && x[4]===donem)
   if (!r) return null
   
-  // STATİK PRANGA KIRILDI: r[5] yerine segment ham verilerinden dinamik hesaplama simüle ediliyor
   const segmentKpis = getKpisFromCube(r[1], bolge, yas, donem)
   return overallScoreFromKpis(segmentKpis, r[1], bolge, yas, donem)
+}
+
+// ESKİ HATA VEREN getScore FONKSİYONUNU YENİ DİNAMİK MOTORA BAĞLADIK
+export function getScore(marka: string, bolge = '', yas = 'Tümü', donem = ''): number {
+  return getMarkaScore(marka, bolge, yas, donem) || 70
 }
 
 export function getMarkaRanking(
@@ -149,7 +170,6 @@ export function getMarkaRanking(
     if (r[4] !== donem)    continue
     if (selSeg && r[1] !== selSeg) continue
     
-    // STATİK VERİ BAYPAS EDİLDİ: Her marka ait olduğu segmentin ham verisinden anlık besleniyor
     const segmentKpis = getKpisFromCube(r[1], selBolge, selYas, donem)
     const dinamikSkor = overallScoreFromKpis(segmentKpis, r[1], selBolge, selYas, donem)
     
