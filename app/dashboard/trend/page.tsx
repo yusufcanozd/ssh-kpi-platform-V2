@@ -35,11 +35,11 @@ const FY_DONEMLER    = DONEMLER.filter(d => donemTip(d) === 'FY').sort((a,b) => 
 const TUM_YILLAR     = Array.from(new Set(DONEMLER.map(d => parseInt(d.split('-')[0])))).sort()
 
 const KATEGORILER = [
-  { key: 'musteri',     label: 'Müşteri',    color: CAT_COLORS['Müşteri']     || '#10b981' },
-  { key: 'ticari',      label: 'Ticari',      color: CAT_COLORS['Ticari']      || '#3b82f6' },
-  { key: 'operasyonel', label: 'Operasyonel', color: CAT_COLORS['Operasyonel'] || '#f59e0b' },
-  { key: 'bayi',        label: 'Bayi Ağı',    color: CAT_COLORS['Bayi Ağı']   || '#8b5cf6' },
-  { key: 'kapsam',      label: 'Kapsam',      color: CAT_COLORS['Kapsam']      || '#ef4444' },
+  { key: 'musteri',     label: 'Müşteri Sadakati ve Deneyimi',    color: CAT_COLORS['Müşteri Sadakati ve Deneyimi']     || '#10b981' },
+  { key: 'ticari',      label: 'Finansal Verimlilik ve Rasyo Analizi',      color: CAT_COLORS['Finansal Verimlilik ve Rasyo Analizi']      || '#3b82f6' },
+  { key: 'operasyonel', label: 'Süreç ve Operasyonel Akış', color: CAT_COLORS['Süreç ve Operasyonel Akış'] || '#f59e0b' },
+  { key: 'bayi',        label: 'Bayi Ağı Kapasite Yönetimi',    color: CAT_COLORS['Bayi Ağı Kapasite Yönetimi']   || '#8b5cf6' },
+  { key: 'kapsam',      label: 'Stratejik Kapsam Dağılımı',      color: CAT_COLORS['Stratejik Kapsam Dağılımı']      || '#ef4444' },
 ]
 const SERI_RENKLER = [
   '#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4',
