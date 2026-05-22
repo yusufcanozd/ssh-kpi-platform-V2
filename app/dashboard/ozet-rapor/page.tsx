@@ -226,7 +226,6 @@ export default function OzetRaporPage() {
   const [baz, setBaz] = useState<DonemSec>({ yil:sonYil, periyot:'Q', alt:'4' })
   const [cmp, setCmp] = useState<DonemSec>({ yil:sonYil-1, periyot:'Q', alt:'4' })
   const [cmpAktif, setCmpAktif] = useState(true)
-
   const [generating, setGenerating] = useState(false)
   const [progress, setProgress]     = useState(0)
   const [rapor, setRapor]           = useState<ReturnType<typeof buildData> | null>(null)
@@ -234,30 +233,80 @@ export default function OzetRaporPage() {
 
   const bazStr = donemSecToStr(baz)
   const cmpStr = cmpAktif ? donemSecToStr(cmp) : null
+  const d = rapor
 
-  async function olustur() {
-    setGenerating(true); setProgress(5)
-    const d = buildData(bazStr, cmpStr, selBolge, selYas)
-    setRapor(d); setProgress(20)
+  const olustur = async () => {
+    setGenerating(true)
+    setProgress(5)
+    const data = buildData(bazStr, cmpStr, selBolge, selYas)
+    setRapor(data)
+    setProgress(20)
 
-    const trG = d.trScore?.genel ?? 0
-    const trGCmp = d.trScoreCmp?.genel ?? 0
+    const trG = data.trScore?.genel ?? 0
+    const trGCmp = data.trScoreCmp?.genel ?? 0
     const deltaPuan = cmpStr ? trG - trGCmp : null
+    const katSirali = [...data.katData].sort((a,b) => b.trVal - a.trVal)
+    const katEn = katSirali[0]
+    const katZayif = [...data.katData].sort((a,b) => a.trVal - b.trVal)[0]
+
+    const genelBakis = [
+      'Türkiye SSH sektörü', bazStr, 'dönemi genel skor:', trG,
+      deltaPuan !== null ? `önceki döneme (${cmpStr}) göre ${deltaPuan > 0 ? '+' : ''}${deltaPuan} puan.` : '',
+      'Segment skorları:', data.segData.map(s => s.seg + ':' + (s.score?.genel ?? 0)).join(', '),
+      'Genel tabloyu 3-4 cümle editorial yorumla.',
+    ].filter(Boolean).join(' ')
+
+    const markaStr = data.tumMarkalar.slice(0,6).map((m,i) =>
+      (i+1) + '.' + m.marka + '(' + m.segment + ') ' + m.score + ' puan' +
+      (m.cmpScore !== null ? ' önceki:' + m.cmpScore : '')
+    ).join('; ')
+
+    const kpiStr = KPI_META.slice(0,6).map((k,i) =>
+      k.ad + ': ' + fmtKpi(data.trKpis[i], k.fmt) +
+      (data.trKpisCmp ? ' (önceki:' + fmtKpi(data.trKpisCmp[i], k.fmt) + ')' : '')
+    ).join('; ')
+
+    const bolgeStr = data.bolgeData.slice(0,5).map(b =>
+      (b.bolge || 'TR') + ':' + (b.score?.genel ?? 0) +
+      (b.scoreCmp ? ' (önceki:' + b.scoreCmp.genel + ')' : '')
+    ).join(', ')
+
+    const trendStr = data.trendDonemler.map(dt => {
+      const sc = getScore('', selBolge, selYas, dt)
+      return dt + ':' + (sc?.genel ?? 0)
+    }).join(' → ')
+
+    const karsilastirma = cmpStr ? [
+      bazStr, 'vs', cmpStr, 'karşılaştırması: Genel skor', trGCmp + '→' + trG,
+      '(' + (deltaPuan !== null && deltaPuan > 0 ? '+' : '') + deltaPuan + ' puan).',
+      'Kategori değişimleri:', KATEGORILER.map(k => {
+        const kat = data.katData.find(x => x.key === k.key)
+        return k.label + ':' + (kat?.cmpVal ?? 0) + '→' + (kat?.trVal ?? 0)
+      }).join(', ') + '.',
+      data.kayiplar.length > 0
+        ? 'Kritik gerileme: ' + data.kayiplar.slice(0,3).map((x:any) => x.ad + ' ' + x.pct + '%').join(', ') + '.'
+        : '',
+      'Kapsamlı dönem karşılaştırması yap.',
+    ].filter(Boolean).join(' ') : ''
+
+    const strateji = [
+      'SSH rekabet analizi', bazStr, 'stratejik değerlendirme:',
+      'Genel skor', trG + ',',
+      'en güçlü kategori', (katEn?.label ?? '') + '(' + (katEn?.trVal ?? 0) + '),',
+      'en zayıf', (katZayif?.label ?? '') + '(' + (katZayif?.trVal ?? 0) + ').',
+      data.kayiplar.length > 0 ? data.kayiplar.length + ' KPI gerileme gösterdi.' : '',
+      cmpStr ? (cmpStr + ' döneminden bu yana genel skor ' + (deltaPuan !== null && deltaPuan > 0 ? 'arttı' : 'geriledi') + '.') : '',
+      '3 kritik stratejik öneri ver.',
+    ].filter(Boolean).join(' ')
 
     const prompts: Record<string,string> = {
-      genelBakis: `Türkiye SSH sektörü ${bazStr} dönemi genel skor: ${trG}${deltaPuan !== null ? `, önceki döneme (${cmpStr}) göre ${deltaPuan > 0 ? '+' : ''}${deltaPuan} puan` : ''}. Segment skorları: ${d.segData.map(s=>`${s.seg}:${s.score?.genel??0}`).join(', ')}. Genel tabloyu 3-4 cümle editorial yorumla.`,
-
-      marka: `SSH marka sıralaması ${bazStr}: ${d.tumMarkalar.slice(0,6).map((m,i)=>`${i+1}.${m.marka}(${m.segment}) ${m.score}puan${m.cmpScore!==null?` önceki:${m.cmpScore}`:''}`).join('; ')}. Marka dinamiklerini ve segment rekabetini yorumla.`,
-
-      kpiDetay: `KPI analizi ${bazStr}: ${KPI_META.slice(0,6).map((k,i)=>`${k.ad}: ${fmtKpi(d.trKpis[i],k.fmt)}${d.trKpisCmp?` (önceki:${fmtKpi(d.trKpisCmp[i],k.fmt)})`:''}` ).join('; ')}. En kritik KPI bulgularını yorumla.`,
-
-      bolge: `Bölgesel SSH skorları ${bazStr}: ${d.bolgeData.slice(0,5).map(b=>`${b.bolge||'TR'}:${b.score?.genel??0}${b.scoreCmp?` (önceki:${b.scoreCmp.genel})`:''}`).join(', ')}. Coğrafi farklılıkları ve bölgesel dinamikleri yorumla.`,
-
-      trend: `Son ${d.trendDonemler.length} dönem SSH trend: ${d.trendDonemler.map((dt,i)=>{ const sc=getScore('',selBolge,selYas,dt); return `${dt}:${sc?.genel??0}` }).join(' → ')}. Dönemsel gidişatı ve trendi yorumla.`,
-
-      karsilastirma: cmpStr ? `${bazStr} vs ${cmpStr} SSH karşılaştırması: Genel skor ${trGCmp}→${trG} (${deltaPuan!==null&&deltaPuan>0?'+':''}${deltaPuan} puan). Kategori değişimleri: ${KATEGORILER.map(k=>`${k.label}:${d.katData.find(x=>x.key===k.key)?.cmpVal??0}→${d.katData.find(x=>x.key===k.key)?.trVal??0}`).join(', ')}. ${d.kayiplar.length>0?`Kritik gerileme: ${d.kayiplar.slice(0,3).map((x:any)=>`${x.ad} ${x.pct}%`).join(', ')}.`:''} Kapsamlı dönem karşılaştırması yap.` : '',
-
-      strateji: `SSH rekabet analizi ${bazStr} stratejik değerlendirme: Genel skor ${trG}, en güçlü kategori ${[...d.katData].sort((a,b)=>b.trVal-a.trVal)[0]?.label}(${[...d.katData].sort((a,b)=>b.trVal-a.trVal)[0]?.trVal}), en zayıf ${[...d.katData].sort((a,b)=>a.trVal-b.trVal)[0]?.label}(${[...d.katData].sort((a,b)=>a.trVal-b.trVal)[0]?.trVal}). ${d.kayiplar.length>0?`${d.kayiplar.length} KPI gerileme gösterdi.`:''} ${cmpStr?`${cmpStr} döneminden bu yana genel skor ${deltaPuan!==null&&deltaPuan>0?'arttı':'geriledi'}.`:''} 3 kritik stratejik öneri ver.`,
+      genelBakis,
+      marka: 'SSH marka sıralaması ' + bazStr + ': ' + markaStr + '. Marka dinamiklerini ve segment rekabetini yorumla.',
+      kpiDetay: 'KPI analizi ' + bazStr + ': ' + kpiStr + '. En kritik KPI bulgularını yorumla.',
+      bolge: 'Bölgesel SSH skorları ' + bazStr + ': ' + bolgeStr + '. Coğrafi farklılıkları ve bölgesel dinamikleri yorumla.',
+      trend: 'Son ' + data.trendDonemler.length + ' dönem SSH trend: ' + trendStr + '. Dönemsel gidişatı ve trendi yorumla.',
+      karsilastirma,
+      strateji,
     }
 
     const keys = Object.keys(prompts).filter(k => prompts[k])
@@ -271,10 +320,8 @@ export default function OzetRaporPage() {
     setGenerating(false)
   }
 
-  const d = rapor
-
   return (
-    <div className={styles.wrap} suppressHydrationWarning>
+    <div className={styles.wrap}>
       <Topbar title="Özet Rapor" subtitle="Türkiye Otomotiv Sektörü SSH Rekabet Analizi" />
       <div className={styles.content}>
 
