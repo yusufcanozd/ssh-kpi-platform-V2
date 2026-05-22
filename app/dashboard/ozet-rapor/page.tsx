@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
@@ -11,750 +11,903 @@ import {
 } from '@/lib/kpi'
 import styles from './page.module.css'
 
-// ── Yardımcı: dönem listesi ───────────────────────────────────────────────────
-const Q_DONEMLER  = DONEMLER.filter(d => d.includes('-Q')).sort()
-const FY_DONEMLER = DONEMLER.filter(d => d.includes('-FY')).sort()
+// ── Dönem yardımcıları ────────────────────────────────────────────────────────
+function donemTip(d: string): 'ay' | 'Q' | 'FY' {
+  if (d.includes('-FY')) return 'FY'
+  if (d.includes('-Q'))  return 'Q'
+  return 'ay'
+}
+function donemSira(d: string): number {
+  const y = parseInt(d.split('-')[0])
+  if (d.includes('-FY')) return y * 1000 + 999
+  if (d.includes('-Q'))  return y * 1000 + parseInt(d.split('-Q')[1]) * 10
+  return y * 1000 + parseInt(d.split('-')[1] ?? '0')
+}
+const AYLIK  = DONEMLER.filter(d => donemTip(d) === 'ay').sort((a,b) => donemSira(a)-donemSira(b))
+const Q_LIST = DONEMLER.filter(d => donemTip(d) === 'Q').sort((a,b) => donemSira(a)-donemSira(b))
+const FY_LIST= DONEMLER.filter(d => donemTip(d) === 'FY').sort((a,b) => donemSira(a)-donemSira(b))
+const TUM_YILLAR = Array.from(new Set(DONEMLER.map(d => parseInt(d.split('-')[0])))).sort()
 
-function prevDonem(d: string): string | null {
-  if (!d) return null
-  if (d.endsWith('-FY')) { const y = parseInt(d); return `${y-1}-FY` }
-  const [y, q] = d.split('-Q').map(Number)
-  if (q === 1) return `${y-1}-Q4`
-  return `${y}-Q${q-1}`
+type DonemPeriyot = 'ay' | 'Q' | 'FY'
+interface DonemSec { yil: number; periyot: DonemPeriyot; alt: string }
+function getAltlar(p: DonemPeriyot): string[] {
+  if (p === 'FY') return ['FY']
+  if (p === 'Q')  return ['1','2','3','4']
+  return ['01','02','03','04','05','06','07','08','09','10','11','12']
+}
+function donemSecToStr(s: DonemSec): string {
+  if (s.periyot === 'FY') return `${s.yil}-FY`
+  if (s.periyot === 'Q')  return `${s.yil}-Q${s.alt}`
+  return `${s.yil}-${s.alt.padStart(2,'0')}`
 }
 
+const KATEGORILER = [
+  { key:'musteri',     label:'Müşteri',    color: CAT_COLORS['Müşteri']     || '#10b981' },
+  { key:'ticari',      label:'Ticari',      color: CAT_COLORS['Ticari']      || '#3b82f6' },
+  { key:'operasyonel', label:'Operasyonel', color: CAT_COLORS['Operasyonel'] || '#f59e0b' },
+  { key:'bayi',        label:'Bayi Ağı',    color: CAT_COLORS['Bayi Ağı']   || '#8b5cf6' },
+  { key:'kapsam',      label:'Kapsam',      color: CAT_COLORS['Kapsam']      || '#ef4444' },
+]
+
 // ── Veri hazırlama ────────────────────────────────────────────────────────────
-function buildReportData(donem: string, bolge: string, yas: string) {
-  const prev = prevDonem(donem)
+function buildData(baz: string, cmp: string | null, bolge: string, yas: string) {
+  const trKpis     = getKpisFromCube('', bolge, yas, baz)
+  const trKpisCmp  = cmp ? getKpisFromCube('', bolge, yas, cmp) : null
+  const trScore    = getScore('', bolge, yas, baz)
+  const trScoreCmp = cmp ? getScore('', bolge, yas, cmp) : null
 
-  // Genel TR
-  const trKpis     = getKpisFromCube('', bolge, yas, donem)
-  const trKpisPrev = prev ? getKpisFromCube('', bolge, yas, prev) : null
-  const trScore    = getScore('', bolge, yas, donem)
-  const trScorePrev = prev ? getScore('', bolge, yas, prev) : null
-
-  // Segmentler
   const segData = SEGMENTLER.map(seg => ({
     seg,
-    kpis:     getKpisFromCube(seg, bolge, yas, donem),
-    kpisPrev: prev ? getKpisFromCube(seg, bolge, yas, prev) : null,
-    score:    getScore(seg, bolge, yas, donem),
-    scorePrev: prev ? getScore(seg, bolge, yas, prev) : null,
-    kpiScores: getKpiScores(seg, bolge, yas, donem),
-    markalar: getMarkaRanking(seg, bolge, yas, donem).slice(0, 5),
+    kpis:     getKpisFromCube(seg, bolge, yas, baz),
+    kpisCmp:  cmp ? getKpisFromCube(seg, bolge, yas, cmp) : null,
+    score:    getScore(seg, bolge, yas, baz),
+    scoreCmp: cmp ? getScore(seg, bolge, yas, cmp) : null,
+    kpiScores: getKpiScores(seg, bolge, yas, baz),
+    markalar: getMarkaRanking(seg, bolge, yas, baz).slice(0, 5),
+    markalaCmp: cmp ? getMarkaRanking(seg, bolge, yas, cmp).slice(0, 5) : null,
   }))
 
-  // Bölgeler (top 5)
-  const bolgeData = BOLGELER.slice(0, 6).map(b => ({
+  const bolgeData = BOLGELER.slice(0, 8).map(b => ({
     bolge: b,
-    score: getScore('', b, yas, donem),
-    kpis:  getKpisFromCube('', b, yas, donem),
+    score:    getScore('', b, yas, baz),
+    scoreCmp: cmp ? getScore('', b, yas, cmp) : null,
+    kpis:     getKpisFromCube('', b, yas, baz),
   }))
 
-  // Yaş kırılımı
   const yasData = YAS_GRUPLARI.filter(y => y !== 'Tümü').map(y => ({
     yas: y,
-    score: getScore('', bolge, y, donem),
-    kpis:  getKpisFromCube('', bolge, y, donem),
+    score:    getScore('', bolge, y, baz),
+    scoreCmp: cmp ? getScore('', bolge, y, cmp) : null,
+    kpis:     getKpisFromCube('', bolge, y, baz),
   }))
 
-  // KPI trend (son 4 Q)
-  const trendDonemler = Q_DONEMLER.slice(-4)
+  const trendDonemler = Q_LIST.slice(-6)
   const kpiTrend = KPI_META.map((k, i) => ({
     ...k, i,
     values: trendDonemler.map(d => getKpisFromCube('', bolge, yas, d)[i] ?? 0),
   }))
 
-  // Kategori skorları
-  const katData = [
-    { key: 'musteri', label: 'Müşteri', color: CAT_COLORS['Müşteri'] || '#10b981' },
-    { key: 'ticari', label: 'Ticari', color: CAT_COLORS['Ticari'] || '#3b82f6' },
-    { key: 'operasyonel', label: 'Operasyonel', color: CAT_COLORS['Operasyonel'] || '#f59e0b' },
-    { key: 'bayi', label: 'Bayi Ağı', color: CAT_COLORS['Bayi Ağı'] || '#8b5cf6' },
-    { key: 'kapsam', label: 'Kapsam', color: CAT_COLORS['Kapsam'] || '#ef4444' },
-  ].map(k => ({
+  const katData = KATEGORILER.map(k => ({
     ...k,
     trVal:   trScore ? (trScore as any)[k.key] ?? 0 : 0,
-    prevVal: trScorePrev ? (trScorePrev as any)[k.key] ?? 0 : null,
-    segVals: SEGMENTLER.map(seg => ({
-      seg,
-      val: (() => { const sc = getScore(seg, bolge, yas, donem); return sc ? (sc as any)[k.key] ?? 0 : 0 })(),
-    })),
+    cmpVal:  trScoreCmp ? (trScoreCmp as any)[k.key] ?? 0 : null,
+    segVals: SEGMENTLER.map(seg => {
+      const sc = getScore(seg, bolge, yas, baz)
+      const scCmp = cmp ? getScore(seg, bolge, yas, cmp) : null
+      return { seg, val: sc ? (sc as any)[k.key] ?? 0 : 0, cmpVal: scCmp ? (scCmp as any)[k.key] ?? 0 : null }
+    }),
   }))
 
-  // Puan kaybeden KPI'lar
   const kayiplar = KPI_META.map((k, i) => {
+    if (!cmp) return null
     const curr = trKpis[i] ?? 0
-    const prv  = trKpisPrev?.[i] ?? 0
+    const prv  = trKpisCmp?.[i] ?? 0
     if (!prv || !curr) return null
     const pct = ((curr - prv) / Math.abs(prv)) * 100
+    const kotu = isLowerBetter(i) ? pct > 3 : pct < -3
+    if (!kotu) return null
     return { ...k, i, curr, prev: prv, pct: Math.round(pct * 10) / 10 }
-  }).filter(Boolean).filter(k => {
-    if (!k) return false
-    return isLowerBetter(k.i) ? k.pct > 3 : k.pct < -3
-  }) as NonNullable<ReturnType<typeof KPI_META.map> extends (infer T)[] ? T : never>[]
+  }).filter(Boolean) as any[]
 
-  return {
-    donem, prev, trKpis, trKpisPrev, trScore, trScorePrev,
-    segData, bolgeData, yasData, kpiTrend, trendDonemler,
-    katData, kayiplar,
-  }
+  const tumMarkalar = SEGMENTLER.flatMap(seg =>
+    getMarkaRanking(seg, bolge, yas, baz).map(m => ({
+      ...m,
+      cmpScore: cmp ? getMarkaRanking(seg, bolge, yas, cmp).find(x => x.marka === m.marka)?.score ?? null : null,
+      kpiScores: getKpiScores(seg, bolge, yas, baz),
+    }))
+  ).sort((a,b) => b.score - a.score)
+
+  return { baz, cmp, trKpis, trKpisCmp, trScore, trScoreCmp, segData, bolgeData, yasData, kpiTrend, trendDonemler, katData, kayiplar, tumMarkalar }
 }
 
-// ── Mini SVG grafikler ────────────────────────────────────────────────────────
-function MiniBarChart({ data, colors, labels, height = 60 }: {
-  data: number[]; colors: string[]; labels: string[]; height?: number
-}) {
-  const max = Math.max(...data, 1)
-  const w = 280, barW = Math.floor(w / data.length) - 4
-  return (
-    <svg width={w} height={height + 20} style={{ overflow: 'visible' }}>
-      {data.map((v, i) => {
-        const bh = Math.round((v / max) * height)
-        const x = i * (barW + 4) + 2
-        return (
-          <g key={i}>
-            <rect x={x} y={height - bh} width={barW} height={bh}
-              rx={2} fill={colors[i % colors.length] + 'cc'} />
-            <text x={x + barW/2} y={height + 14} textAnchor="middle"
-              fontSize={7} fill="#6b7280">{labels[i]}</text>
-            <text x={x + barW/2} y={height - bh - 3} textAnchor="middle"
-              fontSize={7} fill={colors[i % colors.length]} fontWeight="700">
-              {Math.round(v)}
-            </text>
-          </g>
-        )
-      })}
-    </svg>
-  )
-}
-
-function MiniLineChart({ values, color, width = 160, height = 40, labels }: {
-  values: number[]; color: string; width?: number; height?: number; labels?: string[]
-}) {
-  if (values.length < 2) return null
-  const min = Math.min(...values), max = Math.max(...values)
-  const range = max - min || 1
-  const pts = values.map((v, i) => ({
-    x: (i / (values.length - 1)) * width,
-    y: height - ((v - min) / range) * height * 0.8 - height * 0.1,
-  }))
-  const d = pts.map((p, i) => `${i===0?'M':'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
-  return (
-    <svg width={width} height={height + 16} style={{ overflow: 'visible' }}>
-      <path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
-      {pts.map((p, i) => (
-        <g key={i}>
-          <circle cx={p.x} cy={p.y} r={3} fill={color} />
-          {labels && <text x={p.x} y={height + 13} textAnchor="middle" fontSize={7} fill="#9ca3af">{labels[i]}</text>}
-          <text x={p.x} y={p.y - 5} textAnchor="middle" fontSize={7} fill={color} fontWeight="700">
-            {values[i].toLocaleString('tr-TR', {maximumFractionDigits: 0})}
-          </text>
-        </g>
-      ))}
-    </svg>
-  )
-}
-
-function ScoreBadge({ val, size = 'md' }: { val: number; size?: 'sm'|'md'|'lg' }) {
-  const c = val >= 100 ? '#10b981' : val >= 90 ? '#f59e0b' : '#ef4444'
-  const bg = val >= 100 ? '#d1fae5' : val >= 90 ? '#fef3c7' : '#fee2e2'
-  const fs = size === 'lg' ? 28 : size === 'md' ? 18 : 13
-  const pad = size === 'lg' ? '8px 16px' : size === 'md' ? '4px 10px' : '2px 6px'
-  return (
-    <span style={{ background: bg, color: c, borderRadius: 8, padding: pad,
-      fontSize: fs, fontWeight: 800, fontFamily: 'var(--font-dm-mono)',
-      border: `1px solid ${c}44` }}>
-      {val}
-    </span>
-  )
-}
-
-function Kart({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return (
-    <div style={{ background: 'var(--surf)', border: '1px solid var(--bd)',
-      borderRadius: 10, padding: '14px 16px', ...style }}>
-      {children}
-    </div>
-  )
-}
-
-function KartBaslik({ children, color }: { children: React.ReactNode; color?: string }) {
-  return (
-    <div style={{ fontSize: 11, fontWeight: 700, color: color || 'var(--tx2)',
-      marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-      {children}
-    </div>
-  )
-}
-
-function DeltaBadge({ val, lob = false }: { val: number; lob?: boolean }) {
-  const better = lob ? val < 0 : val > 0
-  const c = better ? '#10b981' : val === 0 ? '#9ca3af' : '#ef4444'
-  return (
-    <span style={{ fontSize: 9, fontWeight: 700, color: c }}>
-      {val > 0 ? `▲ +${val}%` : val < 0 ? `▼ ${val}%` : '→ 0%'}
-    </span>
-  )
-}
-
-// ── Yorum üretici (Next.js API route üzerinden) ───────────────────────────────
-async function generateCommentary(prompt: string): Promise<string> {
+// ── Claude API yorumu ─────────────────────────────────────────────────────────
+async function getYorum(prompt: string): Promise<string> {
   try {
     const res = await fetch('/api/commentary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt }),
     })
+    if (!res.ok) return ''
     const data = await res.json()
-    if (!res.ok) {
-      console.error('Commentary API error:', res.status, data)
-      return ''
-    }
     return data.text ?? ''
-  } catch (err) {
-    console.error('Commentary fetch error:', err)
-    return ''
-  }
+  } catch { return '' }
 }
 
-// ── Ana Sayfa ─────────────────────────────────────────────────────────────────
+// ── Dönem seçici ──────────────────────────────────────────────────────────────
+function DonemSecici({ label, value, onChange }: { label: string; value: DonemSec; onChange: (v: DonemSec) => void }) {
+  const altlar = getAltlar(value.periyot)
+  const altSec = altlar.includes(value.alt) ? value.alt : altlar[0]
+  return (
+    <div>
+      <div style={{ fontSize:9, fontWeight:700, color:'var(--tx3)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>{label}</div>
+      <div style={{ display:'flex', gap:5, alignItems:'center', flexWrap:'wrap' }}>
+        <select value={value.yil} onChange={e => onChange({...value, yil:parseInt(e.target.value)})} style={selSt}>
+          {TUM_YILLAR.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <div style={{ display:'flex', gap:2 }}>
+          {(['ay','Q','FY'] as DonemPeriyot[]).map(p => {
+            const dis = p==='ay'?AYLIK.length===0:p==='Q'?Q_LIST.length===0:FY_LIST.length===0
+            return (
+              <button key={p} disabled={dis} onClick={() => onChange({...value, periyot:p, alt:p==='FY'?'FY':p==='Q'?'1':'01'})}
+                style={{ padding:'2px 7px', borderRadius:4, fontSize:9, fontWeight:600, cursor:dis?'not-allowed':'pointer',
+                  border:`1px solid ${value.periyot===p?'var(--blue)':'var(--bd)'}`,
+                  background:value.periyot===p?'rgba(59,130,246,.12)':'var(--surf)',
+                  color:dis?'var(--tx3)':value.periyot===p?'var(--blue)':'var(--tx2)', opacity:dis?.5:1 }}>
+                {p==='ay'?'Aylık':p==='Q'?'Çeyreklik':'Yıllık'}
+              </button>
+            )
+          })}
+        </div>
+        <div style={{ display:'flex', gap:2, flexWrap:'wrap' }}>
+          {altlar.map(a => (
+            <button key={a} onClick={() => onChange({...value, alt:a})}
+              style={{ padding:'2px 6px', borderRadius:3, fontSize:9, cursor:'pointer',
+                border:`1px solid ${altSec===a?'var(--blue)':'var(--bd)'}`,
+                background:altSec===a?'rgba(59,130,246,.15)':'var(--surf3)',
+                color:altSec===a?'var(--blue)':'var(--tx3)', fontWeight:altSec===a?700:400 }}>
+              {value.periyot==='Q'?`Q${a}`:value.periyot==='FY'?'FY':a}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── UI Yardımcıları ───────────────────────────────────────────────────────────
+function Sayfa({ children, son }: { children: React.ReactNode; son?: boolean }) {
+  return (
+    <div className="rapor-sayfa" style={{ marginBottom: son ? 0 : 40, display:'flex', flexDirection:'column', gap:14 }}>
+      {children}
+    </div>
+  )
+}
+function Kart({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px', ...style }}>{children}</div>
+}
+function Baslik({ icon, children, color }: { icon: string; children: React.ReactNode; color?: string }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, paddingBottom:8, borderBottom:'1px solid var(--bd)' }}>
+      <span style={{ fontSize:16 }}>{icon}</span>
+      <span style={{ fontSize:12, fontWeight:800, color:color||'var(--tx)', letterSpacing:'-.01em' }}>{children}</span>
+    </div>
+  )
+}
+function YorumBlok({ text, color = '#3b82f6' }: { text: string; color?: string }) {
+  if (!text) return null
+  return (
+    <div style={{ background:'var(--surf2)', borderRadius:8, padding:'10px 14px', marginTop:10,
+      fontSize:10, lineHeight:1.8, color:'var(--tx2)', borderLeft:`3px solid ${color}` }}>
+      {text}
+    </div>
+  )
+}
+function Delta({ curr, prev, lob = false, fmt = '' }: { curr: number; prev: number; lob?: boolean; fmt?: string }) {
+  if (!prev) return <span style={{ color:'var(--tx3)' }}>—</span>
+  const pct = Math.round((curr - prev) / Math.abs(prev) * 1000) / 10
+  const better = lob ? pct < 0 : pct > 0
+  const c = better ? '#10b981' : Math.abs(pct) < 1 ? '#9ca3af' : '#ef4444'
+  return <span style={{ fontSize:9, fontWeight:700, color:c }}>{pct > 0 ? `▲ +${pct}%` : `▼ ${pct}%`}</span>
+}
+function ScoreBand({ val }: { val: number }) {
+  const c = val >= 100 ? '#10b981' : val >= 90 ? '#f59e0b' : '#ef4444'
+  const bg = val >= 100 ? '#d1fae5' : val >= 90 ? '#fef3c7' : '#fee2e2'
+  return <span style={{ background:bg, color:c, borderRadius:6, padding:'2px 8px', fontSize:12, fontWeight:800, fontFamily:'var(--font-dm-mono)', border:`1px solid ${c}44` }}>{val}</span>
+}
+
+// ── Ana bileşen ───────────────────────────────────────────────────────────────
 export default function OzetRaporPage() {
   const { selBolge, selYas } = useDashboardCtx()
   const [mounted, setMounted] = useState(false)
-  const [seciliDonem, setSeciliDonem] = useState(Q_DONEMLER[Q_DONEMLER.length - 1] ?? '')
-  const [generating, setGenerating] = useState(false)
-  const [raporData, setRaporData] = useState<ReturnType<typeof buildReportData> | null>(null)
-  const [yorumlar, setYorumlar] = useState<Record<string, string>>({})
-  const [progress, setProgress] = useState(0)
+  useEffect(() => setMounted(true), [])
 
-  useEffect(() => { setMounted(true) }, [])
+  const ilkYil = TUM_YILLAR[0] ?? 2024
+  const sonYil = TUM_YILLAR[TUM_YILLAR.length-1] ?? 2024
+
+  const [baz, setBaz] = useState<DonemSec>({ yil:sonYil, periyot:'Q', alt:'4' })
+  const [cmp, setCmp] = useState<DonemSec>({ yil:sonYil-1, periyot:'Q', alt:'4' })
+  const [cmpAktif, setCmpAktif] = useState(true)
+
+  const [generating, setGenerating] = useState(false)
+  const [progress, setProgress]     = useState(0)
+  const [rapor, setRapor]           = useState<ReturnType<typeof buildData> | null>(null)
+  const [yorumlar, setYorumlar]     = useState<Record<string,string>>({})
+
   if (!mounted) return null
 
-  async function handleGenerate() {
-    setGenerating(true)
-    setProgress(10)
-    const data = buildReportData(seciliDonem, selBolge, selYas)
-    setRaporData(data)
-    setProgress(30)
+  const bazStr = donemSecToStr(baz)
+  const cmpStr = cmpAktif ? donemSecToStr(cmp) : null
 
-    // Claude API ile yorumlar üret
-    const trGenel = data.trScore?.genel ?? 0
-    const trPrevGenel = data.trScorePrev?.genel ?? 0
-    const delta = trPrevGenel ? Math.round((trGenel - trPrevGenel)) : 0
+  async function olustur() {
+    setGenerating(true); setProgress(5)
+    const d = buildData(bazStr, cmpStr, selBolge, selYas)
+    setRapor(d); setProgress(20)
 
-    const prompts: Record<string, string> = {
-      genel: `Türkiye SSH sektörü ${seciliDonem} dönemi genel skor: ${trGenel} puan${delta ? `, önceki döneme göre ${delta > 0 ? '+' : ''}${delta} puan` : ''}. Segment ortalamaları: ${data.segData.map(s => `${s.seg}: ${s.score?.genel ?? 0}`).join(', ')}. Bu tabloyu yorumla.`,
-      
-      segment: `SSH rekabet skorları: ${data.segData.map(s => `${s.seg} segmenti ${s.score?.genel ?? 0} puan (Müşteri: ${s.score?.musteri ?? 0}, Ticari: ${s.score?.ticari ?? 0}, Operasyonel: ${s.score?.operasyonel ?? 0})`).join('; ')}. Segment dinamiklerini ve rekabeti analiz et.`,
-      
-      kpi: `En kritik KPI performansları: ${KPI_META.slice(0, 5).map((k, i) => `${k.ad}: ${fmtKpi(data.trKpis[i], k.fmt)}`).join(', ')}. ${data.kayiplar.length > 0 ? `Dikkat: ${data.kayiplar.slice(0,2).map((k: any) => `${k.ad} ${k.pct}% ${isLowerBetter(k.i) ? 'kötüleşti' : 'geriledi'}`).join(', ')}.` : ''} KPI performansını yorumla.`,
-      
-      bolge: `Bölgesel SSH skorları: ${data.bolgeData.slice(0,4).map(b => `${b.bolge}: ${b.score?.genel ?? 0}`).join(', ')}. Coğrafi dağılımı ve bölgesel farklılıkları değerlendir.`,
-      
-      oneri: `SSH rekabetinde ${seciliDonem} döneminde öne çıkan 3 kritik aksiyon alanını ve sektöre önerileri belirt. Veri: Genel skor ${trGenel}, en zayıf kategori ${data.katData.sort((a,b)=>a.trVal-b.trVal)[0]?.label} (${data.katData.sort((a,b)=>a.trVal-b.trVal)[0]?.trVal} puan).`,
+    const trG = d.trScore?.genel ?? 0
+    const trGCmp = d.trScoreCmp?.genel ?? 0
+    const deltaPuan = cmpStr ? trG - trGCmp : null
+
+    const prompts: Record<string,string> = {
+      genelBakis: `Türkiye SSH sektörü ${bazStr} dönemi genel skor: ${trG}${deltaPuan !== null ? `, önceki döneme (${cmpStr}) göre ${deltaPuan > 0 ? '+' : ''}${deltaPuan} puan` : ''}. Segment skorları: ${d.segData.map(s=>`${s.seg}:${s.score?.genel??0}`).join(', ')}. Genel tabloyu 3-4 cümle editorial yorumla.`,
+
+      marka: `SSH marka sıralaması ${bazStr}: ${d.tumMarkalar.slice(0,6).map((m,i)=>`${i+1}.${m.marka}(${m.segment}) ${m.score}puan${m.cmpScore!==null?` önceki:${m.cmpScore}`:''}`).join('; ')}. Marka dinamiklerini ve segment rekabetini yorumla.`,
+
+      kpiDetay: `KPI analizi ${bazStr}: ${KPI_META.slice(0,6).map((k,i)=>`${k.ad}: ${fmtKpi(d.trKpis[i],k.fmt)}${d.trKpisCmp?` (önceki:${fmtKpi(d.trKpisCmp[i],k.fmt)})`:''}` ).join('; ')}. En kritik KPI bulgularını yorumla.`,
+
+      bolge: `Bölgesel SSH skorları ${bazStr}: ${d.bolgeData.slice(0,5).map(b=>`${b.bolge||'TR'}:${b.score?.genel??0}${b.scoreCmp?` (önceki:${b.scoreCmp.genel})`:''}`).join(', ')}. Coğrafi farklılıkları ve bölgesel dinamikleri yorumla.`,
+
+      trend: `Son ${d.trendDonemler.length} dönem SSH trend: ${d.trendDonemler.map((dt,i)=>{ const sc=getScore('',selBolge,selYas,dt); return `${dt}:${sc?.genel??0}` }).join(' → ')}. Dönemsel gidişatı ve trendi yorumla.`,
+
+      karsilastirma: cmpStr ? `${bazStr} vs ${cmpStr} SSH karşılaştırması: Genel skor ${trGCmp}→${trG} (${deltaPuan!==null&&deltaPuan>0?'+':''}${deltaPuan} puan). Kategori değişimleri: ${KATEGORILER.map(k=>`${k.label}:${d.katData.find(x=>x.key===k.key)?.cmpVal??0}→${d.katData.find(x=>x.key===k.key)?.trVal??0}`).join(', ')}. ${d.kayiplar.length>0?`Kritik gerileme: ${d.kayiplar.slice(0,3).map((x:any)=>`${x.ad} ${x.pct}%`).join(', ')}.`:''} Kapsamlı dönem karşılaştırması yap.` : '',
+
+      strateji: `SSH rekabet analizi ${bazStr} stratejik değerlendirme: Genel skor ${trG}, en güçlü kategori ${[...d.katData].sort((a,b)=>b.trVal-a.trVal)[0]?.label}(${[...d.katData].sort((a,b)=>b.trVal-a.trVal)[0]?.trVal}), en zayıf ${[...d.katData].sort((a,b)=>a.trVal-b.trVal)[0]?.label}(${[...d.katData].sort((a,b)=>a.trVal-b.trVal)[0]?.trVal}). ${d.kayiplar.length>0?`${d.kayiplar.length} KPI gerileme gösterdi.`:''} ${cmpStr?`${cmpStr} döneminden bu yana genel skor ${deltaPuan!==null&&deltaPuan>0?'arttı':'geriledi'}.`:''} 3 kritik stratejik öneri ver.`,
     }
 
-    const yeni: Record<string, string> = {}
-    const keys = Object.keys(prompts)
+    const keys = Object.keys(prompts).filter(k => prompts[k])
+    const yeni: Record<string,string> = {}
     for (let i = 0; i < keys.length; i++) {
-      const key = keys[i]
-      yeni[key] = await generateCommentary(prompts[key])
-      setProgress(30 + Math.round((i + 1) / keys.length * 60))
+      yeni[keys[i]] = await getYorum(prompts[keys[i]])
+      setProgress(20 + Math.round((i+1)/keys.length * 75))
     }
-
     setYorumlar(yeni)
     setProgress(100)
     setGenerating(false)
   }
 
-  function handlePrint() {
-    window.print()
-  }
+  const d = rapor
 
   return (
     <div className={styles.wrap}>
       <Topbar title="Özet Rapor" subtitle="Türkiye Otomotiv Sektörü SSH Rekabet Analizi" />
       <div className={styles.content}>
 
-        {/* ── Kontrol Paneli ── */}
-        <div style={{ background: 'var(--surf2)', border: '1px solid var(--bd)',
-          borderRadius: 10, padding: '14px 18px', marginBottom: 16,
-          display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-
-          <div>
-            <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--tx3)',
-              textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
-              Rapor Dönemi
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {[...Q_DONEMLER, ...FY_DONEMLER].map(d => (
-                <button key={d} onClick={() => setSeciliDonem(d)}
-                  style={{ padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 600,
-                    cursor: 'pointer',
-                    border: `1px solid ${seciliDonem === d ? 'var(--blue)' : 'var(--bd)'}`,
-                    background: seciliDonem === d ? 'rgba(59,130,246,.12)' : 'var(--surf)',
-                    color: seciliDonem === d ? 'var(--blue)' : 'var(--tx2)' }}>
-                  {d}
+        {/* ── Dönem Seçici ── */}
+        <div style={{ background:'var(--surf2)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 18px', marginBottom:16 }}>
+          <div style={{ display:'flex', gap:24, alignItems:'flex-start', flexWrap:'wrap' }}>
+            <DonemSecici label="Baz Dönem" value={baz} onChange={setBaz} />
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ fontSize:9, fontWeight:700, color:'var(--tx3)', textTransform:'uppercase', letterSpacing:'.06em' }}>Karşılaştırma Dönemi</span>
+                <button onClick={() => setCmpAktif(v=>!v)}
+                  style={{ padding:'2px 8px', borderRadius:10, fontSize:8, fontWeight:600, cursor:'pointer',
+                    border:`1px solid ${cmpAktif?'var(--blue)':'var(--bd)'}`,
+                    background:cmpAktif?'rgba(59,130,246,.1)':'var(--surf)',
+                    color:cmpAktif?'var(--blue)':'var(--tx3)' }}>
+                  {cmpAktif ? '✓ Aktif' : 'Ekle'}
                 </button>
-              ))}
+              </div>
+              {cmpAktif && <DonemSecici label="" value={cmp} onChange={setCmp} />}
+            </div>
+            <div style={{ marginLeft:'auto', display:'flex', gap:10, alignItems:'center' }}>
+              {d && <button onClick={() => window.print()}
+                style={{ padding:'8px 16px', borderRadius:8, fontSize:11, fontWeight:600, cursor:'pointer',
+                  border:'1px solid var(--bd)', background:'var(--surf)', color:'var(--tx2)' }}>🖨 PDF</button>}
+              <button onClick={olustur} disabled={generating}
+                style={{ padding:'8px 22px', borderRadius:8, fontSize:11, fontWeight:700, cursor:generating?'wait':'pointer',
+                  border:'none', background:generating?'#6b9fc4':'var(--blue)', color:'#fff' }}>
+                {generating ? `Oluşturuluyor… %${progress}` : '✦ Rapor Oluştur'}
+              </button>
             </div>
           </div>
-
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center' }}>
-            {raporData && (
-              <button onClick={handlePrint}
-                style={{ padding: '8px 18px', borderRadius: 8, fontSize: 11, fontWeight: 600,
-                  cursor: 'pointer', border: '1px solid var(--bd)',
-                  background: 'var(--surf)', color: 'var(--tx2)' }}>
-                🖨 Yazdır / PDF
-              </button>
-            )}
-            <button onClick={handleGenerate} disabled={generating || !seciliDonem}
-              style={{ padding: '8px 22px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                cursor: generating ? 'wait' : 'pointer',
-                border: 'none', background: generating ? '#6b9fc4' : 'var(--blue)',
-                color: '#fff', opacity: !seciliDonem ? .5 : 1 }}>
-              {generating ? `Oluşturuluyor… %${progress}` : '✦ Rapor Oluştur'}
-            </button>
-          </div>
+          {generating && (
+            <div style={{ marginTop:12 }}>
+              <div style={{ width:'100%', background:'var(--surf3)', borderRadius:20, height:5, overflow:'hidden' }}>
+                <div style={{ width:`${progress}%`, height:'100%', background:'var(--blue)', borderRadius:20, transition:'width .4s' }}/>
+              </div>
+              <div style={{ fontSize:9, color:'var(--tx3)', marginTop:4 }}>AI yorumlar üretiliyor…</div>
+            </div>
+          )}
         </div>
 
-        {/* ── Rapor içeriği ── */}
-        {!raporData && !generating && (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--tx3)' }}>
-            <div style={{ fontSize: 42, marginBottom: 12 }}>📊</div>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Dönem seçin ve raporu oluşturun</div>
-            <div style={{ fontSize: 11 }}>Yapay zeka destekli editorial analiz + 360° KPI raporu</div>
+        {!d && !generating && (
+          <div style={{ textAlign:'center', padding:'60px 0', color:'var(--tx3)' }}>
+            <div style={{ fontSize:42, marginBottom:12 }}>📋</div>
+            <div style={{ fontSize:14, fontWeight:600, marginBottom:6 }}>Dönem seçin ve raporu oluşturun</div>
+            <div style={{ fontSize:11 }}>AI destekli 360° SSH rekabet analizi</div>
           </div>
         )}
 
-        {generating && (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--tx3)' }}>
-            <div style={{ fontSize: 42, marginBottom: 12, animation: 'spin 1s linear infinite' }}>⚙️</div>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Rapor hazırlanıyor…</div>
-            <div style={{ width: 300, margin: '0 auto', background: 'var(--surf3)',
-              borderRadius: 20, height: 6, overflow: 'hidden' }}>
-              <div style={{ width: `${progress}%`, height: '100%', background: 'var(--blue)',
-                borderRadius: 20, transition: 'width .4s ease' }} />
-            </div>
-            <div style={{ fontSize: 10, marginTop: 8 }}>AI yorumlar üretiliyor…</div>
-          </div>
-        )}
+        {d && !generating && (
+          <div id="rapor-icerik">
 
-        {raporData && !generating && (
-          <div id="rapor-icerik" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-
-            {/* ══ SAYFA 1: Kapak + Genel Özet + Segment Skoru ══════════════════ */}
-            <div className="rapor-sayfa" style={{ marginBottom: 32 }}>
-            {/* Kapak bandı */}
-            <div style={{ background: 'linear-gradient(135deg, #0f1c2e 0%, #1e3a5f 50%, #0f2744 100%)',
-              borderRadius: 12, padding: '28px 32px', color: '#fff', position: 'relative', overflow: 'hidden' }}>
-              {/* Dekoratif daireler */}
-              <div style={{ position: 'absolute', top: -40, right: -40, width: 180, height: 180,
-                borderRadius: '50%', background: 'rgba(59,130,246,.15)' }} />
-              <div style={{ position: 'absolute', bottom: -30, right: 80, width: 100, height: 100,
-                borderRadius: '50%', background: 'rgba(16,185,129,.1)' }} />
-
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.15em',
-                  color: '#60a5fa', textTransform: 'uppercase', marginBottom: 8 }}>
-                  TÜRKİYE OTOMOTİV SEKTÖRÜ
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2, marginBottom: 4 }}>
-                  SSH Rekabet Analizi
-                </div>
-                <div style={{ fontSize: 14, color: '#93c5fd', marginBottom: 20 }}>
-                  {raporData.donem} Dönemi Kapsamlı Raporu
-                </div>
-
-                <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontSize: 9, color: '#93c5fd', marginBottom: 4 }}>GENEL SKOR</div>
-                    <div style={{ fontSize: 36, fontWeight: 900, fontFamily: 'var(--font-dm-mono)',
-                      color: (raporData.trScore?.genel ?? 0) >= 100 ? '#34d399' : (raporData.trScore?.genel ?? 0) >= 90 ? '#fbbf24' : '#f87171' }}>
-                      {raporData.trScore?.genel ?? '—'}
-                    </div>
-                    <div style={{ fontSize: 9, color: '#93c5fd' }}>/ 100 puan</div>
-                  </div>
-                  {raporData.trScorePrev && (
-                    <div style={{ borderLeft: '1px solid rgba(255,255,255,.15)', paddingLeft: 24 }}>
-                      <div style={{ fontSize: 9, color: '#93c5fd', marginBottom: 4 }}>ÖNCEKİ DÖNEM</div>
-                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-dm-mono)', color: '#e2e8f0' }}>
-                        {raporData.trScorePrev.genel}
+            {/* ══════════════════════════════════════════════════════════════════
+                SAYFA 1 — KAPAK + GENEL BAKIŞ
+            ══════════════════════════════════════════════════════════════════ */}
+            <Sayfa>
+              {/* Kapak */}
+              <div style={{ background:'linear-gradient(135deg, #0f1c2e 0%, #1a3353 60%, #0d2240 100%)',
+                borderRadius:12, padding:'32px 36px', color:'#fff', position:'relative', overflow:'hidden' }}>
+                <div style={{ position:'absolute', top:-60, right:-60, width:220, height:220, borderRadius:'50%', background:'rgba(59,130,246,.1)' }}/>
+                <div style={{ position:'absolute', bottom:-40, right:100, width:130, height:130, borderRadius:'50%', background:'rgba(16,185,129,.08)' }}/>
+                <div style={{ position:'relative', zIndex:1 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:24 }}>
+                    <div>
+                      <div style={{ fontSize:10, fontWeight:700, letterSpacing:'.2em', color:'#60a5fa', textTransform:'uppercase', marginBottom:6 }}>
+                        Türkiye Otomotiv Sektörü
                       </div>
-                      <div style={{ fontSize: 11, marginTop: 2 }}>
-                        {(() => {
-                          const d = (raporData.trScore?.genel ?? 0) - raporData.trScorePrev!.genel
-                          return <span style={{ color: d >= 0 ? '#34d399' : '#f87171', fontWeight: 700 }}>
-                            {d >= 0 ? `▲ +${d}` : `▼ ${d}`} puan
-                          </span>
-                        })()}
+                      <div style={{ fontSize:28, fontWeight:900, lineHeight:1.15, marginBottom:4, letterSpacing:'-.02em' }}>
+                        SSH Rekabet Analizi
+                      </div>
+                      <div style={{ fontSize:13, color:'#93c5fd', fontWeight:500 }}>
+                        Satış Sonrası Hizmet KPI Performans Raporu
                       </div>
                     </div>
-                  )}
-                  <div style={{ borderLeft: '1px solid rgba(255,255,255,.15)', paddingLeft: 24 }}>
-                    <div style={{ fontSize: 9, color: '#93c5fd', marginBottom: 4 }}>KAPSAM</div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: '#e2e8f0' }}>{SEGMENTLER.length} Segment</div>
-                    <div style={{ fontSize: 9, color: '#93c5fd' }}>{KPI_META.length} KPI · {BOLGELER.length} Bölge</div>
-                  </div>
-                </div>
-
-                {yorumlar.genel && (
-                  <div style={{ marginTop: 20, padding: '12px 16px',
-                    background: 'rgba(255,255,255,.06)', borderRadius: 8,
-                    borderLeft: '3px solid #60a5fa', fontSize: 11, lineHeight: 1.7, color: '#e2e8f0' }}>
-                    {yorumlar.genel}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Kategori Skorları özeti */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
-              {raporData.katData.map(k => {
-                const delta = k.prevVal !== null ? k.trVal - k.prevVal : null
-                return (
-                  <Kart key={k.key} style={{ textAlign: 'center', borderTop: `3px solid ${k.color}` }}>
-                    <div style={{ fontSize: 9, color: 'var(--tx3)', marginBottom: 6, fontWeight: 600 }}>{k.label}</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--font-dm-mono)', color: k.color }}>
-                      {k.trVal}
+                    <div style={{ textAlign:'right' }}>
+                      <div style={{ fontSize:9, color:'#93c5fd', marginBottom:4 }}>DÖNEM</div>
+                      <div style={{ fontSize:16, fontWeight:800, color:'#e2e8f0', fontFamily:'var(--font-dm-mono)' }}>{d.baz}</div>
+                      {d.cmp && <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>vs {d.cmp}</div>}
                     </div>
-                    {delta !== null && (
-                      <div style={{ fontSize: 9, marginTop: 3 }}>
-                        <span style={{ color: delta >= 0 ? '#10b981' : '#ef4444', fontWeight: 700 }}>
-                          {delta >= 0 ? `▲ +${delta}` : `▼ ${delta}`}
-                        </span>
+                  </div>
+
+                  <div style={{ display:'flex', gap:28, flexWrap:'wrap' }}>
+                    <div>
+                      <div style={{ fontSize:9, color:'#93c5fd', marginBottom:4, textTransform:'uppercase', letterSpacing:'.1em' }}>Genel Skor</div>
+                      <div style={{ fontSize:48, fontWeight:900, fontFamily:'var(--font-dm-mono)', lineHeight:1,
+                        color:(d.trScore?.genel??0)>=100?'#34d399':(d.trScore?.genel??0)>=90?'#fbbf24':'#f87171' }}>
+                        {d.trScore?.genel??'—'}
+                      </div>
+                    </div>
+                    {d.trScoreCmp && (
+                      <div style={{ borderLeft:'1px solid rgba(255,255,255,.12)', paddingLeft:28 }}>
+                        <div style={{ fontSize:9, color:'#93c5fd', marginBottom:4, textTransform:'uppercase', letterSpacing:'.1em' }}>Önceki Dönem</div>
+                        <div style={{ fontSize:26, fontWeight:700, fontFamily:'var(--font-dm-mono)', color:'#94a3b8', lineHeight:1 }}>
+                          {d.trScoreCmp.genel}
+                        </div>
+                        <div style={{ marginTop:6 }}>
+                          {(() => { const diff=(d.trScore?.genel??0)-d.trScoreCmp.genel; return (
+                            <span style={{ fontSize:13, fontWeight:700, color:diff>=0?'#34d399':'#f87171' }}>
+                              {diff>=0?`▲ +${diff} puan`:`▼ ${diff} puan`}
+                            </span>
+                          )})()}
+                        </div>
                       </div>
                     )}
-                  </Kart>
-                )
-              })}
-            </div>
-
-            {/* ══ Segment Analizi ══════════════════════════════════════════════ */}
-            <Kart>
-              <KartBaslik>🔷 Segment Analizi</KartBaslik>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
-                {raporData.segData.map(s => (
-                  <div key={s.seg} style={{ background: SEGMENT_BG[s.seg],
-                    border: `1px solid ${SEGMENT_HEX[s.seg]}55`, borderRadius: 10, padding: '12px 14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: SEGMENT_HEX[s.seg] }}>{s.seg}</span>
-                      <ScoreBadge val={s.score?.genel ?? 0} size="sm" />
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4, fontSize: 9, marginBottom: 8 }}>
-                      {(['musteri','ticari','operasyonel','bayi','kapsam'] as const).map(k => (
-                        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--tx3)' }}>
-                          <span style={{ textTransform: 'capitalize' }}>{k === 'bayi' ? 'Bayi' : k === 'musteri' ? 'Müşteri' : k === 'ticari' ? 'Ticari' : k === 'operasyonel' ? 'Ops.' : 'Kapsam'}</span>
-                          <span style={{ fontWeight: 700, color: 'var(--tx2)' }}>{s.score ? (s.score as any)[k] ?? 0 : 0}</span>
-                        </div>
+                    <div style={{ borderLeft:'1px solid rgba(255,255,255,.12)', paddingLeft:28 }}>
+                      <div style={{ fontSize:9, color:'#93c5fd', marginBottom:8, textTransform:'uppercase', letterSpacing:'.1em' }}>Kapsam</div>
+                      {[`${SEGMENTLER.length} Segment`, `${KPI_META.length} KPI`, `${BOLGELER.length} Bölge`].map(t => (
+                        <div key={t} style={{ fontSize:11, color:'#cbd5e1', marginBottom:3 }}>· {t}</div>
                       ))}
                     </div>
-                    {s.markalar.length > 0 && (
-                      <div style={{ fontSize: 8, color: 'var(--tx3)', borderTop: `1px solid ${SEGMENT_HEX[s.seg]}33`, paddingTop: 6 }}>
-                        <div style={{ fontWeight: 700, marginBottom: 3 }}>Top 3 Marka</div>
-                        {s.markalar.slice(0,3).map((m, i) => (
-                          <div key={m.marka} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                            <span>{i+1}. {m.marka}</span>
-                            <span style={{ fontWeight: 700, color: SEGMENT_HEX[s.seg] }}>{m.score}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
-                ))}
-              </div>
-              {yorumlar.segment && (
-                <div style={{ background: 'var(--surf2)', borderRadius: 8, padding: '10px 14px',
-                  fontSize: 10, lineHeight: 1.7, color: 'var(--tx2)', borderLeft: '3px solid #3b82f6' }}>
-                  {yorumlar.segment}
-                </div>
-              )}
-            </Kart>
 
-            </div>{/* ── Sayfa 1 sonu ── */}
-
-            {/* ══ SAYFA 2: KPI Analizi + Kategori Analizi ══════════════════════ */}
-            <div className="rapor-sayfa" style={{ marginBottom: 32 }}>
-
-            {/* ══ KPI Analizi ══════════════════════════════════════════════════ */}
-            <Kart>
-              <KartBaslik>📊 KPI Performans Analizi</KartBaslik>
-              <div style={{ overflowX: 'auto', marginBottom: 12 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
-                  <thead>
-                    <tr style={{ background: 'var(--surf2)' }}>
-                      <th style={thS}>KPI</th>
-                      <th style={thS}>Tüm TR</th>
-                      {SEGMENTLER.map(seg => <th key={seg} style={{ ...thS, color: SEGMENT_HEX[seg] }}>{seg}</th>)}
-                      <th style={thS}>Δ Dönem</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {KPI_META.map((k, i) => {
-                      const trV = raporData.trKpis[i] ?? 0
-                      const prevV = raporData.trKpisPrev?.[i] ?? 0
-                      const pct = prevV ? ((trV - prevV) / Math.abs(prevV) * 100) : 0
-                      const lob = isLowerBetter(i)
-                      const hc = heatColor(trV, raporData.trKpis[i] ?? 1, !lob)
-                      return (
-                        <tr key={i} style={{ borderBottom: '1px solid var(--bd)' }}>
-                          <td style={{ ...tdS, fontSize: 9, color: 'var(--tx2)', maxWidth: 160 }}>{k.ad}</td>
-                          <td style={{ ...tdS, fontFamily: 'var(--font-dm-mono)', fontWeight: 700, color: hc.color, textAlign: 'center' }}>
-                            {fmtKpi(trV, k.fmt)}
-                          </td>
-                          {raporData.segData.map(s => {
-                            const sv = s.kpis[i] ?? 0
-                            const shc = heatColor(sv, trV, !lob)
-                            return (
-                              <td key={s.seg} style={{ ...tdS, fontFamily: 'var(--font-dm-mono)', fontSize: 9, textAlign: 'center', color: shc.color }}>
-                                {fmtKpi(sv, k.fmt)}
-                              </td>
-                            )
-                          })}
-                          <td style={{ ...tdS, textAlign: 'center' }}>
-                            {prevV ? <DeltaBadge val={Math.round(pct * 10)/10} lob={lob} /> : <span style={{ color: 'var(--tx3)' }}>—</span>}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              {yorumlar.kpi && (
-                <div style={{ background: 'var(--surf2)', borderRadius: 8, padding: '10px 14px',
-                  fontSize: 10, lineHeight: 1.7, color: 'var(--tx2)', borderLeft: '3px solid #f59e0b' }}>
-                  {yorumlar.kpi}
-                </div>
-              )}
-            </Kart>
-
-            </div>{/* ── Sayfa 2 sonu ── */}
-
-            {/* ══ SAYFA 3: Bölgesel + Yaş Kırılımı + Trend ════════════════════ */}
-            <div className="rapor-sayfa" style={{ marginBottom: 32 }}>
-
-            {/* ══ Bölgesel + Yaş ══════════════════════════════════════════════ */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-
-              <Kart>
-                <KartBaslik>🗺 Bölgesel Dağılım</KartBaslik>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-                  {raporData.bolgeData.map(b => {
-                    const sc = b.score?.genel ?? 0
-                    const max = Math.max(...raporData.bolgeData.map(x => x.score?.genel ?? 0), 1)
-                    const c = sc >= 100 ? '#10b981' : sc >= 90 ? '#f59e0b' : '#ef4444'
-                    return (
-                      <div key={b.bolge} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 9, color: 'var(--tx2)', width: 80, flexShrink: 0 }}>{b.bolge || 'Tüm TR'}</span>
-                        <div style={{ flex: 1, background: 'var(--surf3)', borderRadius: 4, height: 8, overflow: 'hidden' }}>
-                          <div style={{ width: `${(sc/max)*100}%`, height: '100%', background: c, borderRadius: 4 }} />
-                        </div>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: c, fontFamily: 'var(--font-dm-mono)', width: 28, textAlign: 'right' }}>{sc}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-                {yorumlar.bolge && (
-                  <div style={{ background: 'var(--surf2)', borderRadius: 8, padding: '8px 12px',
-                    fontSize: 9, lineHeight: 1.7, color: 'var(--tx2)', borderLeft: '3px solid #8b5cf6' }}>
-                    {yorumlar.bolge}
-                  </div>
-                )}
-              </Kart>
-
-              <Kart>
-                <KartBaslik>👤 Yaş Kırılımı</KartBaslik>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-                  {raporData.yasData.map(y => {
-                    const sc = y.score?.genel ?? 0
-                    const cats = (['musteri','ticari','operasyonel'] as const)
-                    return (
-                      <div key={y.yas} style={{ background: 'var(--surf2)', borderRadius: 8, padding: '8px 10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx2)' }}>{y.yas} Yıl</span>
-                          <ScoreBadge val={sc} size="sm" />
-                        </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          {cats.map(c => (
-                            <div key={c} style={{ flex: 1, textAlign: 'center' }}>
-                              <div style={{ fontSize: 7, color: 'var(--tx3)', marginBottom: 2 }}>
-                                {c === 'musteri' ? 'Müşteri' : c === 'ticari' ? 'Ticari' : 'Ops.'}
-                              </div>
-                              <div style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-dm-mono)',
-                                color: (y.score as any)?.[c] >= 100 ? '#10b981' : (y.score as any)?.[c] >= 90 ? '#f59e0b' : '#ef4444' }}>
-                                {y.score ? (y.score as any)[c] ?? '—' : '—'}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </Kart>
-            </div>
-
-            {/* ══ Dönemsel Trend ═══════════════════════════════════════════════ */}
-            <Kart>
-              <KartBaslik>📈 Dönemsel KPI Trend ({raporData.trendDonemler.join(' → ')})</KartBaslik>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                {raporData.kpiTrend.slice(0, 8).map(k => {
-                  const vals = k.values
-                  const last = vals[vals.length - 1]
-                  const first = vals[0]
-                  const trend = first ? ((last - first) / Math.abs(first) * 100) : 0
-                  const lob = isLowerBetter(k.i)
-                  const trendOk = lob ? trend < 0 : trend > 0
-                  const tc = trendOk ? '#10b981' : Math.abs(trend) < 2 ? '#9ca3af' : '#ef4444'
-                  return (
-                    <div key={k.i} style={{ background: 'var(--surf2)', borderRadius: 8, padding: '10px' }}>
-                      <div style={{ fontSize: 8, color: 'var(--tx3)', marginBottom: 6, lineHeight: 1.3, minHeight: 24 }}>{k.ad}</div>
-                      <MiniLineChart
-                        values={vals}
-                        color={tc}
-                        width={130}
-                        height={36}
-                        labels={raporData.trendDonemler.map(d => d.split('-')[1])}
-                      />
-                      <div style={{ fontSize: 8, fontWeight: 700, color: tc, marginTop: 4 }}>
-                        {trend > 0 ? `▲ +` : trend < 0 ? `▼ ` : '→ '}{Math.abs(Math.round(trend * 10)/10)}% trend
-                      </div>
+                  {yorumlar.genelBakis && (
+                    <div style={{ marginTop:22, padding:'12px 16px', background:'rgba(255,255,255,.05)',
+                      borderRadius:8, borderLeft:'3px solid #60a5fa', fontSize:11, lineHeight:1.8, color:'#e2e8f0' }}>
+                      {yorumlar.genelBakis}
                     </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Kategori özeti */}
+              <div style={{ display:'grid', gridTemplateColumns:`repeat(${KATEGORILER.length},1fr)`, gap:10 }}>
+                {d.katData.map(k => {
+                  const delta = k.cmpVal !== null ? k.trVal - k.cmpVal : null
+                  return (
+                    <Kart key={k.key} style={{ textAlign:'center', borderTop:`3px solid ${k.color}`, padding:'12px' }}>
+                      <div style={{ fontSize:9, color:'var(--tx3)', marginBottom:6, fontWeight:600 }}>{k.label}</div>
+                      <div style={{ fontSize:24, fontWeight:800, fontFamily:'var(--font-dm-mono)', color:k.color }}>{k.trVal}</div>
+                      {delta !== null && (
+                        <div style={{ fontSize:9, marginTop:3, fontWeight:700, color:delta>=0?'#10b981':'#ef4444' }}>
+                          {delta>=0?`▲ +${delta}`:`▼ ${delta}`}
+                        </div>
+                      )}
+                    </Kart>
                   )
                 })}
               </div>
-            </Kart>
+            </Sayfa>
 
-            </div>{/* ── Sayfa 3 sonu ── */}
+            {/* ══════════════════════════════════════════════════════════════════
+                SAYFA 2 — MARKA SIRALAMASI
+            ══════════════════════════════════════════════════════════════════ */}
+            <Sayfa>
+              <Kart>
+                <Baslik icon="🏆">Marka Sıralaması</Baslik>
+                <div style={{ overflowX:'auto' }}>
+                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:10 }}>
+                    <thead>
+                      <tr style={{ background:'var(--surf2)' }}>
+                        <th style={thS}>#</th>
+                        <th style={thS}>Marka</th>
+                        <th style={thS}>Segment</th>
+                        <th style={thS}>Skor</th>
+                        {d.cmp && <th style={thS}>Önceki</th>}
+                        {d.cmp && <th style={thS}>Δ</th>}
+                        {KATEGORILER.map(k => <th key={k.key} style={{ ...thS, color:k.color }}>{k.label}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {d.tumMarkalar.slice(0,20).map((m,i) => {
+                        const segSc = getScore(m.segment, selBolge, selYas, d.baz)
+                        return (
+                          <tr key={m.marka} style={{ borderBottom:'1px solid var(--bd)' }}>
+                            <td style={{ ...tdS, color:'var(--tx3)', fontFamily:'var(--font-dm-mono)', fontSize:9 }}>{i+1}</td>
+                            <td style={{ ...tdS, fontWeight:700, color:SEGMENT_HEX[m.segment]||'var(--tx)' }}>{m.marka}</td>
+                            <td style={tdS}>
+                              <span style={{ background:SEGMENT_BG[m.segment], color:SEGMENT_HEX[m.segment],
+                                padding:'1px 6px', borderRadius:20, fontSize:8, fontWeight:700, border:`1px solid ${SEGMENT_HEX[m.segment]}44` }}>
+                                {m.segment}
+                              </span>
+                            </td>
+                            <td style={{ ...tdS, fontFamily:'var(--font-dm-mono)', fontWeight:700,
+                              color:m.score>=100?'#10b981':m.score>=90?'#f59e0b':'#ef4444' }}>{m.score}</td>
+                            {d.cmp && <td style={{ ...tdS, fontFamily:'var(--font-dm-mono)', color:'var(--tx3)', fontSize:9 }}>{m.cmpScore??'—'}</td>}
+                            {d.cmp && <td style={tdS}>{m.cmpScore!==null?<Delta curr={m.score} prev={m.cmpScore}/>:<span style={{color:'var(--tx3)'}}>—</span>}</td>}
+                            {KATEGORILER.map(k => {
+                              const v = segSc ? (segSc as any)[k.key] ?? 0 : 0
+                              return <td key={k.key} style={{ ...tdS, textAlign:'center', fontFamily:'var(--font-dm-mono)', fontSize:9,
+                                color:v>=100?'#10b981':v>=90?'#f59e0b':'#ef4444' }}>{v}</td>
+                            })}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <YorumBlok text={yorumlar.marka} color="#f59e0b" />
+              </Kart>
+            </Sayfa>
 
-            {/* ══ SAYFA 4: Puan Kayıpları + Öneriler + Sonuç ══════════════════ */}
-            <div className="rapor-sayfa">
+            {/* ══════════════════════════════════════════════════════════════════
+                SAYFA 3 — KPI DETAY
+            ══════════════════════════════════════════════════════════════════ */}
+            <Sayfa>
+              <Kart>
+                <Baslik icon="📊">KPI Detay Analizi</Baslik>
+                <div style={{ overflowX:'auto' }}>
+                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:10 }}>
+                    <thead>
+                      <tr style={{ background:'var(--surf2)' }}>
+                        <th style={thS}>KPI</th>
+                        <th style={thS}>Tüm TR</th>
+                        {d.cmp && <th style={thS}>Önceki</th>}
+                        {d.cmp && <th style={thS}>Δ</th>}
+                        {SEGMENTLER.map(seg => <th key={seg} style={{ ...thS, color:SEGMENT_HEX[seg] }}>{seg}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {KPI_META.map((k,i) => {
+                        const trV = d.trKpis[i] ?? 0
+                        const cmpV = d.trKpisCmp?.[i] ?? 0
+                        const lob = isLowerBetter(i)
+                        return (
+                          <tr key={i} style={{ borderBottom:'1px solid var(--bd)' }}>
+                            <td style={{ ...tdS, fontSize:9 }}>{k.ad}</td>
+                            <td style={{ ...tdS, fontFamily:'var(--font-dm-mono)', fontWeight:700, textAlign:'center' }}>
+                              {fmtKpi(trV, k.fmt)}
+                            </td>
+                            {d.cmp && <td style={{ ...tdS, fontFamily:'var(--font-dm-mono)', color:'var(--tx3)', textAlign:'center', fontSize:9 }}>{fmtKpi(cmpV, k.fmt)}</td>}
+                            {d.cmp && <td style={{ ...tdS, textAlign:'center' }}>{cmpV ? <Delta curr={trV} prev={cmpV} lob={lob}/> : '—'}</td>}
+                            {d.segData.map(s => {
+                              const sv = s.kpis[i] ?? 0
+                              const hc = heatColor(sv, trV, !lob)
+                              return (
+                                <td key={s.seg} style={{ ...tdS, fontFamily:'var(--font-dm-mono)', fontSize:9, textAlign:'center', color:hc.color, background:hc.bg }}>
+                                  {fmtKpi(sv, k.fmt)}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <YorumBlok text={yorumlar.kpiDetay} color="#f59e0b" />
+              </Kart>
+            </Sayfa>
 
-            {/* ══ Puan Kayıpları ═══════════════════════════════════════════════ */}
-            {raporData.kayiplar.length > 0 && (
-              <Kart style={{ borderLeft: '4px solid #ef4444' }}>
-                <KartBaslik color="#ef4444">⚠ Puan Kayıpları & Kritik Gerileme Alanları</KartBaslik>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-                  {raporData.kayiplar.slice(0, 6).map((k: any) => (
-                    <div key={k.i} style={{ background: 'rgba(239,68,68,.06)',
-                      border: '1px solid rgba(239,68,68,.2)', borderRadius: 8, padding: '10px 12px' }}>
-                      <div style={{ fontSize: 9, color: 'var(--tx2)', marginBottom: 6, lineHeight: 1.3 }}>{k.ad}</div>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                        <div>
-                          <div style={{ fontSize: 7, color: 'var(--tx3)' }}>Mevcut</div>
-                          <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-dm-mono)', color: '#ef4444' }}>
-                            {fmtKpi(k.curr, k.fmt)}
+            {/* ══════════════════════════════════════════════════════════════════
+                SAYFA 4 — BÖLGE ANALİZİ
+            ══════════════════════════════════════════════════════════════════ */}
+            <Sayfa>
+              <Kart>
+                <Baslik icon="🗺">Bölge Analizi</Baslik>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+                  <div>
+                    <div style={{ fontSize:10, fontWeight:700, color:'var(--tx2)', marginBottom:10 }}>Bölgesel Skor Dağılımı</div>
+                    {d.bolgeData.map(b => {
+                      const sc = b.score?.genel ?? 0
+                      const scCmp = b.scoreCmp?.genel ?? null
+                      const maxSc = Math.max(...d.bolgeData.map(x => x.score?.genel ?? 0), 1)
+                      const c = sc>=100?'#10b981':sc>=90?'#f59e0b':'#ef4444'
+                      return (
+                        <div key={b.bolge} style={{ marginBottom:8 }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+                            <span style={{ fontSize:9, color:'var(--tx2)', fontWeight:600 }}>{b.bolge||'Tüm TR'}</span>
+                            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                              {scCmp !== null && <Delta curr={sc} prev={scCmp}/>}
+                              <span style={{ fontSize:10, fontWeight:700, color:c, fontFamily:'var(--font-dm-mono)' }}>{sc}</span>
+                            </div>
+                          </div>
+                          <div style={{ background:'var(--surf3)', borderRadius:4, height:8, overflow:'hidden' }}>
+                            <div style={{ width:`${(sc/maxSc)*100}%`, height:'100%', background:c, borderRadius:4 }}/>
                           </div>
                         </div>
-                        <div>
-                          <div style={{ fontSize: 7, color: 'var(--tx3)' }}>Önceki</div>
-                          <div style={{ fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-dm-mono)', color: 'var(--tx3)' }}>
-                            {fmtKpi(k.prev, k.fmt)}
+                      )
+                    })}
+                  </div>
+                  <div>
+                    <div style={{ fontSize:10, fontWeight:700, color:'var(--tx2)', marginBottom:10 }}>Yaş Kırılımı</div>
+                    {d.yasData.map(y => {
+                      const sc = y.score?.genel ?? 0
+                      const scCmp = y.scoreCmp?.genel ?? null
+                      return (
+                        <div key={y.yas} style={{ background:'var(--surf2)', borderRadius:8, padding:'10px 12px', marginBottom:8 }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                            <span style={{ fontSize:11, fontWeight:700, color:'var(--tx2)' }}>{y.yas} Yıl</span>
+                            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                              {scCmp !== null && <Delta curr={sc} prev={scCmp}/>}
+                              <ScoreBand val={sc}/>
+                            </div>
+                          </div>
+                          <div style={{ display:'grid', gridTemplateColumns:`repeat(${KATEGORILER.length},1fr)`, gap:4 }}>
+                            {KATEGORILER.map(k => {
+                              const v = y.score ? (y.score as any)[k.key] ?? 0 : 0
+                              return (
+                                <div key={k.key} style={{ textAlign:'center' }}>
+                                  <div style={{ fontSize:7, color:'var(--tx3)', marginBottom:2 }}>{k.label}</div>
+                                  <div style={{ fontSize:11, fontWeight:700, fontFamily:'var(--font-dm-mono)',
+                                    color:v>=100?'#10b981':v>=90?'#f59e0b':'#ef4444' }}>{v}</div>
+                                </div>
+                              )
+                            })}
                           </div>
                         </div>
-                        <div style={{ marginLeft: 'auto' }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: '#ef4444' }}>
-                            {k.pct > 0 ? `+${k.pct}` : k.pct}%
+                      )
+                    })}
+                  </div>
+                </div>
+                <YorumBlok text={yorumlar.bolge} color="#8b5cf6" />
+              </Kart>
+
+              {/* Segment analizi */}
+              <Kart>
+                <Baslik icon="🔷">Segment Analizi</Baslik>
+                <div style={{ display:'grid', gridTemplateColumns:`repeat(${SEGMENTLER.length},1fr)`, gap:12 }}>
+                  {d.segData.map(s => (
+                    <div key={s.seg} style={{ background:SEGMENT_BG[s.seg], border:`1px solid ${SEGMENT_HEX[s.seg]}55`, borderRadius:10, padding:'12px 14px' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10, paddingBottom:8, borderBottom:`1px solid ${SEGMENT_HEX[s.seg]}33` }}>
+                        <span style={{ fontSize:13, fontWeight:800, color:SEGMENT_HEX[s.seg] }}>{s.seg}</span>
+                        <ScoreBand val={s.score?.genel??0}/>
+                      </div>
+                      {/* Genel + Kategoriler */}
+                      <div style={{ marginBottom:8 }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5, padding:'4px 6px', background:`${SEGMENT_HEX[s.seg]}15`, borderRadius:5 }}>
+                          <span style={{ fontSize:9, fontWeight:800, color:SEGMENT_HEX[s.seg] }}>Genel</span>
+                          <span style={{ fontSize:10, fontWeight:800, fontFamily:'var(--font-dm-mono)', color:SEGMENT_HEX[s.seg] }}>
+                            {s.score?.genel??0}
+                            {s.scoreCmp && <span style={{ fontSize:8, color:'var(--tx3)', marginLeft:4 }}>({s.scoreCmp.genel})</span>}
                           </span>
                         </div>
+                        {KATEGORILER.map(k => {
+                          const v = s.score ? (s.score as any)[k.key] ?? 0 : 0
+                          const vc = s.scoreCmp ? (s.scoreCmp as any)[k.key] ?? 0 : null
+                          return (
+                            <div key={k.key} style={{ display:'flex', justifyContent:'space-between', marginBottom:3, padding:'2px 4px' }}>
+                              <span style={{ fontSize:8, color:'var(--tx3)' }}>{k.label}</span>
+                              <div style={{ display:'flex', gap:5, alignItems:'center' }}>
+                                {vc !== null && <Delta curr={v} prev={vc}/>}
+                                <span style={{ fontSize:9, fontWeight:700, color:v>=100?'#10b981':v>=90?'#f59e0b':'#ef4444' }}>{v}</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {/* Top markalar */}
+                      <div style={{ borderTop:`1px solid ${SEGMENT_HEX[s.seg]}33`, paddingTop:8 }}>
+                        <div style={{ fontSize:8, fontWeight:700, color:'var(--tx3)', marginBottom:4 }}>Top 3 Marka</div>
+                        {s.markalar.slice(0,3).map((m,i) => {
+                          const cmpM = s.markalaCmp?.find(x=>x.marka===m.marka)
+                          return (
+                            <div key={m.marka} style={{ display:'flex', justifyContent:'space-between', marginBottom:2, fontSize:8 }}>
+                              <span style={{ color:'var(--tx2)' }}>{i+1}. {m.marka}</span>
+                              <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+                                {cmpM && <Delta curr={m.score} prev={cmpM.score}/>}
+                                <span style={{ fontWeight:700, color:SEGMENT_HEX[s.seg] }}>{m.score}</span>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   ))}
                 </div>
               </Kart>
+            </Sayfa>
+
+            {/* ══════════════════════════════════════════════════════════════════
+                SAYFA 5 — DÖNEMSEl TREND
+            ══════════════════════════════════════════════════════════════════ */}
+            <Sayfa>
+              <Kart>
+                <Baslik icon="📈">Dönemsel Trend Analizi ({d.trendDonemler.join(' → ')})</Baslik>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:12 }}>
+                  {d.kpiTrend.slice(0,8).map(k => {
+                    const vals = k.values
+                    const last = vals[vals.length-1], first = vals[0]
+                    const trend = first ? ((last-first)/Math.abs(first)*100) : 0
+                    const lob = isLowerBetter(k.i)
+                    const tc = (lob?trend<0:trend>0) ? '#10b981' : Math.abs(trend)<2 ? '#9ca3af' : '#ef4444'
+                    const minV = Math.min(...vals), maxV = Math.max(...vals), range = maxV-minV||1
+                    const W=130, H=40
+                    const pts = vals.map((v,i) => ({
+                      x: (i/(vals.length-1))*W,
+                      y: H-((v-minV)/range)*H*.8-H*.1
+                    }))
+                    const pathD = pts.map((p,i) => `${i===0?'M':'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+                    return (
+                      <div key={k.i} style={{ background:'var(--surf2)', borderRadius:8, padding:10 }}>
+                        <div style={{ fontSize:8, color:'var(--tx3)', marginBottom:6, lineHeight:1.3, minHeight:24 }}>{k.ad}</div>
+                        <svg width={W} height={H+16} style={{ overflow:'visible' }}>
+                          <path d={pathD} fill="none" stroke={tc} strokeWidth={1.5} strokeLinecap="round"/>
+                          {pts.map((p,pi) => (
+                            <g key={pi}>
+                              <circle cx={p.x} cy={p.y} r={2.5} fill={tc}/>
+                              <text x={p.x} y={H+13} textAnchor="middle" fontSize={7} fill="#9ca3af">
+                                {d.trendDonemler[pi]?.split('-')[1]}
+                              </text>
+                            </g>
+                          ))}
+                        </svg>
+                        <div style={{ fontSize:8, fontWeight:700, color:tc, marginTop:4 }}>
+                          {trend>0?`▲ +`:trend<0?`▼ `:'→ '}{Math.abs(Math.round(trend*10)/10)}% trend
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <YorumBlok text={yorumlar.trend} color="#06b6d4" />
+              </Kart>
+            </Sayfa>
+
+            {/* ══════════════════════════════════════════════════════════════════
+                SAYFA 6 — DÖNEM KARŞILAŞTIRMASI (sadece cmp varsa)
+            ══════════════════════════════════════════════════════════════════ */}
+            {d.cmp && (
+              <Sayfa>
+                <Kart>
+                  <Baslik icon="⚖️">Dönem Karşılaştırması: {d.baz} vs {d.cmp}</Baslik>
+
+                  {/* Genel skor karşılaştırması */}
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:14 }}>
+                    <div style={{ background:'var(--surf2)', borderRadius:10, padding:'14px', textAlign:'center' }}>
+                      <div style={{ fontSize:9, color:'var(--tx3)', marginBottom:6, textTransform:'uppercase', letterSpacing:'.08em' }}>Baz Dönem ({d.baz})</div>
+                      <div style={{ fontSize:36, fontWeight:900, fontFamily:'var(--font-dm-mono)',
+                        color:(d.trScore?.genel??0)>=100?'#10b981':(d.trScore?.genel??0)>=90?'#f59e0b':'#ef4444' }}>
+                        {d.trScore?.genel??'—'}
+                      </div>
+                      <div style={{ fontSize:9, color:'var(--tx3)', marginTop:4 }}>Genel Skor</div>
+                    </div>
+                    <div style={{ background:'var(--surf2)', borderRadius:10, padding:'14px', textAlign:'center', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+                      {(() => { const diff=(d.trScore?.genel??0)-(d.trScoreCmp?.genel??0); return (
+                        <>
+                          <div style={{ fontSize:28, fontWeight:900, color:diff>=0?'#10b981':'#ef4444' }}>{diff>=0?`▲ +${diff}`:`▼ ${diff}`}</div>
+                          <div style={{ fontSize:9, color:'var(--tx3)', marginTop:4 }}>puan değişim</div>
+                        </>
+                      )})()}
+                    </div>
+                    <div style={{ background:'var(--surf2)', borderRadius:10, padding:'14px', textAlign:'center' }}>
+                      <div style={{ fontSize:9, color:'var(--tx3)', marginBottom:6, textTransform:'uppercase', letterSpacing:'.08em' }}>Karş. Dönem ({d.cmp})</div>
+                      <div style={{ fontSize:36, fontWeight:900, fontFamily:'var(--font-dm-mono)',
+                        color:(d.trScoreCmp?.genel??0)>=100?'#10b981':(d.trScoreCmp?.genel??0)>=90?'#f59e0b':'#ef4444' }}>
+                        {d.trScoreCmp?.genel??'—'}
+                      </div>
+                      <div style={{ fontSize:9, color:'var(--tx3)', marginTop:4 }}>Genel Skor</div>
+                    </div>
+                  </div>
+
+                  {/* Kategori karşılaştırma */}
+                  <div style={{ marginBottom:14 }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:'var(--tx2)', marginBottom:8 }}>Kategori Bazlı Değişim</div>
+                    <div style={{ display:'grid', gridTemplateColumns:`repeat(${KATEGORILER.length},1fr)`, gap:8 }}>
+                      {d.katData.map(k => {
+                        const diff = k.cmpVal !== null ? k.trVal - k.cmpVal : null
+                        return (
+                          <div key={k.key} style={{ background:'var(--surf2)', borderRadius:8, padding:'10px', textAlign:'center', borderTop:`2px solid ${k.color}` }}>
+                            <div style={{ fontSize:8, color:'var(--tx3)', marginBottom:6 }}>{k.label}</div>
+                            <div style={{ fontSize:18, fontWeight:800, fontFamily:'var(--font-dm-mono)', color:k.color }}>{k.trVal}</div>
+                            {k.cmpVal !== null && <div style={{ fontSize:9, color:'var(--tx3)', margin:'3px 0' }}>{k.cmpVal}</div>}
+                            {diff !== null && (
+                              <div style={{ fontSize:9, fontWeight:700, color:diff>=0?'#10b981':'#ef4444' }}>
+                                {diff>=0?`▲ +${diff}`:`▼ ${diff}`}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Segment karşılaştırma */}
+                  <div style={{ marginBottom:14 }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:'var(--tx2)', marginBottom:8 }}>Segment Skor Değişimi</div>
+                    <table style={{ width:'100%', borderCollapse:'collapse', fontSize:10 }}>
+                      <thead>
+                        <tr style={{ background:'var(--surf2)' }}>
+                          <th style={thS}>Segment</th>
+                          <th style={{ ...thS, textAlign:'center' }}>{d.baz}</th>
+                          <th style={{ ...thS, textAlign:'center' }}>{d.cmp}</th>
+                          <th style={{ ...thS, textAlign:'center' }}>Δ</th>
+                          {KATEGORILER.map(k => <th key={k.key} style={{ ...thS, color:k.color, textAlign:'center' }}>{k.label}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {d.segData.map(s => {
+                          const diff = s.scoreCmp ? (s.score?.genel??0) - s.scoreCmp.genel : null
+                          return (
+                            <tr key={s.seg} style={{ borderBottom:'1px solid var(--bd)' }}>
+                              <td style={{ ...tdS, fontWeight:700, color:SEGMENT_HEX[s.seg] }}>{s.seg}</td>
+                              <td style={{ ...tdS, textAlign:'center', fontFamily:'var(--font-dm-mono)', fontWeight:700,
+                                color:(s.score?.genel??0)>=100?'#10b981':(s.score?.genel??0)>=90?'#f59e0b':'#ef4444' }}>
+                                {s.score?.genel??'—'}
+                              </td>
+                              <td style={{ ...tdS, textAlign:'center', fontFamily:'var(--font-dm-mono)', color:'var(--tx3)' }}>
+                                {s.scoreCmp?.genel??'—'}
+                              </td>
+                              <td style={{ ...tdS, textAlign:'center' }}>
+                                {diff !== null ? <span style={{ fontSize:9, fontWeight:700, color:diff>=0?'#10b981':'#ef4444' }}>{diff>=0?`▲ +${diff}`:`▼ ${diff}`}</span> : '—'}
+                              </td>
+                              {KATEGORILER.map(k => {
+                                const v = s.score ? (s.score as any)[k.key]??0 : 0
+                                const vc = s.scoreCmp ? (s.scoreCmp as any)[k.key]??0 : null
+                                const dv = vc !== null ? v - vc : null
+                                return (
+                                  <td key={k.key} style={{ ...tdS, textAlign:'center', fontSize:9 }}>
+                                    <div style={{ fontFamily:'var(--font-dm-mono)', fontWeight:700, color:v>=100?'#10b981':v>=90?'#f59e0b':'#ef4444' }}>{v}</div>
+                                    {dv !== null && <div style={{ fontSize:7, color:dv>=0?'#10b981':'#ef4444' }}>{dv>=0?`+${dv}`:dv}</div>}
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Puan kayıpları */}
+                  {d.kayiplar.length > 0 && (
+                    <div style={{ marginBottom:14 }}>
+                      <div style={{ fontSize:10, fontWeight:700, color:'#ef4444', marginBottom:8 }}>⚠ Kritik Gerileme Alanları</div>
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+                        {d.kayiplar.slice(0,6).map((k:any) => (
+                          <div key={k.i} style={{ background:'rgba(239,68,68,.06)', border:'1px solid rgba(239,68,68,.2)', borderRadius:8, padding:'10px 12px' }}>
+                            <div style={{ fontSize:9, color:'var(--tx2)', marginBottom:5, lineHeight:1.3 }}>{k.ad}</div>
+                            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                              <div>
+                                <div style={{ fontSize:7, color:'var(--tx3)' }}>{d.baz}</div>
+                                <div style={{ fontSize:13, fontWeight:700, fontFamily:'var(--font-dm-mono)', color:'#ef4444' }}>{fmtKpi(k.curr,k.fmt)}</div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize:7, color:'var(--tx3)' }}>{d.cmp}</div>
+                                <div style={{ fontSize:11, fontFamily:'var(--font-dm-mono)', color:'var(--tx3)' }}>{fmtKpi(k.prev,k.fmt)}</div>
+                              </div>
+                              <div style={{ marginLeft:'auto', fontSize:10, fontWeight:700, color:'#ef4444' }}>
+                                {k.pct>0?`+${k.pct}`:k.pct}%
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <YorumBlok text={yorumlar.karsilastirma} color="#8b5cf6" />
+                </Kart>
+              </Sayfa>
             )}
 
-            {/* ══ Öneriler & Sonuç ═════════════════════════════════════════════ */}
-            <div style={{ background: 'linear-gradient(135deg, #0f2744 0%, #1e3a5f 100%)',
-              borderRadius: 12, padding: '24px 28px', color: '#fff' }}>
-              <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 16, color: '#93c5fd' }}>
-                💡 Stratejik Değerlendirme & Öneriler
-              </div>
+            {/* ══════════════════════════════════════════════════════════════════
+                SON SAYFA — STRATEJİK DEĞERLENDİRME & ÖNERİLER
+            ══════════════════════════════════════════════════════════════════ */}
+            <Sayfa son>
+              <div style={{ background:'linear-gradient(135deg, #0f2744 0%, #1a3a5c 50%, #0f2040 100%)',
+                borderRadius:12, padding:'28px 32px', color:'#fff' }}>
+                <div style={{ fontSize:14, fontWeight:800, marginBottom:20, letterSpacing:'-.01em' }}>
+                  💡 360° Stratejik Değerlendirme & Öneriler
+                </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#60a5fa', marginBottom: 8 }}>
-                    GÜÇLÜ YÖNLER
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:20 }}>
+                  <div>
+                    <div style={{ fontSize:10, fontWeight:700, color:'#60a5fa', marginBottom:10, textTransform:'uppercase', letterSpacing:'.08em' }}>Güçlü Yönler</div>
+                    {[...d.katData].sort((a,b)=>b.trVal-a.trVal).slice(0,2).map(k => (
+                      <div key={k.key} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:7,
+                        background:'rgba(255,255,255,.05)', borderRadius:7, padding:'8px 12px' }}>
+                        <span style={{ width:8, height:8, borderRadius:'50%', background:'#34d399', flexShrink:0 }}/>
+                        <div>
+                          <span style={{ fontSize:10, color:'#e2e8f0', fontWeight:600 }}>{k.label}</span>
+                          <span style={{ fontSize:11, fontFamily:'var(--font-dm-mono)', fontWeight:800, color:'#34d399', marginLeft:8 }}>{k.trVal}</span>
+                          {k.cmpVal !== null && <span style={{ fontSize:8, color:'#64748b', marginLeft:4 }}>(önceki: {k.cmpVal})</span>}
+                        </div>
+                      </div>
+                    ))}
+                    {[...d.segData].sort((a,b)=>(b.score?.genel??0)-(a.score?.genel??0)).slice(0,1).map(s => (
+                      <div key={s.seg} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:7,
+                        background:'rgba(255,255,255,.05)', borderRadius:7, padding:'8px 12px' }}>
+                        <span style={{ width:8, height:8, borderRadius:'50%', background:'#60a5fa', flexShrink:0 }}/>
+                        <span style={{ fontSize:10, color:'#e2e8f0' }}>Lider segment: <strong>{s.seg}</strong> ({s.score?.genel??0} puan)</span>
+                      </div>
+                    ))}
                   </div>
-                  {raporData.katData.sort((a,b) => b.trVal - a.trVal).slice(0,2).map(k => (
-                    <div key={k.key} style={{ display: 'flex', alignItems: 'center', gap: 8,
-                      marginBottom: 6, background: 'rgba(255,255,255,.05)', borderRadius: 6, padding: '6px 10px' }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#34d399', flexShrink: 0 }} />
-                      <span style={{ fontSize: 10, color: '#e2e8f0' }}>{k.label}: <strong>{k.trVal} puan</strong></span>
-                    </div>
-                  ))}
-                </div>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#f87171', marginBottom: 8 }}>
-                    GELİŞİM ALANLARI
+                  <div>
+                    <div style={{ fontSize:10, fontWeight:700, color:'#f87171', marginBottom:10, textTransform:'uppercase', letterSpacing:'.08em' }}>Gelişim Alanları</div>
+                    {[...d.katData].sort((a,b)=>a.trVal-b.trVal).slice(0,2).map(k => (
+                      <div key={k.key} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:7,
+                        background:'rgba(255,255,255,.05)', borderRadius:7, padding:'8px 12px' }}>
+                        <span style={{ width:8, height:8, borderRadius:'50%', background:'#f87171', flexShrink:0 }}/>
+                        <div>
+                          <span style={{ fontSize:10, color:'#e2e8f0', fontWeight:600 }}>{k.label}</span>
+                          <span style={{ fontSize:11, fontFamily:'var(--font-dm-mono)', fontWeight:800, color:'#f87171', marginLeft:8 }}>{k.trVal}</span>
+                          {k.cmpVal !== null && <span style={{ fontSize:8, color:'#64748b', marginLeft:4 }}>(önceki: {k.cmpVal})</span>}
+                        </div>
+                      </div>
+                    ))}
+                    {d.kayiplar.length > 0 && (
+                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:7,
+                        background:'rgba(239,68,68,.1)', borderRadius:7, padding:'8px 12px', border:'1px solid rgba(239,68,68,.2)' }}>
+                        <span style={{ width:8, height:8, borderRadius:'50%', background:'#ef4444', flexShrink:0 }}/>
+                        <span style={{ fontSize:10, color:'#fca5a5' }}>{d.kayiplar.length} KPI kritik gerileme gösterdi</span>
+                      </div>
+                    )}
                   </div>
-                  {raporData.katData.sort((a,b) => a.trVal - b.trVal).slice(0,2).map(k => (
-                    <div key={k.key} style={{ display: 'flex', alignItems: 'center', gap: 8,
-                      marginBottom: 6, background: 'rgba(255,255,255,.05)', borderRadius: 6, padding: '6px 10px' }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f87171', flexShrink: 0 }} />
-                      <span style={{ fontSize: 10, color: '#e2e8f0' }}>{k.label}: <strong>{k.trVal} puan</strong></span>
-                    </div>
-                  ))}
+                </div>
+
+                {yorumlar.strateji && (
+                  <div style={{ background:'rgba(255,255,255,.07)', borderRadius:8, padding:'16px 18px',
+                    fontSize:11, lineHeight:1.9, color:'#e2e8f0', borderLeft:'3px solid #34d399' }}>
+                    {yorumlar.strateji}
+                  </div>
+                )}
+
+                <div style={{ marginTop:24, paddingTop:16, borderTop:'1px solid rgba(255,255,255,.1)',
+                  fontSize:8, color:'#475569', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <span>SSH Rekabet Analizi · Baz: {d.baz}{d.cmp?` · Karş: ${d.cmp}`:''}</span>
+                  <span>{selBolge||'Tüm Türkiye'} · {new Date().toLocaleDateString('tr-TR')}</span>
                 </div>
               </div>
-
-              {yorumlar.oneri && (
-                <div style={{ background: 'rgba(255,255,255,.07)', borderRadius: 8,
-                  padding: '14px 16px', fontSize: 11, lineHeight: 1.8, color: '#e2e8f0',
-                  borderLeft: '3px solid #34d399' }}>
-                  {yorumlar.oneri}
-                </div>
-              )}
-
-              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,.1)',
-                fontSize: 8, color: '#6b7280', display: 'flex', justifyContent: 'space-between' }}>
-                <span>SSH Rekabet Analizi · {raporData.donem} · {selBolge || 'Tüm Türkiye'}</span>
-                <span>Oluşturuldu: {new Date().toLocaleDateString('tr-TR')}</span>
-              </div>
-            </div>
-
-            </div>{/* ── Sayfa 4 sonu ── */}
+            </Sayfa>
 
           </div>
         )}
       </div>
 
       <style>{`
-        .rapor-sayfa {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
         @media print {
-          @page {
-            size: A4;
-            margin: 12mm 14mm;
-          }
+          @page { size: A4; margin: 10mm 12mm; }
           body * { visibility: hidden !important; }
           #rapor-icerik, #rapor-icerik * { visibility: visible !important; }
-          #rapor-icerik {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-          }
-          .rapor-sayfa {
-            page-break-after: always;
-            break-after: page;
-            page-break-inside: avoid;
-          }
-          .rapor-sayfa:last-child {
-            page-break-after: auto;
-            break-after: auto;
-          }
+          #rapor-icerik { position: absolute; top: 0; left: 0; width: 100%; }
+          .rapor-sayfa { page-break-after: always; break-after: page; }
+          .rapor-sayfa:last-child { page-break-after: auto; break-after: auto; }
         }
       `}</style>
     </div>
   )
 }
 
-const thS: React.CSSProperties = { padding: '7px 10px', textAlign: 'left', fontSize: 9,
-  fontWeight: 700, color: 'var(--tx3)', borderBottom: '1px solid var(--bd)', whiteSpace: 'nowrap' }
-const tdS: React.CSSProperties = { padding: '6px 10px', borderBottom: '1px solid var(--bd)' }
+const selSt: React.CSSProperties = { padding:'3px 7px', borderRadius:5, fontSize:9, fontWeight:600, background:'var(--surf)', border:'1px solid var(--bd)', color:'var(--tx2)', cursor:'pointer' }
+const thS: React.CSSProperties = { padding:'7px 10px', textAlign:'left', fontSize:9, fontWeight:700, color:'var(--tx3)', borderBottom:'1px solid var(--bd)', whiteSpace:'nowrap' }
+const tdS: React.CSSProperties = { padding:'6px 10px', borderBottom:'1px solid var(--bd)' }
