@@ -25,7 +25,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           (function(){
             try {
               var t = localStorage.getItem('ssh-theme');
-              if (t === 'light') document.documentElement.classList.add('light-pre');
+              // Default: light. Sadece 'dark' kaydedilmişse dark uygula.
+              if (t === 'dark') {
+                document.body && document.body.classList.remove('light');
+              } else {
+                // light veya kayıt yoksa — light class'ını body'e hemen ekle
+                document.addEventListener('DOMContentLoaded', function() {
+                  document.body.classList.add('light');
+                });
+              }
             } catch(e) {}
           })();
         `}} />
