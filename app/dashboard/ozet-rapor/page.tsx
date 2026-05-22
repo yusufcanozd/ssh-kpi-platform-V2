@@ -715,8 +715,6 @@ export default function OzetRaporPage() {
               </div>
             </div>
 
-            </div>{/* ── Kapanış bandı sonu ── */}
-
             </div>{/* ── Sayfa 4 sonu ── */}
 
           </div>
