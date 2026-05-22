@@ -743,51 +743,50 @@ export default function OzetRaporPage() {
       </div>
 
       <style>{`
-        .rapor-sayfa { display:flex; flex-direction:column; gap:14px; margin-bottom:32px; }
+        .rapor-sayfa {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          margin-bottom: 32px;
+        }
 
         @media print {
           @page {
             size: A4;
-            margin: 0;
+            margin: 10mm 12mm;
           }
 
-          /* Tarayıcı header/footer'ı gizle */
-          html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-
-          /* Tüm sayfayı gizle */
-          body { margin:0; padding:0; }
-          body > * { display:none !important; }
-
-          /* Sadece rapor içeriğini göster */
+          /* Sadece rapor görünür */
+          body * { visibility: hidden !important; }
+          #rapor-print-wrapper,
+          #rapor-print-wrapper * { visibility: visible !important; }
           #rapor-print-wrapper {
-            display: block !important;
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            margin: 0;
-            padding: 10mm 12mm;
-            box-sizing: border-box;
           }
 
-          #rapor-icerik {
-            display: block !important;
-          }
-
+          /* Sayfa kırılımı */
           .rapor-sayfa {
-            display: flex !important;
-            flex-direction: column !important;
-            gap: 14px !important;
-            margin-bottom: 0 !important;
             page-break-after: always;
             break-after: page;
+            margin-bottom: 0 !important;
+            /* Boşlukları önle — min-height kaldırıldı */
           }
-
           .rapor-sayfa:last-child {
             page-break-after: auto;
             break-after: auto;
           }
-
           .rapor-sayfa > * {
             page-break-inside: avoid;
             break-inside: avoid;
+          }
+
+          /* Renkleri koru */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
         }
       `}</style>
