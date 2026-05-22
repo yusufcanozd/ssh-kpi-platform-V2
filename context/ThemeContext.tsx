@@ -7,30 +7,36 @@ interface ThemeContextType { theme: Theme; toggleTheme: () => void }
 
 const ThemeContext = createContext<ThemeContextType>({ theme: 'light', toggleTheme: () => {} })
 
+function applyTheme(t: Theme) {
+  // html elementine uygula — body'den önce paint ediliyor
+  const root = document.documentElement
+  if (t === 'light') {
+    root.classList.add('light')
+    root.classList.remove('dark')
+    document.body.classList.add('light')
+    document.body.classList.remove('dark')
+  } else {
+    root.classList.add('dark')
+    root.classList.remove('light')
+    document.body.classList.remove('light')
+    document.body.classList.add('dark')
+  }
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // SSR'da light, client'ta localStorage'dan oku
   const [theme, setTheme] = useState<Theme>('light')
-  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    // Sadece client'ta çalışır — flash yok çünkü inline script zaten class'ı ayarladı
-    const saved = localStorage.getItem('ssh-theme') as Theme | null
-    const resolved = saved ?? 'light'
-    setTheme(resolved)
-    setMounted(true)
-    document.documentElement.classList.remove('light-pre')
-    document.body.classList.toggle('light', resolved === 'light')
+    const saved = (localStorage.getItem('ssh-theme') as Theme) ?? 'light'
+    setTheme(saved)
+    applyTheme(saved)
   }, [])
-
-  useEffect(() => {
-    if (!mounted) return
-    document.body.classList.toggle('light', theme === 'light')
-  }, [theme, mounted])
 
   const toggleTheme = () => {
     const next: Theme = theme === 'dark' ? 'light' : 'dark'
     setTheme(next)
     localStorage.setItem('ssh-theme', next)
+    applyTheme(next)
   }
 
   return (
