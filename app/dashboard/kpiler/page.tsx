@@ -275,6 +275,8 @@ export default function KpilerPage() {
                       label:(ctx)=>`${ctx.dataset.label}: ${fmtKpi(ctx.parsed.y as number,meta.fmt)}`
                     }},
                     // @ts-ignore
+                    datalabels:{ display: false },
+                    // @ts-ignore
                     segmentAvgLine:{ lines: allLines },
                     // @ts-ignore
                     barLabel:{ fmt: meta.fmt }
