@@ -248,11 +248,18 @@ export default function OzetRaporPage() {
       <div className={styles.content}>
 
         <div style={{ background:'var(--surf2)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 18px', marginBottom:16 }}>
-          <div style={{ display:'flex', gap:24, alignItems:'flex-start', flexWrap:'wrap' }}>
-            <DonemSec2 label="Baz Dönem" value={baz} onChange={handleBazChange} />
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr auto', gap:24, alignItems:'start' }}>
+
+            {/* Baz Dönem */}
             <div>
-              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
-                <span style={{ fontSize:9, fontWeight:700, color:'var(--tx3)', textTransform:'uppercase', letterSpacing:'.06em' }}>Karşılaştırma Dönemi</span>
+              <div style={{ fontSize:9, fontWeight:700, color:'var(--tx3)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>Baz Dönem</div>
+              <DonemSec2 label="" value={baz} onChange={handleBazChange} />
+            </div>
+
+            {/* Karşılaştırma Dönemi */}
+            <div>
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6, height:20 }}>
+                <div style={{ fontSize:9, fontWeight:700, color:'var(--tx3)', textTransform:'uppercase', letterSpacing:'.06em' }}>Karşılaştırma Dönemi</div>
                 <button onClick={() => setCmpAktif(v => !v)}
                   style={{ padding:'2px 8px', borderRadius:10, fontSize:8, fontWeight:600, cursor:'pointer',
                     border:'1px solid ' + (cmpAktif ? 'var(--blue)' : 'var(--bd)'),
@@ -263,7 +270,9 @@ export default function OzetRaporPage() {
               </div>
               {cmpAktif && <DonemSec2 label="" value={cmp} onChange={setCmp} />}
             </div>
-            <div style={{ marginLeft:'auto', display:'flex', gap:10, alignItems:'center' }}>
+
+            {/* Butonlar */}
+            <div style={{ display:'flex', gap:10, alignItems:'flex-end', paddingBottom:2 }}>
               {d && (
                 <button onClick={() => {
                   const prev = document.title
