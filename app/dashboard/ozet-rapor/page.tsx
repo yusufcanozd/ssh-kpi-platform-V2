@@ -234,8 +234,6 @@ export default function OzetRaporPage() {
   const [rapor, setRapor]           = useState<ReturnType<typeof buildData> | null>(null)
   const [yorumlar, setYorumlar]     = useState<Record<string,string>>({})
 
-  if (!mounted) return null
-
   const bazStr = donemSecToStr(baz)
   const cmpStr = cmpAktif ? donemSecToStr(cmp) : null
 
@@ -276,6 +274,8 @@ export default function OzetRaporPage() {
   }
 
   const d = rapor
+
+  if (!mounted) return null
 
   return (
     <div className={styles.wrap}>
