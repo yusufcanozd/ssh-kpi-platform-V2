@@ -278,7 +278,7 @@ export function debugDonem(seg = '', bolge = '', yas = 'Tümü'): void {
   const rows = CUBE.filter(r => r[0] === seg && r[1] === bolge && r[2] === yas)
   console.group(`[kpi] debugDonem(seg="${seg||'TR'}", bolge="${bolge||'Tümü'}", yas="${yas}")`)
   console.log('Satır sayısı:', rows.length)
-  console.log('Dönemler:', [...new Set(rows.map(r => r[3]).filter(Boolean))].sort())
+  console.log('Dönemler:', Array.from(new Set(rows.map(r => r[3]).filter(Boolean))).sort())
   console.groupEnd()
 }
 
