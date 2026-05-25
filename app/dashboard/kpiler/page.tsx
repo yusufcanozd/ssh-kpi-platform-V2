@@ -273,10 +273,11 @@ export default function KpiDetayPage() {
     padding: '6px 8px', borderBottom: '1px solid var(--bd)', textAlign: 'center',
   }
 
-  // Aktif KPI adı (başlık için)
+  // Aktif KPI adı (başlık için) — as cast SWC'de sorun çıkarır, idx değişkenine al
+  const kpiIdx = sortKpi === -1 ? 0 : sortKpi
   const aktifAd = sortKpi === -1
     ? 'Genel Skor'
-    : (KPI_META[sortKpi as number]?.ad ?? '') + (isLowerBetter(sortKpi as number) ? ' ↓' : '')
+    : (KPI_META[kpiIdx]?.ad ?? '') + (isLowerBetter(kpiIdx) ? ' ↓' : '')
 
   return (
     <div className={styles.wrap}>
