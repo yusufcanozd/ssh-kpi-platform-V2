@@ -274,23 +274,17 @@ export default function KpiDetayPage() {
 
             {/* ── Marka tablosu ── */}
             <div style={{ background: 'var(--surf)', border: '1px solid var(--bd)', borderRadius: 10, overflow: 'hidden' }}>
-              <div style={{ overflowX: 'auto' }}>
+              <div
+                style={{ overflowX: 'auto', overflowY: 'hidden', transition: 'max-height .3s ease' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.overflowY = 'auto'; (e.currentTarget as HTMLDivElement).style.maxHeight = '520px' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.overflowY = 'hidden'; (e.currentTarget as HTMLDivElement).style.maxHeight = `${Math.min(markalar.length, 15) * 36 + 40}px` }}
+                ref={el => { if (el) el.style.maxHeight = `${Math.min(markalar.length, 15) * 36 + 40}px` }}
+              >
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
-                  <thead>
-                    <tr style={{ background: 'var(--surf2)' }}>
-                      <th style={{ ...thS, textAlign: 'left', minWidth: 120 }}>Marka</th>
-                      <th style={thS}>Seg.</th>
-                      {/* Genel skor kolonu — tıklanabilir */}
-                      <th
-                        onClick={() => setSortKpi(-1)}
-                        style={{
-                          ...thS, minWidth: 64,
-                          color: sortKpi===-1 ? '#f59e0b' : 'var(--tx3)',
-                          background: sortKpi===-1 ? 'rgba(245,158,11,.08)' : undefined,
-                        }}>
-                        Genel{sortKpi===-1 ? ' ▾' : ''}
-                      </th>
-                      {selCmpDonem && <th style={thS}>Önceki</th>}
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surf2)' }}>
+                    <tr>
+                      <th style={{ ...thS, textAlign: 'left', minWidth: 120, position: 'sticky', left: 0, background: 'var(--surf2)', zIndex: 3 }}>Marka</th>
+                      <th style={{ ...thS, minWidth: 72, position: 'sticky', left: 120, background: 'var(--surf2)', zIndex: 3 }}>Seg.</th>
                       {/* KPI kolonları — tam isimle */}
                       {KPI_META.map((k, i) => (
                         <th key={i}
@@ -299,7 +293,7 @@ export default function KpiDetayPage() {
                           style={{
                             ...thS,
                             color: sortKpi===i ? 'var(--blue)' : 'var(--tx3)',
-                            background: sortKpi===i ? 'rgba(59,130,246,.08)' : undefined,
+                            background: sortKpi===i ? 'rgba(59,130,246,.08)' : 'var(--surf2)',
                             minWidth: 110,
                             maxWidth: 140,
                             whiteSpace: 'normal',
@@ -311,6 +305,22 @@ export default function KpiDetayPage() {
                           {sortKpi===i ? ' ▾' : ''}
                         </th>
                       ))}
+                      {/* Genel ve Önceki — sağda sabit */}
+                      <th
+                        onClick={() => setSortKpi(-1)}
+                        style={{
+                          ...thS, minWidth: 70,
+                          color: sortKpi===-1 ? '#f59e0b' : 'var(--tx3)',
+                          background: sortKpi===-1 ? 'rgba(245,158,11,.08)' : 'var(--surf2)',
+                          borderLeft: '2px solid var(--bd)',
+                        }}>
+                        Genel{sortKpi===-1 ? ' ▾' : ''}
+                      </th>
+                      {selCmpDonem && (
+                        <th style={{ ...thS, minWidth: 70, background: 'var(--surf2)' }}>
+                          Önceki
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -321,10 +331,10 @@ export default function KpiDetayPage() {
                           onMouseEnter={e => (e.currentTarget.style.background = 'var(--surf2)')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <td style={{ ...tdS, textAlign: 'left', fontWeight: 700, color: SEGMENT_HEX[m.segment] }}>
+                          <td style={{ ...tdS, textAlign: 'left', fontWeight: 700, color: SEGMENT_HEX[m.segment], position: 'sticky', left: 0, background: 'var(--surf)', zIndex: 1 }}>
                             {m.marka}
                           </td>
-                          <td style={tdS}>
+                          <td style={{ ...tdS, position: 'sticky', left: 120, background: 'var(--surf)', zIndex: 1 }}>
                             <span style={{
                               background: SEGMENT_BG[m.segment], color: SEGMENT_HEX[m.segment],
                               padding: '2px 7px', borderRadius: 20, fontSize: 8, fontWeight: 700,
@@ -333,22 +343,7 @@ export default function KpiDetayPage() {
                               {m.segment}
                             </span>
                           </td>
-                          <td style={{
-                            ...tdS, fontWeight: 800, fontFamily: 'var(--font-dm-mono)',
-                            color: scoreColor(m.score), background: sortKpi===-1 ? scoreBg(m.score) : undefined,
-                          }}>
-                            {m.score}
-                          </td>
-                          {selCmpDonem && (
-                            <td style={{ ...tdS, fontSize: 9 }}>
-                              {m.cmpScore != null ? (
-                                <span style={{ color: delta != null ? chgColor(delta) : 'var(--tx3)', fontWeight: 700 }}>
-                                  {delta != null && (delta > 0 ? '▲' : delta < 0 ? '▼' : '→')}{' '}
-                                  {m.cmpScore}
-                                </span>
-                              ) : '—'}
-                            </td>
-                          )}
+                          {/* KPI değerleri */}
                           {m.bazSkorlar.map((skor, ki) => {
                             const cmpSkor = m.cmpSkorlar?.[ki] ?? null
                             const d = chgPct(skor, cmpSkor)
@@ -371,12 +366,32 @@ export default function KpiDetayPage() {
                               </td>
                             )
                           })}
+                          {/* Genel — sağda */}
+                          <td style={{
+                            ...tdS, fontWeight: 800, fontFamily: 'var(--font-dm-mono)',
+                            color: scoreColor(m.score),
+                            background: sortKpi===-1 ? scoreBg(m.score) : undefined,
+                            borderLeft: '2px solid var(--bd)',
+                          }}>
+                            {m.score}
+                          </td>
+                          {/* Önceki dönem — sağda */}
+                          {selCmpDonem && (
+                            <td style={{ ...tdS, fontSize: 9 }}>
+                              {m.cmpScore != null ? (
+                                <span style={{ color: delta != null ? chgColor(delta) : 'var(--tx3)', fontWeight: 700 }}>
+                                  {delta != null && (delta > 0 ? '▲' : delta < 0 ? '▼' : '→')}{' '}
+                                  {m.cmpScore}
+                                </span>
+                              ) : '—'}
+                            </td>
+                          )}
                         </tr>
                       )
                     })}
                     {markalar.length === 0 && (
                       <tr>
-                        <td colSpan={3 + KPI_META.length + (selCmpDonem ? 1 : 0)}
+                        <td colSpan={4 + KPI_META.length + (selCmpDonem ? 1 : 0)}
                           style={{ padding: 40, textAlign: 'center', color: 'var(--tx3)' }}>
                           Seçili filtreler için veri bulunamadı
                         </td>
@@ -384,6 +399,10 @@ export default function KpiDetayPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+              {/* Alt ipucu */}
+              <div style={{ padding: '6px 14px', fontSize: 9, color: 'var(--tx3)', borderTop: '1px solid var(--bd)', textAlign: 'center' }}>
+                {markalar.length} marka · tablonun üzerine gelin ve aşağı kaydırın
               </div>
             </div>
           </div>
