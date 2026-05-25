@@ -1,69 +1,35 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { Bar } from 'react-chartjs-2'
+import {
+  Chart as ChartJS, CategoryScale, LinearScale,
+  BarElement, Tooltip, Legend,
+} from 'chart.js'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
-  KPI_META, SEGMENTLER, SEGMENT_HEX, SEGMENT_BG, SEGMENT_HEX_BG,
+  KPI_META, SEGMENTLER, SEGMENT_HEX, SEGMENT_BG,
   CAT_COLORS, KAT_YAPILAR,
-  getKpiScores, getKpiScoresDetailed, getScore, getMarkaRanking,
+  getKpiScores, getScore, getMarkaRanking,
   kpiScoreColor, kpiScoreBg, scoreColor, scoreBg,
-  changePct, chgColor, chgBg, isLowerBetter,
+  changePct, chgColor, isLowerBetter,
 } from '@/lib/kpi'
 import styles from './page.module.css'
 
-// ── Tip tanımları ──────────────────────────────────────────────
-type TabTip = 'kpi' | 'kategori'
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
-// ── Yardımcılar ───────────────────────────────────────────────
+type TabTip = 'kpi' | 'kategori'
+// -1 = Genel Skor
+type SortKpi = number | -1
+
 const fmt0 = (v: number) => Math.round(v).toString()
 const chgPct = (baz: number, cmp: number | null) => changePct(baz, cmp)
 
-// ── Skor kutusu bileşeni ──────────────────────────────────────
-function SkorKutu({
-  label, unit='', skor, cmpSkor, info,
-}: {
-  label: string; unit?: string; skor: number; cmpSkor?: number|null; info?: string
-}) {
-  const delta = cmpSkor != null ? chgPct(skor, cmpSkor) : null
-  return (
-    <div style={{
-      background: scoreBg(skor), border: `1px solid ${scoreColor(skor)}33`,
-      borderRadius: 10, padding: '10px 12px', textAlign: 'center', position: 'relative',
-    }}>
-      <div style={{ fontSize: 9, color: 'var(--tx3)', marginBottom: 4, fontWeight: 600, lineHeight: 1.2 }}>
-        {label}{unit ? ` (${unit})` : ''}
-      </div>
-      <div style={{
-        fontSize: 22, fontWeight: 900, color: scoreColor(skor),
-        fontFamily: 'var(--font-dm-mono)', lineHeight: 1,
-      }}>
-        {fmt0(skor)}
-      </div>
-      <div style={{ fontSize: 8, color: 'var(--tx3)', marginTop: 3 }}>puan</div>
-      {delta != null && (
-        <div style={{
-          position: 'absolute', top: 6, right: 8,
-          fontSize: 8, fontWeight: 700, color: chgColor(delta),
-        }}>
-          {delta > 0 ? '▲' : delta < 0 ? '▼' : '→'}{' '}{Math.abs(delta)}%
-        </div>
-      )}
-      {info && (
-        <div title={info} style={{
-          position: 'absolute', top: 6, left: 8,
-          fontSize: 9, color: 'var(--tx3)', cursor: 'help',
-        }}>ℹ</div>
-      )}
-    </div>
-  )
-}
-
-// ── Ana bileşen ───────────────────────────────────────────────
 export default function KpiDetayPage() {
   const { selSeg, selBolge, selYas, selDonem, selCmpDonem } = useDashboardCtx()
-  const [tab, setTab] = useState<TabTip>('kpi')
-  const [sortKpi, setSortKpi] = useState<number>(0)
+  const [tab, setTab]       = useState<TabTip>('kpi')
+  const [sortKpi, setSortKpi] = useState<SortKpi>(-1)  // -1 = Genel Skor
 
   const filterLabel = [
     selBolge || 'Tüm TR',
@@ -71,7 +37,6 @@ export default function KpiDetayPage() {
     selDonem || 'Tüm Dönem',
   ].join(' · ')
 
-  // ── Segment bazlı normalize KPI skorları ──
   const segData = useMemo(() =>
     SEGMENTLER.filter(s => !selSeg || s === selSeg).map(s => ({
       seg: s,
@@ -83,32 +48,97 @@ export default function KpiDetayPage() {
     [selSeg, selBolge, selYas, selDonem, selCmpDonem]
   )
 
-  // ── Marka listesi (sıralı) ──
   const markalar = useMemo(() => {
     const ranked    = getMarkaRanking(selSeg, selBolge, selYas, selDonem)
     const cmpRanked = selCmpDonem ? getMarkaRanking(selSeg, selBolge, selYas, selCmpDonem) : []
-
     return ranked.map(m => {
-      // Markanın segmentine ait normalize KPI skorları
       const bazSkorlar = getKpiScores(m.segment, selBolge, selYas, selDonem)
       const cmpSkorlar = selCmpDonem ? getKpiScores(m.segment, selBolge, selYas, selCmpDonem) : null
       const cmpScore   = cmpRanked.find(x => x.marka === m.marka)?.score ?? null
       return { ...m, bazSkorlar, cmpSkorlar, cmpScore }
     }).sort((a, b) => {
+      if (sortKpi === -1) return b.score - a.score
       const av = a.bazSkorlar[sortKpi] ?? 0
       const bv = b.bazSkorlar[sortKpi] ?? 0
       return isLowerBetter(sortKpi) ? av - bv : bv - av
     })
   }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, sortKpi])
 
+  // ── Bar grafik verisi ─────────────────────────────────────
+  const barData = useMemo(() => {
+    const labels = markalar.map(m => m.marka)
+    const vals   = markalar.map(m =>
+      sortKpi === -1 ? m.score : (m.bazSkorlar[sortKpi] ?? 0)
+    )
+    const colors = vals.map(v => kpiScoreColor(v))
+    const cmpVals = selCmpDonem
+      ? markalar.map(m =>
+          sortKpi === -1
+            ? (m.cmpScore ?? 0)
+            : (m.cmpSkorlar?.[sortKpi] ?? 0)
+        )
+      : null
+
+    return {
+      labels,
+      datasets: [
+        {
+          label: sortKpi === -1 ? 'Genel Skor' : KPI_META[sortKpi]?.ad,
+          data: vals,
+          backgroundColor: colors.map(c => c + 'cc'),
+          borderColor: colors,
+          borderWidth: 1,
+          borderRadius: 4,
+        },
+        ...(cmpVals ? [{
+          label: 'Önceki Dönem',
+          data: cmpVals,
+          backgroundColor: 'rgba(100,116,139,.3)',
+          borderColor: 'rgba(100,116,139,.6)',
+          borderWidth: 1,
+          borderRadius: 4,
+        }] : []),
+      ],
+    }
+  }, [markalar, sortKpi, selCmpDonem])
+
+  const barOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: !!selCmpDonem, labels: { color: '#8496b0', font: { size: 10 } } },
+      tooltip: {
+        callbacks: {
+          label: (ctx: any) => ` ${ctx.dataset.label}: ${Math.round(ctx.parsed.y)} puan`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        ticks: { color: '#8496b0', font: { size: 9 }, maxRotation: 35 },
+        grid: { color: 'rgba(132,150,176,.08)' },
+      },
+      y: {
+        min: 0,
+        ticks: { color: '#8496b0', font: { size: 9 } },
+        grid: { color: 'rgba(132,150,176,.08)' },
+      },
+    },
+  } as const
+
   const thS: React.CSSProperties = {
     padding: '8px 10px', fontSize: 9, fontWeight: 700, color: 'var(--tx3)',
-    borderBottom: '1px solid var(--bd)', whiteSpace: 'nowrap', textAlign: 'center',
-    cursor: 'pointer', userSelect: 'none',
+    borderBottom: '1px solid var(--bd)', whiteSpace: 'nowrap',
+    textAlign: 'center', cursor: 'pointer', userSelect: 'none',
   }
   const tdS: React.CSSProperties = {
     padding: '6px 8px', borderBottom: '1px solid var(--bd)', textAlign: 'center',
   }
+
+  // Aktif KPI adı (başlık için)
+  const aktifAd = sortKpi === -1
+    ? 'Genel Skor'
+    : KPI_META[sortKpi]?.ad + (isLowerBetter(sortKpi) ? ' ↓' : '')
 
   return (
     <div className={styles.wrap}>
@@ -143,36 +173,42 @@ export default function KpiDetayPage() {
                   background: 'var(--surf)', border: `1px solid ${SEGMENT_HEX[seg]}44`,
                   borderRadius: 12, padding: 14, borderTop: `3px solid ${SEGMENT_HEX[seg]}`,
                 }}>
-                  {/* Başlık */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <span style={{ fontWeight: 800, fontSize: 14, color: SEGMENT_HEX[seg] }}>{seg}</span>
                     {katSkor && (
-                      <span style={{
-                        background: scoreBg(katSkor.genel), color: scoreColor(katSkor.genel),
-                        borderRadius: 8, padding: '3px 10px', fontSize: 12, fontWeight: 800,
-                        fontFamily: 'var(--font-dm-mono)',
-                      }}>
+                      <button
+                        onClick={() => setSortKpi(-1)}
+                        style={{
+                          background: sortKpi===-1 ? scoreBg(katSkor.genel) : 'transparent',
+                          color: scoreColor(katSkor.genel),
+                          border: `2px solid ${sortKpi===-1 ? scoreColor(katSkor.genel) : scoreColor(katSkor.genel)+'44'}`,
+                          borderRadius: 8, padding: '3px 10px', fontSize: 12, fontWeight: 800,
+                          fontFamily: 'var(--font-dm-mono)', cursor: 'pointer',
+                        }}>
                         {katSkor.genel}
-                      </span>
+                      </button>
                     )}
                   </div>
 
-                  {/* KPI Skor kartları */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
                     {KPI_META.map((k, i) => {
                       const skor    = kpiSkorlar[i] ?? 100
                       const cmpSkor = kpiSkorlarCmp?.[i] ?? null
+                      const aktif   = sortKpi === i
                       return (
-                        <div key={i} style={{
-                          background: kpiScoreBg(skor), border: `1px solid ${kpiScoreColor(skor)}33`,
-                          borderRadius: 8, padding: '8px 10px', cursor: 'pointer',
-                          outline: sortKpi===i ? `2px solid ${SEGMENT_HEX[seg]}` : 'none',
-                        }}
+                        <div key={i}
                           onClick={() => setSortKpi(i)}
+                          style={{
+                            background: aktif ? kpiScoreBg(skor) : 'var(--surf2)',
+                            border: aktif
+                              ? `2px solid ${kpiScoreColor(skor)}`
+                              : `1px solid ${kpiScoreColor(skor)}22`,
+                            borderRadius: 8, padding: '8px 10px', cursor: 'pointer',
+                            transition: 'all .15s',
+                          }}
                         >
-                          <div style={{ fontSize: 8, color: 'var(--tx3)', marginBottom: 4, lineHeight: 1.2 }}>
-                            {k.ad}
-                            {k.is_lower_better && <span title="Küçükse iyi"> ↓</span>}
+                          <div style={{ fontSize: 8, color: 'var(--tx3)', marginBottom: 4, lineHeight: 1.3 }}>
+                            {k.ad}{k.is_lower_better && <span title="Küçükse iyi"> ↓</span>}
                           </div>
                           <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
                             <span style={{
@@ -199,7 +235,44 @@ export default function KpiDetayPage() {
               ))}
             </div>
 
-            {/* Marka tablosu */}
+            {/* ── Bar Grafik ── */}
+            <div style={{
+              background: 'var(--surf)', border: '1px solid var(--bd)',
+              borderRadius: 10, padding: '16px 20px', marginBottom: 16,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx)' }}>
+                    Marka Karşılaştırma
+                  </span>
+                  <span style={{
+                    marginLeft: 10, fontSize: 10, fontWeight: 600,
+                    color: sortKpi === -1 ? '#f59e0b' : 'var(--blue)',
+                    background: sortKpi === -1 ? 'rgba(245,158,11,.1)' : 'rgba(59,130,246,.1)',
+                    padding: '2px 8px', borderRadius: 20,
+                  }}>
+                    {aktifAd}
+                  </span>
+                </div>
+                {/* Genel Skor butonu */}
+                <button
+                  onClick={() => setSortKpi(-1)}
+                  style={{
+                    padding: '5px 14px', borderRadius: 20, fontSize: 10, fontWeight: 700,
+                    cursor: 'pointer',
+                    border: `1px solid ${sortKpi===-1 ? '#f59e0b' : 'var(--bd)'}`,
+                    background: sortKpi===-1 ? 'rgba(245,158,11,.12)' : 'var(--surf2)',
+                    color: sortKpi===-1 ? '#f59e0b' : 'var(--tx3)',
+                  }}>
+                  ★ Genel Skor
+                </button>
+              </div>
+              <div style={{ height: 240 }}>
+                <Bar data={barData} options={barOptions} />
+              </div>
+            </div>
+
+            {/* ── Marka tablosu ── */}
             <div style={{ background: 'var(--surf)', border: '1px solid var(--bd)', borderRadius: 10, overflow: 'hidden' }}>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
@@ -207,19 +280,35 @@ export default function KpiDetayPage() {
                     <tr style={{ background: 'var(--surf2)' }}>
                       <th style={{ ...thS, textAlign: 'left', minWidth: 120 }}>Marka</th>
                       <th style={thS}>Seg.</th>
-                      <th style={{ ...thS, minWidth: 60 }}>Genel</th>
+                      {/* Genel skor kolonu — tıklanabilir */}
+                      <th
+                        onClick={() => setSortKpi(-1)}
+                        style={{
+                          ...thS, minWidth: 64,
+                          color: sortKpi===-1 ? '#f59e0b' : 'var(--tx3)',
+                          background: sortKpi===-1 ? 'rgba(245,158,11,.08)' : undefined,
+                        }}>
+                        Genel{sortKpi===-1 ? ' ▾' : ''}
+                      </th>
                       {selCmpDonem && <th style={thS}>Önceki</th>}
+                      {/* KPI kolonları — tam isimle */}
                       {KPI_META.map((k, i) => (
-                        <th key={i} style={{
-                          ...thS,
-                          color: sortKpi===i ? 'var(--blue)' : 'var(--tx3)',
-                          background: sortKpi===i ? 'rgba(59,130,246,.08)' : undefined,
-                          minWidth: 64,
-                        }}
+                        <th key={i}
                           onClick={() => setSortKpi(i)}
-                          title={k.ad + (k.is_lower_better ? ' (küçükse iyi)' : '')}
-                        >
-                          K{k.no}{k.is_lower_better ? '↓' : ''}
+                          title={k.ad + (k.is_lower_better ? ' (küçükse iyi ↓)' : '')}
+                          style={{
+                            ...thS,
+                            color: sortKpi===i ? 'var(--blue)' : 'var(--tx3)',
+                            background: sortKpi===i ? 'rgba(59,130,246,.08)' : undefined,
+                            minWidth: 110,
+                            maxWidth: 140,
+                            whiteSpace: 'normal',
+                            lineHeight: 1.3,
+                            verticalAlign: 'bottom',
+                            paddingBottom: 6,
+                          }}>
+                          {k.ad}{k.is_lower_better ? ' ↓' : ''}
+                          {sortKpi===i ? ' ▾' : ''}
                         </th>
                       ))}
                     </tr>
@@ -244,8 +333,10 @@ export default function KpiDetayPage() {
                               {m.segment}
                             </span>
                           </td>
-                          <td style={{ ...tdS, fontWeight: 800, fontFamily: 'var(--font-dm-mono)',
-                            color: scoreColor(m.score), background: scoreBg(m.score) }}>
+                          <td style={{
+                            ...tdS, fontWeight: 800, fontFamily: 'var(--font-dm-mono)',
+                            color: scoreColor(m.score), background: sortKpi===-1 ? scoreBg(m.score) : undefined,
+                          }}>
                             {m.score}
                           </td>
                           {selCmpDonem && (
@@ -318,7 +409,6 @@ export default function KpiDetayPage() {
                     </span>
                   )}
                 </div>
-
                 {KAT_YAPILAR.map(kat => {
                   const skor    = katSkor    ? (katSkor    as any)[kat.key] ?? 0 : 0
                   const cmpSkor = katSkorCmp ? (katSkorCmp as any)[kat.key] ?? null : null
@@ -373,7 +463,6 @@ export default function KpiDetayPage() {
             </div>
           ))}
         </div>
-
       </div>
     </div>
   )
