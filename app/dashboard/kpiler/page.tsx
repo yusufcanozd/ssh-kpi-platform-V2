@@ -162,7 +162,7 @@ export default function KpiDetayPage() {
   const kpiBarData = useMemo(function() {
     const items = segData.map(function(s) {
       const v = sortKpi === -1 ? (s.katSkor ? s.katSkor.genel : 0) : (s.kpiSkorlar[sortKpi] ?? 0)
-      const c = sortKpi === -1 ? (s.cmpSkorlar ? s.cmpSkorlar[sortKpi] ?? 0 : null) : (s.kpiSkorlarCmp ? s.kpiSkorlarCmp[sortKpi] ?? 0 : null)
+      const c = sortKpi === -1 ? (s.katSkorCmp ? s.katSkorCmp.genel : null) : (s.kpiSkorlarCmp ? s.kpiSkorlarCmp[sortKpi] ?? 0 : null)
       return { seg: s.seg, val: v, cmp: c }
     })
     return {
