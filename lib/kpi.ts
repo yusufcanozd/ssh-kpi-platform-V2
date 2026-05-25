@@ -312,7 +312,9 @@ export function getMarkaRanking(
 // Segment değerini Tüm TR referansına göre normalize et → 0-100
 export function getKpiScores(seg: string, bolge='', yas='Tümü', donem=''): number[] {
   const segKpis = getKpisFromCube(seg, bolge, yas, donem)
-  const trKpis  = getKpisFromCube('', bolge, yas, donem)
+  // trKpis: her zaman Genel Türkiye ortalaması — bolge/yas filtresi uygulanmaz
+  // böylece normalizasyon baz değeri tutarlı kalır
+  const trKpis  = getKpisFromCube('', '', 'Tümü', donem)
   return segKpis.map((v, i) => {
     const r = trKpis[i]
     if (!v || !r) return 50
