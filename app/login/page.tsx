@@ -36,23 +36,36 @@ export default function LoginPage() {
   // ── Giriş ──────────────────────────────────────────────────
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault(); reset(); setLoading(true)
-    const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
-    if (err) {
-      const msgs: Record<string,string> = {
-        'Invalid login credentials': 'E-posta veya şifre hatalı.',
-        'Email not confirmed':       'E-posta adresiniz onaylanmamış.',
-        'Too many requests':         'Çok fazla deneme. Lütfen bekleyin.',
+    try {
+      const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
+      if (err) {
+        const msgs: Record<string,string> = {
+          'Invalid login credentials': 'E-posta veya şifre hatalı.',
+          'Email not confirmed':       'E-posta adresiniz onaylanmamış.',
+          'Too many requests':         'Çok fazla deneme. Lütfen bekleyin.',
+        }
+        setError(msgs[err.message] || 'Giriş başarısız.')
+        return
       }
-      setError(msgs[err.message] || 'Giriş başarısız.')
-      setLoading(false); return
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles').select('role, is_active').eq('id', data.user!.id).single()
+      if (profileErr || !profile) {
+        setError('Profil bilgisi alınamadı. Lütfen tekrar deneyin.')
+        return
+      }
+      if (!profile.is_active) {
+        await supabase.auth.signOut()
+        setError('Hesabınız deaktif. Yöneticinizle iletişime geçin.')
+        return
+      }
+      // setLoading(false) router.push'tan ÖNCE — unmount öncesi state temizlenir
+      setLoading(false)
+      router.push(['superadmin','admin'].includes(profile.role || '') ? '/admin' : '/dashboard')
+    } catch {
+      setError('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.')
+    } finally {
+      setLoading(false)
     }
-    const { data: profile } = await supabase.from('profiles').select('role, is_active').eq('id', data.user!.id).single()
-    if (!profile?.is_active) {
-      await supabase.auth.signOut()
-      setError('Hesabınız deaktif. Yöneticinizle iletişime geçin.')
-      setLoading(false); return
-    }
-    router.push(['superadmin','admin'].includes(profile?.role||'') ? '/admin' : '/dashboard')
   }
 
   // ── Kayıt ──────────────────────────────────────────────────
