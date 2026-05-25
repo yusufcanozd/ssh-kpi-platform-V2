@@ -252,6 +252,8 @@ export default function KpiDetayPage() {
       ],
     }
   }, [katMarkalar, katSortKey, selCmpDonem])
+
+  const thS: React.CSSProperties = {
     padding: '8px 10px', fontSize: 9, fontWeight: 700, color: 'var(--tx3)',
     borderBottom: '1px solid var(--bd)', whiteSpace: 'nowrap',
     textAlign: 'center', cursor: 'pointer', userSelect: 'none',
