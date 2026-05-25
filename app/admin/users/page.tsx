@@ -23,14 +23,14 @@ const ROLE_COLORS: Record<string, string> = {
 }
 
 export default function AdminUsersPage() {
-  const { isSuperAdmin, loading: authLoading } = useAuth()
+  const { isSuperAdmin } = useAuth()
   const [users, setUsers]     = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState('')
   const [saving, setSaving]   = useState<string | null>(null)
 
   useEffect(() => {
-    if (!authLoading) fetchUsers()
+    fetchUsers()
   }, [authLoading])
 
   async function fetchUsers() {
