@@ -30,24 +30,27 @@ const barValuePlugin = {
   id: 'barValueLabels',
   afterDatasetsDraw(chart: ChartJS) {
     const ctx = chart.ctx
-    const barCount = (chart.data.labels?.length ?? 0)
-    const fontSize = barCount <= 15 ? 9 : barCount <= 25 ? 7 : barCount <= 35 ? 6 : 0
+    const barCount = chart.data.labels ? chart.data.labels.length : 0
+    // Marka sayisina gore dinamik font — cok kalabaliksa gizle
+    const fontSize = barCount <= 10 ? 10 : barCount <= 20 ? 8 : barCount <= 35 ? 7 : 0
     if (!fontSize) return
-    chart.data.datasets.forEach((dataset, di) => {
+    chart.data.datasets.forEach(function(dataset, di) {
       const meta = chart.getDatasetMeta(di)
       if (meta.hidden) return
       const isPrev = di > 0
-      meta.data.forEach((bar, idx) => {
+      meta.data.forEach(function(bar, idx) {
         const val = dataset.data[idx] as number
         if (!val) return
-        ctx.save()
-        ctx.font = `700 ${fontSize}px monospace`
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'bottom'
-        ctx.fillStyle = isPrev
+        // Bar rengi: isPrev ise gri, degil ise skor esigine gore
+        const barColor = isPrev
           ? 'rgba(100,116,139,.9)'
           : val >= 77 ? '#10b981' : val >= 66 ? '#3b82f6' : '#ef4444'
-        ctx.fillText(Math.round(val).toString(), bar.x, bar.y - 2)
+        ctx.save()
+        ctx.font = '700 ' + String(fontSize) + 'px monospace'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'bottom'
+        ctx.fillStyle = barColor
+        ctx.fillText(String(Math.round(val)), bar.x, bar.y - 2)
         ctx.restore()
       })
     })
@@ -251,7 +254,7 @@ export default function MarkalarsPage() {
                         </th>
                       ))}
                       <th onClick={() => setSortKpi(-1)} style={{ ...thS, minWidth: 90, color: sortKpi === -1 ? '#f59e0b' : 'var(--tx3)', background: sortKpi === -1 ? 'rgba(245,158,11,.08)' : 'var(--surf2)', borderLeft: '2px solid var(--bd)' }}>
-                        Genel{selCmpDonem ? ' / Sıra Δ' : ''}{sortKpi === -1 ? ' ▾' : ''}
+                        Genel{selCmpDonem ? ' / Onceki + Sira' : ''}{sortKpi === -1 ? ' ▾' : ''}
                       </th>
                     </tr>
                   </thead>
@@ -278,18 +281,26 @@ export default function MarkalarsPage() {
                               <SkorHucre skor={skor} cmpSkor={selCmpDonem ? (m.cmpSkorlar?.[ki] ?? null) : null} size="sm" />
                             </td>
                           ))}
-                          {/* Genel + sıra değişimi */}
+                          {/* Genel: baz ortali, altinda onceki + sira degisimi */}
                           <td style={{ ...tdS, background: sortKpi === -1 ? scoreBg(m.score) : undefined, borderLeft: '2px solid var(--bd)' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                               <span style={{ fontSize: 13, fontWeight: 900, color: kpiScoreColor(m.score), fontFamily: 'var(--font-dm-mono)', lineHeight: 1 }}>
                                 {m.score}
                               </span>
-                              {rankDelta !== null && (
-                                <span style={{ fontSize: 8, fontWeight: 700, color: rankColor }}>
-                                  {rankDelta > 0 ? `▲+${rankDelta}` : rankDelta < 0 ? `▼${rankDelta}` : '—'}
-                                </span>
+                              {selCmpDonem && (
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center' }}>
+                                  {m.cmpScore != null && (
+                                    <span style={{ fontSize: 8, color: 'var(--tx3)', fontFamily: 'var(--font-dm-mono)' }}>{m.cmpScore}</span>
+                                  )}
+                                  {rankDelta !== null && (
+                                    <span style={{ fontSize: 8, fontWeight: 700, color: rankColor }}>
+                                      {rankDelta > 0 ? '+' + rankDelta : rankDelta < 0 ? String(rankDelta) : '—'}
+                                    </span>
+                                  )}
+                                </div>
                               )}
                             </div>
+                          </td>
                           </td>
                         </tr>
                       )
@@ -345,7 +356,7 @@ export default function MarkalarsPage() {
                         </th>
                       ))}
                       <th onClick={() => setKatSortKey('genel')} style={{ ...thS, minWidth: 90, color: katSortKey === 'genel' ? '#f59e0b' : 'var(--tx3)', background: katSortKey === 'genel' ? 'rgba(245,158,11,.08)' : 'var(--surf2)', borderLeft: '2px solid var(--bd)' }}>
-                        Genel{selCmpDonem ? ' / Sıra Δ' : ''}{katSortKey === 'genel' ? ' ▾' : ''}
+                        Genel{selCmpDonem ? ' / Onceki + Sira' : ''}{katSortKey === 'genel' ? ' ▾' : ''}
                       </th>
                     </tr>
                   </thead>
@@ -378,10 +389,17 @@ export default function MarkalarsPage() {
                           <td style={{ ...tdS, background: katSortKey === 'genel' ? scoreBg(m.score) : undefined, borderLeft: '2px solid var(--bd)' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                               <span style={{ fontSize: 13, fontWeight: 900, color: kpiScoreColor(m.score), fontFamily: 'var(--font-dm-mono)', lineHeight: 1 }}>{m.score}</span>
-                              {rankDelta !== null && (
-                                <span style={{ fontSize: 8, fontWeight: 700, color: rankColor }}>
-                                  {rankDelta > 0 ? `▲+${rankDelta}` : rankDelta < 0 ? `▼${rankDelta}` : '—'}
-                                </span>
+                              {selCmpDonem && (
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center' }}>
+                                  {m.cmpScore != null && (
+                                    <span style={{ fontSize: 8, color: 'var(--tx3)', fontFamily: 'var(--font-dm-mono)' }}>{m.cmpScore}</span>
+                                  )}
+                                  {rankDelta !== null && (
+                                    <span style={{ fontSize: 8, fontWeight: 700, color: rankColor }}>
+                                      {rankDelta > 0 ? '+' + rankDelta : rankDelta < 0 ? String(rankDelta) : '—'}
+                                    </span>
+                                  )}
+                                </div>
                               )}
                             </div>
                           </td>
