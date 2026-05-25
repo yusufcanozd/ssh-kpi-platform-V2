@@ -136,7 +136,7 @@ export default function MarkalarsPage() {
     return {
       labels: markalar.map(m => m.marka),
       datasets: [
-        { label: sortKpi === -1 ? 'Genel Skor' : KPI_META[sortKpi]?.ad, data: vals, backgroundColor: colors.map(c => c + 'cc'), borderColor: colors, borderWidth: 1, borderRadius: 4 },
+        { label: sortKpi === -1 ? 'Genel Skor' : (KPI_META[sortKpi] ? KPI_META[sortKpi].ad : ''), data: vals, backgroundColor: colors.map(c => c + 'cc'), borderColor: colors, borderWidth: 1, borderRadius: 4 },
         ...(cmpVals ? [{ label: 'Önceki Dönem', data: cmpVals, backgroundColor: 'rgba(100,116,139,.3)', borderColor: 'rgba(100,116,139,.6)', borderWidth: 1, borderRadius: 4 }] : []),
       ],
     }
@@ -201,7 +201,11 @@ export default function MarkalarsPage() {
     return { overflowX: 'auto', overflowY: 'hidden', transition: 'max-height .3s ease', maxHeight: `${Math.min(n, 15) * 36 + 40}px` }
   }
 
-  const aktifAd = sortKpi === -1 ? 'Genel Skor' : KPI_META[sortKpi]?.ad + (isLowerBetter(sortKpi) ? ' ↓' : '')
+  let aktifAd = 'Genel Skor'
+  if (sortKpi !== -1) {
+    const meta = KPI_META[sortKpi]
+    aktifAd = (meta ? meta.ad : '') + (isLowerBetter(sortKpi) ? ' ↓' : '')
+  }
 
   return (
     <div className={styles.wrap}>
