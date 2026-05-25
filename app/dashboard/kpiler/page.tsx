@@ -277,7 +277,7 @@ export default function KpiDetayPage() {
   let aktifAd = 'Genel Skor'
   if (sortKpi !== -1) {
     const meta = KPI_META[sortKpi]
-    aktifAd = (meta ? meta.ad : '') + (isLowerBetter(sortKpi) ? ' ↓' : '')
+    aktifAd = (meta ? meta.ad : '') + (isLowerBetter(sortKpi) ? ' (min)' : '')
   }
 
   return (
@@ -290,17 +290,20 @@ export default function KpiDetayPage() {
 
         {/* Tab seçici */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {([['kpi','KPI Bazlı'],['kategori','Kategori Bazlı']] as [TabTip, string][]).map(([t, lbl]) => (
-            <button key={t} onClick={() => setTab(t)}
-              style={{
-                padding: '6px 18px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                cursor: 'pointer', border: `1px solid ${tab===t ? 'var(--blue)' : 'var(--bd)'}`,
-                background: tab===t ? 'rgba(59,130,246,.12)' : 'var(--surf)',
-                color: tab===t ? 'var(--blue)' : 'var(--tx2)',
-              }}>
-              {lbl}
-            </button>
-          ))}
+          {(['kpi', 'kategori'] as TabTip[]).map(t => {
+            const lbl = t === 'kpi' ? 'KPI Bazlı' : 'Kategori Bazlı'
+            return (
+              <button key={t} onClick={() => setTab(t)}
+                style={{
+                  padding: '6px 18px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                  cursor: 'pointer', border: `1px solid ${tab===t ? 'var(--blue)' : 'var(--bd)'}`,
+                  background: tab===t ? 'rgba(59,130,246,.12)' : 'var(--surf)',
+                  color: tab===t ? 'var(--blue)' : 'var(--tx2)',
+                }}>
+                {lbl}
+              </button>
+            )
+          })}
         </div>
 
         {/* ── KPI Bazlı görünüm ── */}
@@ -348,7 +351,7 @@ export default function KpiDetayPage() {
                           }}
                         >
                           <div style={{ fontSize: 8, color: 'var(--tx3)', marginBottom: 6, lineHeight: 1.3 }}>
-                            {k.ad}{k.is_lower_better && <span title="Küçükse iyi"> ↓</span>}
+                            {k.ad}{k.is_lower_better && <span title="Küçükse iyi"> (min)</span>}
                           </div>
                           <SkorHucre skor={skor} cmpSkor={cmpSkor} size="lg" />
                         </div>
