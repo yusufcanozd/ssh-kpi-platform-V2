@@ -19,6 +19,31 @@ import styles from './page.module.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
+// Bar üstüne değer yazan inline plugin — dış bağımlılık yok
+const barValuePlugin = {
+  id: 'barValueLabels',
+  afterDatasetsDraw(chart: ChartJS) {
+    const ctx = chart.ctx
+    chart.data.datasets.forEach((dataset, di) => {
+      const meta = chart.getDatasetMeta(di)
+      if (meta.hidden) return
+      meta.data.forEach((bar, idx) => {
+        const val = dataset.data[idx] as number
+        if (!val) return
+        const label = Math.round(val).toString()
+        ctx.save()
+        ctx.font = `700 9px var(--font-dm-mono, monospace)`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'bottom'
+        // Renk: skor eşiğine göre
+        ctx.fillStyle = val >= 77 ? '#10b981' : val >= 66 ? '#3b82f6' : '#ef4444'
+        ctx.fillText(label, bar.x, bar.y - 3)
+        ctx.restore()
+      })
+    })
+  },
+}
+
 type TabTip = 'kpi' | 'kategori'
 // -1 = Genel Skor
 type SortKpi = number | -1
@@ -146,6 +171,7 @@ export default function KpiDetayPage() {
   const barOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    layout: { padding: { top: 18 } },  // bar üstü label için alan
     plugins: {
       legend: { display: !!selCmpDonem, labels: { color: '#8496b0', font: { size: 10 } } },
       tooltip: {
@@ -293,7 +319,7 @@ export default function KpiDetayPage() {
                 </button>
               </div>
               <div style={{ height: 240 }}>
-                <Bar data={barData} options={barOptions} />
+                <Bar data={barData} options={barOptions} plugins={[barValuePlugin]} />
               </div>
             </div>
 
