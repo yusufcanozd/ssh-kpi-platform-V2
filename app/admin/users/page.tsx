@@ -31,7 +31,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     fetchUsers()
-  }, [authLoading])
+  }, [])
 
   async function fetchUsers() {
     setLoading(true)
