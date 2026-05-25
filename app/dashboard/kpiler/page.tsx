@@ -276,7 +276,7 @@ export default function KpiDetayPage() {
   // Aktif KPI adı (başlık için)
   const aktifAd = sortKpi === -1
     ? 'Genel Skor'
-    : KPI_META[sortKpi]?.ad + (isLowerBetter(sortKpi) ? ' ↓' : '')
+    : (KPI_META[sortKpi as number]?.ad ?? '') + (isLowerBetter(sortKpi as number) ? ' ↓' : '')
 
   return (
     <div className={styles.wrap}>
