@@ -432,21 +432,21 @@ export default function TrendPage() {
   const [bit, setBit] = useState<DonemSec>({ yil:sonYil, periyot:'Q', alt:'4' })
   const aktifDonemler = useMemo(() => filtreDonemler(bas,bit), [bas,bit])
 
+  // Ortak builder state
+  const bRef = useRef<BuilderState>(emptyB())
+  const [bSnap, setBSnap] = useState<BuilderState>(emptyB())
+  const dragPayload = useRef('')
+
   // Akıllı Filtre: CUBE'da gerçekten veri olan dönemler
-  // bSnap'teki segment seçimine göre güncellenir
+  // bSnap tanımlandıktan SONRA gelmeli — used before declaration hatasını önler
   const availableDonemler = useMemo(
     () => getAvailableDonemler(
-      bSnap.segmentler[0] ?? '',  // tek segment seçiliyse onu kullan
+      bSnap.segmentler[0] ?? '',
       selBolge,
       selYas,
     ),
     [bSnap.segmentler, selBolge, selYas]
   )
-
-  // Ortak builder state
-  const bRef = useRef<BuilderState>(emptyB())
-  const [bSnap, setBSnap] = useState<BuilderState>(emptyB())
-  const dragPayload = useRef('')
 
   // Her grafiğin kendi kaydedilmiş builder state'i
   const savedStates = useRef<Record<1|2, BuilderState>>({ 1: emptyB(), 2: emptyB() })
