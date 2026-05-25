@@ -272,6 +272,9 @@ export function getMarkaScore(marka: string, bolge='', yas='Tümü', donem=''): 
   return r ? r[5] : null
 }
 
+// Alias — markalar/page.tsx getMarkaKpiScores adıyla import ediyor
+export const getMarkaKpiScores = getMarkaScore
+
 export function getMarkaSegment(marka: string): string {
   const r = MARKA_SCORE_CUBE.find(x => x[0]===marka)
   return r ? r[1] : ''
