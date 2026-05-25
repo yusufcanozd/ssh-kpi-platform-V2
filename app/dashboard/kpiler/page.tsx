@@ -19,25 +19,30 @@ import styles from './page.module.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
-// Bar üstüne değer yazan inline plugin — dış bağımlılık yok
+// Bar üstüne değer yazan inline plugin — overlap engellenmiş, önceki dönem gri
 const barValuePlugin = {
   id: 'barValueLabels',
   afterDatasetsDraw(chart: ChartJS) {
     const ctx = chart.ctx
+    const barCount = (chart.data.labels?.length ?? 0)
+    // Marka sayısına göre dinamik font — çok kalabalıksa gizle
+    const fontSize = barCount <= 15 ? 9 : barCount <= 25 ? 7 : barCount <= 35 ? 6 : 0
+    if (!fontSize) return
     chart.data.datasets.forEach((dataset, di) => {
       const meta = chart.getDatasetMeta(di)
       if (meta.hidden) return
+      const isPrev = di > 0  // ikinci dataset = önceki dönem → gri
       meta.data.forEach((bar, idx) => {
         const val = dataset.data[idx] as number
         if (!val) return
-        const label = Math.round(val).toString()
         ctx.save()
-        ctx.font = `700 9px var(--font-dm-mono, monospace)`
+        ctx.font = `700 ${fontSize}px monospace`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'bottom'
-        // Renk: skor eşiğine göre
-        ctx.fillStyle = val >= 77 ? '#10b981' : val >= 66 ? '#3b82f6' : '#ef4444'
-        ctx.fillText(label, bar.x, bar.y - 3)
+        ctx.fillStyle = isPrev
+          ? 'rgba(100,116,139,.9)'
+          : val >= 77 ? '#10b981' : val >= 66 ? '#3b82f6' : '#ef4444'
+        ctx.fillText(Math.round(val).toString(), bar.x, bar.y - 2)
         ctx.restore()
       })
     })
@@ -172,9 +177,15 @@ export default function KpiDetayPage() {
   const barOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    layout: { padding: { top: 18 } },  // bar üstü label için alan
+    layout: { padding: { top: 20 } },
     plugins: {
-      legend: { display: !!selCmpDonem, labels: { color: '#8496b0', font: { size: 10 } } },
+      legend: {
+        display: !!selCmpDonem,
+        position: 'bottom' as const,
+        labels: {
+          color: '#8496b0', font: { size: 10 }, boxWidth: 12, padding: 12,
+        },
+      },
       tooltip: {
         callbacks: {
           label: (ctx: any) => ` ${ctx.dataset.label}: ${Math.round(ctx.parsed.y)} puan`,
@@ -383,116 +394,6 @@ export default function KpiDetayPage() {
               </div>
             </div>
 
-            {/* ── Marka tablosu ── */}
-            <div style={{ background: 'var(--surf)', border: '1px solid var(--bd)', borderRadius: 10, overflow: 'hidden' }}>
-              <div
-                style={{ overflowX: 'auto', overflowY: 'hidden', transition: 'max-height .3s ease' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.overflowY = 'auto'; (e.currentTarget as HTMLDivElement).style.maxHeight = '520px' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.overflowY = 'hidden'; (e.currentTarget as HTMLDivElement).style.maxHeight = `${Math.min(markalar.length, 15) * 36 + 40}px` }}
-                ref={el => { if (el) el.style.maxHeight = `${Math.min(markalar.length, 15) * 36 + 40}px` }}
-              >
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
-                  <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surf2)' }}>
-                    <tr>
-                      <th style={{ ...thS, textAlign: 'left', minWidth: 120, position: 'sticky', left: 0, background: 'var(--surf2)', zIndex: 3 }}>Marka</th>
-                      <th style={{ ...thS, minWidth: 72, position: 'sticky', left: 120, background: 'var(--surf2)', zIndex: 3 }}>Seg.</th>
-                      {/* KPI kolonları — tam isimle */}
-                      {KPI_META.map((k, i) => (
-                        <th key={i}
-                          onClick={() => setSortKpi(i)}
-                          title={k.ad + (k.is_lower_better ? ' (küçükse iyi ↓)' : '')}
-                          style={{
-                            ...thS,
-                            color: sortKpi===i ? 'var(--blue)' : 'var(--tx3)',
-                            background: sortKpi===i ? 'rgba(59,130,246,.08)' : 'var(--surf2)',
-                            minWidth: 110,
-                            maxWidth: 140,
-                            whiteSpace: 'normal',
-                            lineHeight: 1.3,
-                            verticalAlign: 'bottom',
-                            paddingBottom: 6,
-                          }}>
-                          {k.ad}{k.is_lower_better ? ' ↓' : ''}
-                          {sortKpi===i ? ' ▾' : ''}
-                        </th>
-                      ))}
-                      {/* Genel ve Önceki — sağda sabit */}
-                      <th
-                        onClick={() => setSortKpi(-1)}
-                        style={{
-                          ...thS, minWidth: 80,
-                          color: sortKpi===-1 ? '#f59e0b' : 'var(--tx3)',
-                          background: sortKpi===-1 ? 'rgba(245,158,11,.08)' : 'var(--surf2)',
-                          borderLeft: '2px solid var(--bd)',
-                        }}>
-                        Genel{selCmpDonem ? ' / Önceki' : ''}{sortKpi===-1 ? ' ▾' : ''}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {markalar.map(m => {
-                      const delta = chgPct(m.score, m.cmpScore)
-                      return (
-                        <tr key={m.marka} style={{ borderBottom: '1px solid var(--bd)' }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--surf2)')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <td style={{ ...tdS, textAlign: 'left', fontWeight: 700, color: SEGMENT_HEX[m.segment], position: 'sticky', left: 0, background: 'var(--surf)', zIndex: 1 }}>
-                            {m.marka}
-                          </td>
-                          <td style={{ ...tdS, position: 'sticky', left: 120, background: 'var(--surf)', zIndex: 1 }}>
-                            <span style={{
-                              background: SEGMENT_BG[m.segment], color: SEGMENT_HEX[m.segment],
-                              padding: '2px 7px', borderRadius: 20, fontSize: 8, fontWeight: 700,
-                              border: `1px solid ${SEGMENT_HEX[m.segment]}44`,
-                            }}>
-                              {m.segment}
-                            </span>
-                          </td>
-                          {/* KPI değerleri */}
-                          {m.bazSkorlar.map((skor, ki) => {
-                            const cmpSkor = m.cmpSkorlar?.[ki] ?? null
-                            return (
-                              <td key={ki} style={{
-                                ...tdS,
-                                background: sortKpi===ki ? kpiScoreBg(skor) : undefined,
-                              }}>
-                                <SkorHucre skor={skor} cmpSkor={selCmpDonem ? cmpSkor : null} size="sm" />
-                              </td>
-                            )
-                          })}
-                          {/* Genel — sağda */}
-                          <td style={{
-                            ...tdS,
-                            background: sortKpi===-1 ? scoreBg(m.score) : undefined,
-                            borderLeft: '2px solid var(--bd)',
-                          }}>
-                            <SkorHucre
-                              skor={m.score}
-                              cmpSkor={selCmpDonem ? m.cmpScore : null}
-                              size="sm"
-                            />
-                          </td>
-                          {/* Önceki dönem kolonu kaldırıldı — artık SkorHucre içinde gösteriliyor */}
-                        </tr>
-                      )
-                    })}
-                    {markalar.length === 0 && (
-                      <tr>
-                        <td colSpan={3 + KPI_META.length}
-                          style={{ padding: 40, textAlign: 'center', color: 'var(--tx3)' }}>
-                          Seçili filtreler için veri bulunamadı
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {/* Alt ipucu */}
-              <div style={{ padding: '6px 14px', fontSize: 9, color: 'var(--tx3)', borderTop: '1px solid var(--bd)', textAlign: 'center' }}>
-                {markalar.length} marka · tablonun üzerine gelin ve aşağı kaydırın
-              </div>
-            </div>
           </div>
         )}
 
@@ -607,101 +508,6 @@ export default function KpiDetayPage() {
               </div>
             </div>
 
-            {/* ── Kategori Marka Tablosu ── */}
-            <div style={{ background: 'var(--surf)', border: '1px solid var(--bd)', borderRadius: 10, overflow: 'hidden' }}>
-              <div
-                style={{ overflowX: 'auto', overflowY: 'hidden', transition: 'max-height .3s ease' }}
-                onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.overflowY = 'auto'; el.style.maxHeight = '520px' }}
-                onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.overflowY = 'hidden'; el.style.maxHeight = `${Math.min(katMarkalar.length, 15) * 36 + 40}px` }}
-                ref={el => { if (el) el.style.maxHeight = `${Math.min(katMarkalar.length, 15) * 36 + 40}px` }}
-              >
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
-                  <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surf2)' }}>
-                    <tr>
-                      <th style={{ ...thS, textAlign: 'left', minWidth: 130, position: 'sticky', left: 0, background: 'var(--surf2)', zIndex: 3 }}>Marka</th>
-                      <th style={{ ...thS, minWidth: 72, position: 'sticky', left: 130, background: 'var(--surf2)', zIndex: 3 }}>Seg.</th>
-                      {/* Kategori kolonları */}
-                      {KAT_YAPILAR.map(kat => (
-                        <th key={kat.key}
-                          onClick={() => setKatSortKey(kat.key)}
-                          style={{
-                            ...thS, minWidth: 90,
-                            color: katSortKey===kat.key ? 'var(--blue)' : 'var(--tx3)',
-                            background: katSortKey===kat.key ? 'rgba(59,130,246,.08)' : 'var(--surf2)',
-                            whiteSpace: 'normal', lineHeight: 1.3, verticalAlign: 'bottom', paddingBottom: 6,
-                          }}>
-                          {kat.ad.split(' ve ')[0].split(' ve')[0]}
-                          {katSortKey===kat.key ? ' ▾' : ''}
-                        </th>
-                      ))}
-                      {/* Genel skor — sağda */}
-                      <th onClick={() => setKatSortKey('genel')} style={{
-                        ...thS, minWidth: 80,
-                        color: katSortKey==='genel' ? '#f59e0b' : 'var(--tx3)',
-                        background: katSortKey==='genel' ? 'rgba(245,158,11,.08)' : 'var(--surf2)',
-                        borderLeft: '2px solid var(--bd)',
-                      }}>
-                        Genel{selCmpDonem ? ' / Önceki' : ''}{katSortKey==='genel' ? ' ▾' : ''}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {katMarkalar.map(m => (
-                      <tr key={m.marka} style={{ borderBottom: '1px solid var(--bd)' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--surf2)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <td style={{ ...tdS, textAlign: 'left', fontWeight: 700, color: SEGMENT_HEX[m.segment], position: 'sticky', left: 0, background: 'var(--surf)', zIndex: 1 }}>
-                          {m.marka}
-                        </td>
-                        <td style={{ ...tdS, position: 'sticky', left: 130, background: 'var(--surf)', zIndex: 1 }}>
-                          <span style={{
-                            background: SEGMENT_BG[m.segment], color: SEGMENT_HEX[m.segment],
-                            padding: '2px 7px', borderRadius: 20, fontSize: 8, fontWeight: 700,
-                            border: `1px solid ${SEGMENT_HEX[m.segment]}44`,
-                          }}>
-                            {m.segment}
-                          </span>
-                        </td>
-                        {/* Kategori skorları */}
-                        {KAT_YAPILAR.map(kat => {
-                          const skor    = m.katSkor    ? (m.katSkor    as any)[kat.key] ?? 0 : 0
-                          const cmpSkor = m.katSkorCmp ? (m.katSkorCmp as any)[kat.key] ?? null : null
-                          return (
-                            <td key={kat.key} style={{
-                              ...tdS,
-                              background: katSortKey===kat.key ? kpiScoreBg(skor) : undefined,
-                            }}>
-                              <SkorHucre skor={skor} cmpSkor={selCmpDonem ? cmpSkor : null} size="sm" />
-                            </td>
-                          )
-                        })}
-                        {/* Genel skor — sağda */}
-                        <td style={{
-                          ...tdS,
-                          background: katSortKey==='genel' ? scoreBg(m.score) : undefined,
-                          borderLeft: '2px solid var(--bd)',
-                        }}>
-                          <SkorHucre skor={m.score} cmpSkor={selCmpDonem ? m.cmpScore : null} size="sm" />
-                        </td>
-                      </tr>
-                    ))}
-                    {katMarkalar.length === 0 && (
-                      <tr>
-                        <td colSpan={2 + KAT_YAPILAR.length + 1}
-                          style={{ padding: 40, textAlign: 'center', color: 'var(--tx3)' }}>
-                          Seçili filtreler için veri bulunamadı
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              <div style={{ padding: '6px 14px', fontSize: 9, color: 'var(--tx3)', borderTop: '1px solid var(--bd)', textAlign: 'center' }}>
-                {katMarkalar.length} marka · tablonun üzerine gelin ve aşağı kaydırın
-              </div>
-            </div>
-          </div>
         )}
 
         {/* Renk efsanesi */}
