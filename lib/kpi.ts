@@ -19,7 +19,7 @@ export const CAT_COLORS = ['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6'
 export const SEGMENT_COLORS = ['#3b82f6', '#8b5cf6', '#10b981']
 
 type CubeRow  = [string, string, string, string, (number|null)[], number, number]
-type MarkaRow = [string, string, string, string, (number|null)[], number]
+type MarkaRow = [string, string, string, string, string, (number|null)[], number]
 
 const CUBE: CubeRow[] = (RAW.cube ?? []) as CubeRow[]
 const MARKA_CUBE: MarkaRow[] = (MARKA_RAW.cube ?? []) as MarkaRow[]
@@ -44,8 +44,8 @@ export function getSegmentColor(seg: string) {
 export function getAvailableDonemler(seg = '', bolge = '', yas = 'Tümü'): Set<string> {
   const available = new Set<string>()
   for (const r of CUBE) {
-    if (r[0] === seg && r[1] === bolge && r[2] === yas) {
-      if (r[3]) available.add(r[3])
+    if (r[0] === seg && r[1] === bolge && r[2] === yas && r[3]) {
+      available.add(r[3])
     }
   }
   return available
