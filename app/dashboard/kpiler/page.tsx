@@ -20,20 +20,25 @@ const barValuePlugin = {
   afterDatasetsDraw(chart: ChartJS) {
     const ctx = chart.ctx
     const barCount = chart.data.labels ? chart.data.labels.length : 0
-    const fontSize = barCount <= 15 ? 9 : barCount <= 25 ? 7 : barCount <= 35 ? 6 : 0
+    // Marka sayisina gore dinamik font — cok kalabaliksa gizle
+    const fontSize = barCount <= 10 ? 10 : barCount <= 20 ? 8 : barCount <= 35 ? 7 : 0
     if (!fontSize) return
-    chart.data.datasets.forEach((dataset, di) => {
+    chart.data.datasets.forEach(function(dataset, di) {
       const meta = chart.getDatasetMeta(di)
       if (meta.hidden) return
       const isPrev = di > 0
-      meta.data.forEach((bar, idx) => {
+      meta.data.forEach(function(bar, idx) {
         const val = dataset.data[idx] as number
         if (!val) return
+        // Bar rengi: isPrev ise gri, degil ise skor esigine gore
+        const barColor = isPrev
+          ? 'rgba(100,116,139,.9)'
+          : val >= 77 ? '#10b981' : val >= 66 ? '#3b82f6' : '#ef4444'
         ctx.save()
-        ctx.font = '700 ' + fontSize + 'px monospace'
+        ctx.font = '700 ' + String(fontSize) + 'px monospace'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'bottom'
-        ctx.fillStyle = isPrev ? 'rgba(100,116,139,.9)' : val >= 77 ? '#10b981' : val >= 66 ? '#3b82f6' : '#ef4444'
+        ctx.fillStyle = barColor
         ctx.fillText(String(Math.round(val)), bar.x, bar.y - 2)
         ctx.restore()
       })
@@ -286,61 +291,6 @@ export default function KpiDetayPage() {
               </div>
             </div>
 
-            <div style={{ background: 'var(--surf)', border: '1px solid var(--bd)', borderRadius: 10, overflow: 'hidden' }}>
-              <div
-                style={{ overflowX: 'auto', overflowY: 'hidden', maxHeight: String(Math.min(katMarkalar.length, 15) * 36 + 40) + 'px' }}
-                onMouseEnter={function(e) { const el = e.currentTarget as HTMLDivElement; el.style.overflowY = 'auto'; el.style.maxHeight = '520px' }}
-                onMouseLeave={function(e) { const el = e.currentTarget as HTMLDivElement; el.style.overflowY = 'hidden'; el.style.maxHeight = String(Math.min(katMarkalar.length, 15) * 36 + 40) + 'px' }}
-              >
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
-                  <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surf2)' }}>
-                    <tr>
-                      <th style={{ ...thS, textAlign: 'left', minWidth: 130, position: 'sticky', left: 0, background: 'var(--surf2)', zIndex: 3 }}>Marka</th>
-                      <th style={{ ...thS, minWidth: 72, position: 'sticky', left: 130, background: 'var(--surf2)', zIndex: 3 }}>Seg.</th>
-                      {KAT_YAPILAR.map(function(kat) {
-                        return (
-                          <th key={kat.key} onClick={function() { setKatSortKey(kat.key) }} style={{ ...thS, minWidth: 90, color: katSortKey === kat.key ? 'var(--blue)' : 'var(--tx3)', background: katSortKey === kat.key ? 'rgba(59,130,246,.08)' : 'var(--surf2)', whiteSpace: 'normal', lineHeight: 1.3, verticalAlign: 'bottom', paddingBottom: 6 }}>
-                            {kat.ad}{katSortKey === kat.key ? ' v' : ''}
-                          </th>
-                        )
-                      })}
-                      <th onClick={function() { setKatSortKey('genel') }} style={{ ...thS, minWidth: 80, color: katSortKey === 'genel' ? '#f59e0b' : 'var(--tx3)', background: katSortKey === 'genel' ? 'rgba(245,158,11,.08)' : 'var(--surf2)', borderLeft: '2px solid var(--bd)' }}>
-                        Genel
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {katMarkalar.map(function(m) {
-                      return (
-                        <tr key={m.marka} style={{ borderBottom: '1px solid var(--bd)' }}
-                          onMouseEnter={function(e) { (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surf2)' }}
-                          onMouseLeave={function(e) { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent' }}>
-                          <td style={{ ...tdS, textAlign: 'left', fontWeight: 700, color: SEGMENT_HEX[m.segment], position: 'sticky', left: 0, background: 'var(--surf)', zIndex: 1 }}>{m.marka}</td>
-                          <td style={{ ...tdS, position: 'sticky', left: 130, background: 'var(--surf)', zIndex: 1 }}>
-                            <span style={{ background: SEGMENT_BG[m.segment], color: SEGMENT_HEX[m.segment], padding: '2px 7px', borderRadius: 20, fontSize: 8, fontWeight: 700, border: '1px solid ' + SEGMENT_HEX[m.segment] + '44' }}>{m.segment}</span>
-                          </td>
-                          {KAT_YAPILAR.map(function(kat) {
-                            const skor    = m.katSkor    ? (m.katSkor    as any)[kat.key] ?? 0 : 0
-                            const cmpSkor = m.katSkorCmp ? (m.katSkorCmp as any)[kat.key] ?? null : null
-                            return (
-                              <td key={kat.key} style={{ ...tdS, background: katSortKey === kat.key ? kpiScoreBg(skor) : undefined }}>
-                                <SkorHucre skor={skor} cmpSkor={selCmpDonem ? cmpSkor : null} size="sm" />
-                              </td>
-                            )
-                          })}
-                          <td style={{ ...tdS, background: katSortKey === 'genel' ? scoreBg(m.score) : undefined, borderLeft: '2px solid var(--bd)' }}>
-                            <SkorHucre skor={m.score} cmpSkor={selCmpDonem ? m.cmpScore : null} size="sm" />
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div style={{ padding: '6px 14px', fontSize: 9, color: 'var(--tx3)', borderTop: '1px solid var(--bd)', textAlign: 'center' }}>
-                {katMarkalar.length} marka - uzerin gelindiginde asagi kaydirilabilir
-              </div>
-            </div>
           </div>
         )}
 
