@@ -72,11 +72,11 @@ function SkorHucre({
       }}>
         {fmt0(skor)}
       </span>
-      {/* Karşılaştırma + % — baz değerin altında, hafif sola */}
+      {/* Karşılaştırma + % — baz değerin altında, ortalı */}
       {cmpSkor != null && (
         <div style={{
           display: 'flex', gap: 4, alignItems: 'center',
-          alignSelf: 'flex-start', marginLeft: 2,
+          justifyContent: 'center',
         }}>
           <span style={{ fontSize: 8, color: 'var(--tx3)', fontFamily: 'var(--font-dm-mono)' }}>
             {fmt0(cmpSkor)}
