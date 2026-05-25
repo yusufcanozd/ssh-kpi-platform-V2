@@ -42,75 +42,87 @@
   "kpi_meta": [
     {
       "no": 1,
-      "ad": "Marka Sadakat Genişliği Endeksi",
-      "kat": "Müşteri Sadakati ve Deneyimi",
-      "fmt": "pct4"
+      "ad": "Aktif Müşteri Bazı Endeksi",
+      "kat": "Müşteri",
+      "fmt": "pct4",
+      "is_lower_better": false
     },
     {
       "no": 2,
-      "ad": "Müşteri Sadakat Tutundurma Endeksi",
-      "kat": "Müşteri Sadakati ve Deneyimi",
-      "fmt": "ratio2"
+      "ad": "Müşteri Tutundurma Endeksi",
+      "kat": "Müşteri",
+      "fmt": "ratio2",
+      "is_lower_better": false
     },
     {
       "no": 3,
-      "ad": "Servis Kullanım Frekans Endeksi",
-      "kat": "Müşteri Sadakati ve Deneyimi",
-      "fmt": "ratio2"
+      "ad": "Servis Kullanım Endeksi",
+      "kat": "Müşteri",
+      "fmt": "ratio2",
+      "is_lower_better": false
     },
     {
       "no": 4,
-      "ad": "Teknik Onarım Verimlilik Endeksi",
-      "kat": "Finansal Verimlilik ve Rasyo Analizi",
-      "fmt": "saat1"
+      "ad": "İE Başına İşçilik Saati",
+      "kat": "Ticari",
+      "fmt": "saat1",
+      "is_lower_better": true
     },
     {
       "no": 5,
-      "ad": "İşçilik Gelir Yoğunluğu Endeksi",
-      "kat": "Finansal Verimlilik ve Rasyo Analizi",
-      "fmt": "tl0"
+      "ad": "İE Başına İşçilik Tutarı",
+      "kat": "Ticari",
+      "fmt": "tl0",
+      "is_lower_better": false
     },
     {
       "no": 6,
-      "ad": "Yedek Parça Satış Yoğunluğu Endeksi",
-      "kat": "Finansal Verimlilik ve Rasyo Analizi",
-      "fmt": "tl0"
+      "ad": "İE Başına Parça Tutarı",
+      "kat": "Ticari",
+      "fmt": "tl0",
+      "is_lower_better": false
     },
     {
       "no": 7,
       "ad": "İş Emri Süresi Endeksi",
-      "kat": "Süreç ve Operasyonel Akış",
-      "fmt": "gun1"
+      "kat": "Operasyonel",
+      "fmt": "gun1",
+      "is_lower_better": true
     },
     {
       "no": 8,
-      "ad": "Araç Parkı Penetrasyon Endeksi",
-      "kat": "Süreç ve Operasyonel Akış",
-      "fmt": "int"
+      "ad": "İş Emri Hacim Endeksi",
+      "kat": "Operasyonel",
+      "fmt": "int",
+      "is_lower_better": false
     },
     {
       "no": 9,
-      "ad": "Yetkili Servis Başına İş Emri Endeksi",
-      "kat": "Bayi Ağı Kapasite Yönetimi",
-      "fmt": "ratio1"
+      "ad": "Servis Başına İş Emri",
+      "kat": "Bayi Ağı",
+      "fmt": "ratio1",
+      "is_lower_better": false
     },
     {
       "no": 10,
-      "ad": "Yetkili Servis Başına Aktif Müşteri Endeksi",
-      "kat": "Bayi Ağı Kapasite Yönetimi",
-      "fmt": "ratio1"
+      "ad": "Servis Başına Aktif Müşteri",
+      "kat": "Bayi Ağı",
+      "fmt": "ratio1",
+      "is_lower_better": false
     },
     {
       "no": 11,
       "ad": "Garanti Kapsam Endeksi",
-      "kat": "Stratejik Kapsam Dağılımı",
-      "fmt": "pct2"
+      "kat": "Kapsam",
+      "fmt": "pct2",
+      "is_lower_better": false
     },
     {
       "no": 12,
-      "ad": "Periyodik Bakım Kapsam Endeksi",
-      "kat": "Stratejik Kapsam Dağılımı",
-      "fmt": "pct2"
+      "ad": "Periyodik Bakım Endeksi",
+      "kat": "Kapsam",
+      "fmt": "pct2",
+      "is_lower_better": false
     }
   ],
   "cube": [
