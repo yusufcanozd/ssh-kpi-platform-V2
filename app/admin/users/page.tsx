@@ -28,7 +28,6 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState('')
   const [saving, setSaving]   = useState<string | null>(null)
-  const [dbgMsg, setDbgMsg]   = useState('')
 
   useEffect(() => {
     if (!authLoading) fetchUsers()
@@ -37,8 +36,6 @@ export default function AdminUsersPage() {
   async function fetchUsers() {
     setLoading(true)
     setError('')
-    setDbgMsg('')
-
     const supabase = createClient()
 
     // Önce session kontrol
@@ -48,8 +45,6 @@ export default function AdminUsersPage() {
       setLoading(false)
       return
     }
-    setDbgMsg(`Kullanıcı: ${user.email}`)
-
     const { data, error: fetchError } = await supabase
       .from('profiles')
       .select('id, full_name, role, is_active, created_at, brand_id, brands(name, segment)')
@@ -62,7 +57,6 @@ export default function AdminUsersPage() {
     }
 
     setUsers((data || []) as UserRow[])
-    setDbgMsg(`${data?.length || 0} kullanıcı yüklendi`)
     setLoading(false)
   }
 
@@ -70,15 +64,16 @@ export default function AdminUsersPage() {
     setSaving(userId)
     // Önce UI'ı anında güncelle (optimistic update)
     setUsers(prev => prev.map(u => u.id === userId ? {...u, is_active: !current} : u))
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('profiles')
-      .update({ is_active: !current })
-      .eq('id', userId)
-    if (error) {
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: !current }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
       // Hata olursa geri al
       setUsers(prev => prev.map(u => u.id === userId ? {...u, is_active: current} : u))
-      setError(error.message)
+      setError(data.error || 'Kullanıcı durumu güncellenemedi.')
     }
     setSaving(null)
   }
@@ -87,13 +82,14 @@ export default function AdminUsersPage() {
     setSaving(userId)
     // Önce UI'ı anında güncelle
     setUsers(prev => prev.map(u => u.id === userId ? {...u, role} : u))
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('profiles')
-      .update({ role })
-      .eq('id', userId)
-    if (error) {
-      setError(error.message)
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error || 'Kullanıcı rolü güncellenemedi.')
       // Hata olursa yeniden yükle
       await fetchUsers()
     }
@@ -110,12 +106,6 @@ export default function AdminUsersPage() {
       />
       <div style={{ flex:1, overflow:'auto', padding:'20px 24px' }}>
 
-        {/* Debug mesajı */}
-        {dbgMsg && (
-          <div style={{ fontSize:11, color:'var(--tx3)', marginBottom:10, padding:'6px 10px', background:'var(--surf2)', borderRadius:6 }}>
-            {dbgMsg}
-          </div>
-        )}
 
         {/* Hata */}
         {error && (
