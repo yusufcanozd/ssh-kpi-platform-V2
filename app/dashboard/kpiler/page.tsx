@@ -26,6 +26,47 @@ type SortKpi = number | -1
 const fmt0 = (v: number) => Math.round(v).toString()
 const chgPct = (baz: number, cmp: number | null) => changePct(baz, cmp)
 
+// ── Skor hücre bileşeni: baz ortada, cmp + % altında sola kaymış ──
+function SkorHucre({
+  skor, cmpSkor, size = 'md',
+}: {
+  skor: number
+  cmpSkor?: number | null
+  size?: 'sm' | 'md' | 'lg'
+}) {
+  const delta = cmpSkor != null ? chgPct(skor, cmpSkor) : null
+  const bazFs = size === 'lg' ? 20 : size === 'sm' ? 13 : 16
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+      {/* Baz değer — ortalı */}
+      <span style={{
+        fontSize: bazFs, fontWeight: 900,
+        color: kpiScoreColor(skor),
+        fontFamily: 'var(--font-dm-mono)',
+        lineHeight: 1,
+      }}>
+        {fmt0(skor)}
+      </span>
+      {/* Karşılaştırma + % — baz değerin altında, hafif sola */}
+      {cmpSkor != null && (
+        <div style={{
+          display: 'flex', gap: 4, alignItems: 'center',
+          alignSelf: 'flex-start', marginLeft: 2,
+        }}>
+          <span style={{ fontSize: 8, color: 'var(--tx3)', fontFamily: 'var(--font-dm-mono)' }}>
+            {fmt0(cmpSkor)}
+          </span>
+          {delta != null && (
+            <span style={{ fontSize: 8, fontWeight: 700, color: chgColor(delta) }}>
+              {delta > 0 ? '▲' : delta < 0 ? '▼' : '→'}{Math.abs(delta)}%
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function KpiDetayPage() {
   const { selSeg, selBolge, selYas, selDonem, selCmpDonem } = useDashboardCtx()
   const [tab, setTab]       = useState<TabTip>('kpi')
@@ -207,26 +248,10 @@ export default function KpiDetayPage() {
                             transition: 'all .15s',
                           }}
                         >
-                          <div style={{ fontSize: 8, color: 'var(--tx3)', marginBottom: 4, lineHeight: 1.3 }}>
+                          <div style={{ fontSize: 8, color: 'var(--tx3)', marginBottom: 6, lineHeight: 1.3 }}>
                             {k.ad}{k.is_lower_better && <span title="Küçükse iyi"> ↓</span>}
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                            <span style={{
-                              fontSize: 18, fontWeight: 900, color: kpiScoreColor(skor),
-                              fontFamily: 'var(--font-dm-mono)',
-                            }}>
-                              {fmt0(skor)}
-                            </span>
-                            <span style={{ fontSize: 8, color: 'var(--tx3)' }}>puan</span>
-                          </div>
-                          {cmpSkor != null && (() => {
-                            const delta = chgPct(skor, cmpSkor)
-                            return delta != null ? (
-                              <div style={{ fontSize: 8, fontWeight: 700, color: chgColor(delta), marginTop: 2 }}>
-                                {delta > 0 ? '▲' : delta < 0 ? '▼' : '→'} {Math.abs(delta)}%
-                              </div>
-                            ) : null
-                          })()}
+                          <SkorHucre skor={skor} cmpSkor={cmpSkor} size="lg" />
                         </div>
                       )
                     })}
@@ -309,18 +334,13 @@ export default function KpiDetayPage() {
                       <th
                         onClick={() => setSortKpi(-1)}
                         style={{
-                          ...thS, minWidth: 70,
+                          ...thS, minWidth: 80,
                           color: sortKpi===-1 ? '#f59e0b' : 'var(--tx3)',
                           background: sortKpi===-1 ? 'rgba(245,158,11,.08)' : 'var(--surf2)',
                           borderLeft: '2px solid var(--bd)',
                         }}>
-                        Genel{sortKpi===-1 ? ' ▾' : ''}
+                        Genel{selCmpDonem ? ' / Önceki' : ''}{sortKpi===-1 ? ' ▾' : ''}
                       </th>
-                      {selCmpDonem && (
-                        <th style={{ ...thS, minWidth: 70, background: 'var(--surf2)' }}>
-                          Önceki
-                        </th>
-                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -346,52 +366,34 @@ export default function KpiDetayPage() {
                           {/* KPI değerleri */}
                           {m.bazSkorlar.map((skor, ki) => {
                             const cmpSkor = m.cmpSkorlar?.[ki] ?? null
-                            const d = chgPct(skor, cmpSkor)
                             return (
                               <td key={ki} style={{
                                 ...tdS,
                                 background: sortKpi===ki ? kpiScoreBg(skor) : undefined,
                               }}>
-                                <div style={{
-                                  fontFamily: 'var(--font-dm-mono)', fontWeight: 700,
-                                  color: kpiScoreColor(skor), fontSize: 11,
-                                }}>
-                                  {fmt0(skor)}
-                                </div>
-                                {d != null && (
-                                  <div style={{ fontSize: 7, color: chgColor(d), fontWeight: 700 }}>
-                                    {d > 0 ? '▲' : d < 0 ? '▼' : '→'}{Math.abs(d)}%
-                                  </div>
-                                )}
+                                <SkorHucre skor={skor} cmpSkor={selCmpDonem ? cmpSkor : null} size="sm" />
                               </td>
                             )
                           })}
                           {/* Genel — sağda */}
                           <td style={{
-                            ...tdS, fontWeight: 800, fontFamily: 'var(--font-dm-mono)',
-                            color: scoreColor(m.score),
+                            ...tdS,
                             background: sortKpi===-1 ? scoreBg(m.score) : undefined,
                             borderLeft: '2px solid var(--bd)',
                           }}>
-                            {m.score}
+                            <SkorHucre
+                              skor={m.score}
+                              cmpSkor={selCmpDonem ? m.cmpScore : null}
+                              size="sm"
+                            />
                           </td>
-                          {/* Önceki dönem — sağda */}
-                          {selCmpDonem && (
-                            <td style={{ ...tdS, fontSize: 9 }}>
-                              {m.cmpScore != null ? (
-                                <span style={{ color: delta != null ? chgColor(delta) : 'var(--tx3)', fontWeight: 700 }}>
-                                  {delta != null && (delta > 0 ? '▲' : delta < 0 ? '▼' : '→')}{' '}
-                                  {m.cmpScore}
-                                </span>
-                              ) : '—'}
-                            </td>
-                          )}
+                          {/* Önceki dönem kolonu kaldırıldı — artık SkorHucre içinde gösteriliyor */}
                         </tr>
                       )
                     })}
                     {markalar.length === 0 && (
                       <tr>
-                        <td colSpan={4 + KPI_META.length + (selCmpDonem ? 1 : 0)}
+                        <td colSpan={3 + KPI_META.length}
                           style={{ padding: 40, textAlign: 'center', color: 'var(--tx3)' }}>
                           Seçili filtreler için veri bulunamadı
                         </td>
