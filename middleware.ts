@@ -33,21 +33,45 @@ export async function middleware(request: NextRequest) {
   if (user && path === '/login') {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_active')
       .eq('id', user.id)
       .single()
 
+    if (!profile?.is_active) {
+      return NextResponse.redirect(new URL('/login?inactive=1', request.url))
+    }
+
     const isAdmin = ['superadmin', 'admin'].includes(profile?.role || '')
     return NextResponse.redirect(new URL(isAdmin ? '/admin/users' : '/dashboard', request.url))
+  }
+
+  // Pasife alınmış kullanıcılar korumalı sayfalara devam edemesin
+  if (user && path !== '/login') {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_active')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.is_active === false) {
+      const redirectResponse = NextResponse.redirect(new URL('/login?inactive=1', request.url))
+      redirectResponse.cookies.delete('sb-access-token')
+      redirectResponse.cookies.delete('sb-refresh-token')
+      return redirectResponse
+    }
   }
 
   // Admin sayfasına admin olmayan girmesin
   if (user && path.startsWith('/admin')) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_active')
       .eq('id', user.id)
       .single()
+
+    if (!profile?.is_active) {
+      return NextResponse.redirect(new URL('/login?inactive=1', request.url))
+    }
 
     const isAdmin = ['superadmin', 'admin'].includes(profile?.role || '')
     if (!isAdmin) {
