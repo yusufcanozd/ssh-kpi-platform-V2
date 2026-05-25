@@ -3,7 +3,12 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function POST(req: NextRequest) {
   try {
     const { prompt } = await req.json()
-    if (!prompt) return NextResponse.json({ error: 'prompt required' }, { status: 400 })
+    if (typeof prompt !== 'string' || !prompt.trim()) {
+      return NextResponse.json({ error: 'prompt required' }, { status: 400 })
+    }
+    if (prompt.length > 8000) {
+      return NextResponse.json({ error: 'prompt too long' }, { status: 413 })
+    }
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
