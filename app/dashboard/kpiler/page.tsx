@@ -94,8 +94,9 @@ function SkorHucre({
 
 export default function KpiDetayPage() {
   const { selSeg, selBolge, selYas, selDonem, selCmpDonem } = useDashboardCtx()
-  const [tab, setTab]       = useState<TabTip>('kpi')
-  const [sortKpi, setSortKpi] = useState<SortKpi>(-1)  // -1 = Genel Skor
+  const [tab, setTab]         = useState<TabTip>('kpi')
+  const [sortKpi, setSortKpi] = useState<SortKpi>(-1)
+  const [katSortKey, setKatSortKey] = useState<string>('genel')  // kategori bar grafik için
 
   const filterLabel = [
     selBolge || 'Tüm TR',
@@ -193,7 +194,64 @@ export default function KpiDetayPage() {
     },
   } as const
 
-  const thS: React.CSSProperties = {
+  // Kategori bazlı marka listesi — genel + kategori skorlarıyla
+  const katMarkalar = useMemo(() => {
+    const ranked    = getMarkaRanking(selSeg, selBolge, selYas, selDonem)
+    const cmpRanked = selCmpDonem ? getMarkaRanking(selSeg, selBolge, selYas, selCmpDonem) : []
+    return ranked.map(m => {
+      const katSkor    = getScore(m.segment, selBolge, selYas, selDonem)
+      const katSkorCmp = selCmpDonem ? getScore(m.segment, selBolge, selYas, selCmpDonem) : null
+      const cmpScore   = cmpRanked.find(x => x.marka === m.marka)?.score ?? null
+      return { ...m, katSkor, katSkorCmp, cmpScore }
+    }).sort((a, b) => {
+      const av = katSortKey === 'genel'
+        ? a.score
+        : (a.katSkor as any)?.[katSortKey] ?? 0
+      const bv = katSortKey === 'genel'
+        ? b.score
+        : (b.katSkor as any)?.[katSortKey] ?? 0
+      return bv - av
+    })
+  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, katSortKey])
+
+  // Kategori bar grafik verisi
+  const katBarData = useMemo(() => {
+    const labels = katMarkalar.map(m => m.marka)
+    const vals   = katMarkalar.map(m =>
+      katSortKey === 'genel'
+        ? m.score
+        : (m.katSkor as any)?.[katSortKey] ?? 0
+    )
+    const colors = vals.map(v => kpiScoreColor(v))
+    const cmpVals = selCmpDonem
+      ? katMarkalar.map(m =>
+          katSortKey === 'genel'
+            ? (m.cmpScore ?? 0)
+            : (m.katSkorCmp as any)?.[katSortKey] ?? 0
+        )
+      : null
+    return {
+      labels,
+      datasets: [
+        {
+          label: katSortKey === 'genel' ? 'Genel Skor' : KAT_YAPILAR.find(k => k.key === katSortKey)?.ad ?? katSortKey,
+          data: vals,
+          backgroundColor: colors.map(c => c + 'cc'),
+          borderColor: colors,
+          borderWidth: 1,
+          borderRadius: 4,
+        },
+        ...(cmpVals ? [{
+          label: 'Önceki Dönem',
+          data: cmpVals,
+          backgroundColor: 'rgba(100,116,139,.3)',
+          borderColor: 'rgba(100,116,139,.6)',
+          borderWidth: 1,
+          borderRadius: 4,
+        }] : []),
+      ],
+    }
+  }, [katMarkalar, katSortKey, selCmpDonem])
     padding: '8px 10px', fontSize: 9, fontWeight: 700, color: 'var(--tx3)',
     borderBottom: '1px solid var(--bd)', whiteSpace: 'nowrap',
     textAlign: 'center', cursor: 'pointer', userSelect: 'none',
@@ -438,62 +496,209 @@ export default function KpiDetayPage() {
 
         {/* ── Kategori Bazlı görünüm ── */}
         {tab === 'kategori' && (
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${segData.length}, 1fr)`, gap: 14 }}>
-            {segData.map(({ seg, katSkor, katSkorCmp }) => (
-              <div key={seg} style={{
-                background: 'var(--surf)', border: `1px solid ${SEGMENT_HEX[seg]}44`,
-                borderRadius: 12, padding: 14, borderTop: `3px solid ${SEGMENT_HEX[seg]}`,
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingBottom: 10, borderBottom: '1px solid var(--bd)' }}>
-                  <span style={{ fontWeight: 800, fontSize: 14, color: SEGMENT_HEX[seg] }}>{seg}</span>
-                  {katSkor && (
-                    <span style={{
-                      background: scoreBg(katSkor.genel), color: scoreColor(katSkor.genel),
-                      borderRadius: 8, padding: '3px 10px', fontSize: 14, fontWeight: 800,
-                      fontFamily: 'var(--font-dm-mono)',
-                    }}>
-                      {katSkor.genel}
-                    </span>
-                  )}
-                </div>
-                {KAT_YAPILAR.map(kat => {
-                  const skor    = katSkor    ? (katSkor    as any)[kat.key] ?? 0 : 0
-                  const cmpSkor = katSkorCmp ? (katSkorCmp as any)[kat.key] ?? null : null
-                  const delta   = chgPct(skor, cmpSkor)
-                  return (
-                    <div key={kat.key} style={{ marginBottom: 10 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span style={{ fontSize: 9, color: 'var(--tx2)', fontWeight: 600 }}>
-                          {kat.ad}
-                          <span style={{ color: 'var(--tx3)', marginLeft: 4, fontSize: 8 }}>
-                            %{Math.round(kat.agirlik * 100)}
-                          </span>
-                        </span>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          {delta != null && (
-                            <span style={{ fontSize: 8, fontWeight: 700, color: chgColor(delta) }}>
-                              {delta > 0 ? '▲' : delta < 0 ? '▼' : '→'}{Math.abs(delta)}%
+          <div>
+            {/* Segment kategori kartları */}
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${segData.length}, 1fr)`, gap: 14, marginBottom: 20 }}>
+              {segData.map(({ seg, katSkor, katSkorCmp }) => (
+                <div key={seg} style={{
+                  background: 'var(--surf)', border: `1px solid ${SEGMENT_HEX[seg]}44`,
+                  borderRadius: 12, padding: 14, borderTop: `3px solid ${SEGMENT_HEX[seg]}`,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingBottom: 10, borderBottom: '1px solid var(--bd)' }}>
+                    <span style={{ fontWeight: 800, fontSize: 14, color: SEGMENT_HEX[seg] }}>{seg}</span>
+                    {katSkor && (
+                      <button onClick={() => setKatSortKey('genel')} style={{
+                        background: katSortKey==='genel' ? scoreBg(katSkor.genel) : 'transparent',
+                        color: scoreColor(katSkor.genel),
+                        border: `2px solid ${katSortKey==='genel' ? scoreColor(katSkor.genel) : scoreColor(katSkor.genel)+'44'}`,
+                        borderRadius: 8, padding: '3px 10px', fontSize: 14, fontWeight: 800,
+                        fontFamily: 'var(--font-dm-mono)', cursor: 'pointer',
+                      }}>
+                        {katSkor.genel}
+                      </button>
+                    )}
+                  </div>
+                  {KAT_YAPILAR.map(kat => {
+                    const skor    = katSkor    ? (katSkor    as any)[kat.key] ?? 0 : 0
+                    const cmpSkor = katSkorCmp ? (katSkorCmp as any)[kat.key] ?? null : null
+                    const delta   = chgPct(skor, cmpSkor)
+                    const aktif   = katSortKey === kat.key
+                    return (
+                      <div key={kat.key}
+                        onClick={() => setKatSortKey(kat.key)}
+                        style={{
+                          marginBottom: 10, cursor: 'pointer', borderRadius: 6, padding: '4px 6px',
+                          background: aktif ? `${scoreColor(skor)}10` : 'transparent',
+                          border: aktif ? `1px solid ${scoreColor(skor)}44` : '1px solid transparent',
+                          transition: 'all .15s',
+                        }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 9, color: aktif ? 'var(--tx)' : 'var(--tx2)', fontWeight: aktif ? 700 : 600 }}>
+                            {kat.ad}
+                            <span style={{ color: 'var(--tx3)', marginLeft: 4, fontSize: 8 }}>
+                              %{Math.round(kat.agirlik * 100)}
                             </span>
-                          )}
-                          <span style={{
-                            fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-dm-mono)',
-                            color: scoreColor(skor),
-                          }}>
-                            {fmt0(skor)}
                           </span>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            {delta != null && (
+                              <span style={{ fontSize: 8, fontWeight: 700, color: chgColor(delta) }}>
+                                {delta > 0 ? '▲' : delta < 0 ? '▼' : '→'}{Math.abs(delta)}%
+                              </span>
+                            )}
+                            <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-dm-mono)', color: scoreColor(skor) }}>
+                              {fmt0(skor)}
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{ background: 'var(--surf3)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
+                          <div style={{
+                            width: `${Math.min(100, skor)}%`, height: '100%',
+                            background: scoreColor(skor), borderRadius: 4, transition: 'width .3s',
+                          }} />
                         </div>
                       </div>
-                      <div style={{ background: 'var(--surf3)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
-                        <div style={{
-                          width: `${Math.min(100, skor)}%`, height: '100%',
-                          background: scoreColor(skor), borderRadius: 4, transition: 'width .3s',
-                        }} />
-                      </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+
+            {/* ── Kategori Bar Grafik ── */}
+            <div style={{
+              background: 'var(--surf)', border: '1px solid var(--bd)',
+              borderRadius: 10, padding: '16px 20px', marginBottom: 16,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx)' }}>Marka Karşılaştırma</span>
+                  <span style={{
+                    marginLeft: 10, fontSize: 10, fontWeight: 600,
+                    color: katSortKey === 'genel' ? '#f59e0b' : 'var(--blue)',
+                    background: katSortKey === 'genel' ? 'rgba(245,158,11,.1)' : 'rgba(59,130,246,.1)',
+                    padding: '2px 8px', borderRadius: 20,
+                  }}>
+                    {katSortKey === 'genel' ? 'Genel Skor' : KAT_YAPILAR.find(k => k.key === katSortKey)?.ad}
+                  </span>
+                </div>
+                {/* Kategori butonları */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <button onClick={() => setKatSortKey('genel')} style={{
+                    padding: '4px 12px', borderRadius: 20, fontSize: 9, fontWeight: 700, cursor: 'pointer',
+                    border: `1px solid ${katSortKey==='genel' ? '#f59e0b' : 'var(--bd)'}`,
+                    background: katSortKey==='genel' ? 'rgba(245,158,11,.12)' : 'var(--surf2)',
+                    color: katSortKey==='genel' ? '#f59e0b' : 'var(--tx3)',
+                  }}>★ Genel</button>
+                  {KAT_YAPILAR.map(kat => (
+                    <button key={kat.key} onClick={() => setKatSortKey(kat.key)} style={{
+                      padding: '4px 10px', borderRadius: 20, fontSize: 9, fontWeight: 700, cursor: 'pointer',
+                      border: `1px solid ${katSortKey===kat.key ? 'var(--blue)' : 'var(--bd)'}`,
+                      background: katSortKey===kat.key ? 'rgba(59,130,246,.12)' : 'var(--surf2)',
+                      color: katSortKey===kat.key ? 'var(--blue)' : 'var(--tx3)',
+                    }}>
+                      {kat.ad.split(' ')[0]}
+                    </button>
+                  ))}
+                </div>
               </div>
-            ))}
+              <div style={{ height: 240 }}>
+                <Bar data={katBarData} options={barOptions} plugins={[barValuePlugin]} />
+              </div>
+            </div>
+
+            {/* ── Kategori Marka Tablosu ── */}
+            <div style={{ background: 'var(--surf)', border: '1px solid var(--bd)', borderRadius: 10, overflow: 'hidden' }}>
+              <div
+                style={{ overflowX: 'auto', overflowY: 'hidden', transition: 'max-height .3s ease' }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.overflowY = 'auto'; el.style.maxHeight = '520px' }}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.overflowY = 'hidden'; el.style.maxHeight = `${Math.min(katMarkalar.length, 15) * 36 + 40}px` }}
+                ref={el => { if (el) el.style.maxHeight = `${Math.min(katMarkalar.length, 15) * 36 + 40}px` }}
+              >
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surf2)' }}>
+                    <tr>
+                      <th style={{ ...thS, textAlign: 'left', minWidth: 130, position: 'sticky', left: 0, background: 'var(--surf2)', zIndex: 3 }}>Marka</th>
+                      <th style={{ ...thS, minWidth: 72, position: 'sticky', left: 130, background: 'var(--surf2)', zIndex: 3 }}>Seg.</th>
+                      {/* Kategori kolonları */}
+                      {KAT_YAPILAR.map(kat => (
+                        <th key={kat.key}
+                          onClick={() => setKatSortKey(kat.key)}
+                          style={{
+                            ...thS, minWidth: 90,
+                            color: katSortKey===kat.key ? 'var(--blue)' : 'var(--tx3)',
+                            background: katSortKey===kat.key ? 'rgba(59,130,246,.08)' : 'var(--surf2)',
+                            whiteSpace: 'normal', lineHeight: 1.3, verticalAlign: 'bottom', paddingBottom: 6,
+                          }}>
+                          {kat.ad.split(' ve ')[0].split(' ve')[0]}
+                          {katSortKey===kat.key ? ' ▾' : ''}
+                        </th>
+                      ))}
+                      {/* Genel skor — sağda */}
+                      <th onClick={() => setKatSortKey('genel')} style={{
+                        ...thS, minWidth: 80,
+                        color: katSortKey==='genel' ? '#f59e0b' : 'var(--tx3)',
+                        background: katSortKey==='genel' ? 'rgba(245,158,11,.08)' : 'var(--surf2)',
+                        borderLeft: '2px solid var(--bd)',
+                      }}>
+                        Genel{selCmpDonem ? ' / Önceki' : ''}{katSortKey==='genel' ? ' ▾' : ''}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {katMarkalar.map(m => (
+                      <tr key={m.marka} style={{ borderBottom: '1px solid var(--bd)' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--surf2)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <td style={{ ...tdS, textAlign: 'left', fontWeight: 700, color: SEGMENT_HEX[m.segment], position: 'sticky', left: 0, background: 'var(--surf)', zIndex: 1 }}>
+                          {m.marka}
+                        </td>
+                        <td style={{ ...tdS, position: 'sticky', left: 130, background: 'var(--surf)', zIndex: 1 }}>
+                          <span style={{
+                            background: SEGMENT_BG[m.segment], color: SEGMENT_HEX[m.segment],
+                            padding: '2px 7px', borderRadius: 20, fontSize: 8, fontWeight: 700,
+                            border: `1px solid ${SEGMENT_HEX[m.segment]}44`,
+                          }}>
+                            {m.segment}
+                          </span>
+                        </td>
+                        {/* Kategori skorları */}
+                        {KAT_YAPILAR.map(kat => {
+                          const skor    = m.katSkor    ? (m.katSkor    as any)[kat.key] ?? 0 : 0
+                          const cmpSkor = m.katSkorCmp ? (m.katSkorCmp as any)[kat.key] ?? null : null
+                          return (
+                            <td key={kat.key} style={{
+                              ...tdS,
+                              background: katSortKey===kat.key ? kpiScoreBg(skor) : undefined,
+                            }}>
+                              <SkorHucre skor={skor} cmpSkor={selCmpDonem ? cmpSkor : null} size="sm" />
+                            </td>
+                          )
+                        })}
+                        {/* Genel skor — sağda */}
+                        <td style={{
+                          ...tdS,
+                          background: katSortKey==='genel' ? scoreBg(m.score) : undefined,
+                          borderLeft: '2px solid var(--bd)',
+                        }}>
+                          <SkorHucre skor={m.score} cmpSkor={selCmpDonem ? m.cmpScore : null} size="sm" />
+                        </td>
+                      </tr>
+                    ))}
+                    {katMarkalar.length === 0 && (
+                      <tr>
+                        <td colSpan={2 + KAT_YAPILAR.length + 1}
+                          style={{ padding: 40, textAlign: 'center', color: 'var(--tx3)' }}>
+                          Seçili filtreler için veri bulunamadı
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ padding: '6px 14px', fontSize: 9, color: 'var(--tx3)', borderTop: '1px solid var(--bd)', textAlign: 'center' }}>
+                {katMarkalar.length} marka · tablonun üzerine gelin ve aşağı kaydırın
+              </div>
+            </div>
           </div>
         )}
 
