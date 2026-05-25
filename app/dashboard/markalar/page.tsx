@@ -204,7 +204,7 @@ export default function MarkalarsPage() {
   let aktifAd = 'Genel Skor'
   if (sortKpi !== -1) {
     const meta = KPI_META[sortKpi]
-    aktifAd = (meta ? meta.ad : '') + (isLowerBetter(sortKpi) ? ' ↓' : '')
+    aktifAd = (meta ? meta.ad : '') + (isLowerBetter(sortKpi) ? ' (min)' : '')
   }
 
   return (
@@ -215,14 +215,17 @@ export default function MarkalarsPage() {
 
         {/* Sekme seçici */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {([['kpi', 'KPI Bazlı'], ['kategori', 'Kategori Bazlı']] as [TabTip, string][]).map(([t, lbl]) => (
-            <button key={t} onClick={() => setTab(t)} style={{
-              padding: '6px 18px', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-              border: `1px solid ${tab === t ? 'var(--blue)' : 'var(--bd)'}`,
-              background: tab === t ? 'rgba(59,130,246,.12)' : 'var(--surf)',
-              color: tab === t ? 'var(--blue)' : 'var(--tx2)',
-            }}>{lbl}</button>
-          ))}
+          {(['kpi', 'kategori'] as TabTip[]).map(t => {
+            const lbl = t === 'kpi' ? 'KPI Bazlı' : 'Kategori Bazlı'
+            return (
+              <button key={t} onClick={() => setTab(t)} style={{
+                padding: '6px 18px', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                border: `1px solid ${tab === t ? 'var(--blue)' : 'var(--bd)'}`,
+                background: tab === t ? 'rgba(59,130,246,.12)' : 'var(--surf)',
+                color: tab === t ? 'var(--blue)' : 'var(--tx2)',
+              }}>{lbl}</button>
+            )
+          })}
         </div>
 
         {/* ══ KPI Bazlı ══════════════════════════════════════ */}
@@ -242,9 +245,9 @@ export default function MarkalarsPage() {
                       <th style={{ ...thS, minWidth: 72, position: 'sticky', left: 130, background: 'var(--surf2)', zIndex: 3 }}>Seg.</th>
                       {KPI_META.map((k, i) => (
                         <th key={i} onClick={() => setSortKpi(i)}
-                          title={k.ad + (k.is_lower_better ? ' (küçükse iyi ↓)' : '')}
+                          title={k.ad + (k.is_lower_better ? ' (kucukse iyi)' : '')}
                           style={{ ...thS, color: sortKpi === i ? 'var(--blue)' : 'var(--tx3)', background: sortKpi === i ? 'rgba(59,130,246,.08)' : 'var(--surf2)', minWidth: 110, whiteSpace: 'normal', lineHeight: 1.3, verticalAlign: 'bottom', paddingBottom: 6 }}>
-                          {k.ad}{k.is_lower_better ? ' ↓' : ''}{sortKpi === i ? ' ▾' : ''}
+                          {k.ad}{k.is_lower_better ? ' (min)' : ''}{sortKpi === i ? ' ▾' : ''}
                         </th>
                       ))}
                       <th onClick={() => setSortKpi(-1)} style={{ ...thS, minWidth: 90, color: sortKpi === -1 ? '#f59e0b' : 'var(--tx3)', background: sortKpi === -1 ? 'rgba(245,158,11,.08)' : 'var(--surf2)', borderLeft: '2px solid var(--bd)' }}>
