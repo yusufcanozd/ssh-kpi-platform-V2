@@ -117,7 +117,7 @@ export default function AdminUsersPage() {
           </div>
         )}
 
-        {loading || authLoading ? (
+        {loading  ? (
           <div style={{ textAlign:'center', padding:60, color:'var(--tx3)' }}>Yükleniyor...</div>
         ) : users.length === 0 ? (
           <div style={{ textAlign:'center', padding:60, color:'var(--tx3)' }}>
