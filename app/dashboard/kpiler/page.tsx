@@ -20,26 +20,30 @@ const barValuePlugin = {
   afterDatasetsDraw(chart: ChartJS) {
     const ctx = chart.ctx
     const barCount = chart.data.labels ? chart.data.labels.length : 0
-    // Marka sayisina gore dinamik font — cok kalabaliksa gizle
-    const fontSize = barCount <= 10 ? 10 : barCount <= 20 ? 8 : barCount <= 35 ? 7 : 0
+    // Dinamik font boyutu — cok barda kucuk yaz, cok kalabaliksa gizle
+    const fontSize = barCount <= 10 ? 11 : barCount <= 20 ? 9 : barCount <= 35 ? 7 : 0
     if (!fontSize) return
     chart.data.datasets.forEach(function(dataset, di) {
       const meta = chart.getDatasetMeta(di)
       if (meta.hidden) return
-      const isPrev = di > 0
+      const isPrev = di > 0  // ikinci dataset = onceki donem
       meta.data.forEach(function(bar, idx) {
         const val = dataset.data[idx] as number
-        if (!val) return
-        // Bar rengi: isPrev ise gri, degil ise skor esigine gore
-        const barColor = isPrev
-          ? 'rgba(100,116,139,.9)'
-          : val >= 77 ? '#10b981' : val >= 66 ? '#3b82f6' : '#ef4444'
+        if (!val && val !== 0) return
+        const rounded = Math.round(val)
+        // Bar rengiyle ayni renk
+        const color = isPrev
+          ? 'rgba(100,116,139,.85)'
+          : rounded >= 77 ? '#10b981'
+          : rounded >= 66 ? '#3b82f6'
+          : '#ef4444'
         ctx.save()
-        ctx.font = '700 ' + String(fontSize) + 'px monospace'
+        ctx.font = 'bold ' + String(fontSize) + 'px monospace'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'bottom'
-        ctx.fillStyle = barColor
-        ctx.fillText(String(Math.round(val)), bar.x, bar.y - 2)
+        ctx.fillStyle = color
+        // Bar'in tam ustune yaz
+        ctx.fillText(String(rounded), bar.x, bar.y - 3)
         ctx.restore()
       })
     })
@@ -137,7 +141,7 @@ export default function KpiDetayPage() {
   const barOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    layout: { padding: { top: 20 } },
+    layout: { padding: { top: 24 } },
     plugins: {
       legend: { display: !!selCmpDonem, position: 'bottom' as const, labels: { color: '#8496b0', font: { size: 10 }, boxWidth: 12, padding: 12 } },
       tooltip: { callbacks: { label: function(ctx: any) { return ' ' + ctx.dataset.label + ': ' + Math.round(ctx.parsed.y) + ' puan' } } },
