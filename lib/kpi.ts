@@ -245,3 +245,75 @@ export const changePct = (baz: number | null | undefined, cmp: number | null | u
   if (baz === null || baz === undefined || cmp === null || cmp === undefined || cmp === 0) return null
   return Math.round(((baz - cmp) / Math.abs(cmp)) * 1000) / 10
 }
+
+// ── Geriye Dönük Uyumluluk Alias'ları ───────────────────────
+// Eski sayfaların import ettiği isimler — iş mantığı değişmez
+
+// getMarkaScore: tek marka için skor
+export function getMarkaScore(marka: string, bolge = '', yas = 'Tümü', donem = ''): number | null {
+  const r = getMarkaRanking('', bolge, yas, donem).find(m => m.marka === marka)
+  return r?.score ?? null
+}
+
+// getMarkaKpiScores: markalar/page.tsx bu isimle import ediyor
+export const getMarkaKpiScores = getMarkaScore
+
+// getMarkaSegment: marka → segment adı
+export function getMarkaSegment(marka: string): string {
+  const r = MARKA_CUBE.find(row => row[0] === marka)
+  return r ? r[1] : ''
+}
+
+// BOLGE_COLORS: bazı sayfalarda kullanılabilir
+export const BOLGE_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899']
+
+// SEGMENT_BORDER: eski sayfalar için
+export const SEGMENT_BORDER: Record<string,string> = Object.fromEntries(
+  Object.entries(SEGMENT_HEX).map(([k, v]) => [k, v])
+)
+
+// debugDonem: geliştirme ortamı için
+export function debugDonem(seg = '', bolge = '', yas = 'Tümü'): void {
+  if (process.env.NODE_ENV === 'production') return
+  const rows = CUBE.filter(r => r[0] === seg && r[1] === bolge && r[2] === yas)
+  console.group(`[kpi] debugDonem(seg="${seg||'TR'}", bolge="${bolge||'Tümü'}", yas="${yas}")`)
+  console.log('Satır sayısı:', rows.length)
+  console.log('Dönemler:', [...new Set(rows.map(r => r[3]).filter(Boolean))].sort())
+  console.groupEnd()
+}
+
+// getAvailableBolgeler
+export function getAvailableBolgeler(seg = '', yas = 'Tümü', donem = ''): Set<string> {
+  const available = new Set<string>()
+  const d = normalizeDonem(donem)
+  for (const r of CUBE) {
+    if (r[0] === seg && r[2] === yas && r[3] === d && r[1]) available.add(r[1])
+  }
+  return available
+}
+
+// getSegmentBg: undefined güvenli
+export function getSegmentBg(seg = ''): string {
+  return SEGMENT_BG[seg] ?? 'rgba(100,116,139,.15)'
+}
+
+// getSegAvg: segment ortalaması (belirli KPI index için)
+export function getSegAvg(seg: string, kpiIdx: number, bolge = '', yas = 'Tümü', donem = ''): number {
+  const kpis = getKpisFromCube(seg, bolge, yas, donem)
+  return kpis[kpiIdx] ?? 0
+}
+
+// KpiScoreDetail interface
+export interface KpiScoreDetail {
+  value: number
+  isDefault: boolean
+  segVal: number | null
+  trVal: number | null
+}
+
+// MarkaData interface (eski uyumluluk)
+export interface MarkaData {
+  marka: string
+  segment: string
+  score: number
+}
