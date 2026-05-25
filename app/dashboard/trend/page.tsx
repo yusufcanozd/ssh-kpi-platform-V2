@@ -4,8 +4,10 @@ import { useMemo, useRef, useState } from 'react'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
-  KPI_META, SEGMENTLER, SEGMENT_HEX, CAT_COLORS,
+  KPI_META, SEGMENTLER, CAT_COLORS,
   fmtKpi, getKpisFromCube, getScore, getKpiScores, DONEMLER,
+  isLowerBetter, getSegmentColor,
+  getAvailableDonemler, getKpiScoresDetailed,
 } from '@/lib/kpi'
 import { Line } from 'react-chartjs-2'
 import {
@@ -120,9 +122,28 @@ function filtreDonemler(bas: DonemSec, bit: DonemSec): string[] {
   return liste.filter(d => donemSira(d) >= Math.min(basS,bitS) && donemSira(d) <= Math.max(basS,bitS))
 }
 
-function DonemSecici({ value, onChange }: { value: DonemSec; onChange: (v: DonemSec) => void }) {
+function DonemSecici({
+  value,
+  onChange,
+  availableDonemler,
+}: {
+  value: DonemSec
+  onChange: (v: DonemSec) => void
+  availableDonemler?: Set<string>  // opsiyonel — verilmezse hepsi aktif
+}) {
   const altlar = getAltlar(value.periyot)
   const altSec = altlar.includes(value.alt) ? value.alt : altlar[0]
+
+  // Belirli bir alt seçeneğinin (örn Q1, Q2) verisi var mı?
+  function altDisabled(a: string): boolean {
+    if (!availableDonemler) return false
+    // Bu alt + mevcut yıl + periyot kombinasyonu için dönem string'i üret
+    const donemStr = value.periyot === 'FY' ? `${value.yil}-FY`
+      : value.periyot === 'Q'  ? `${value.yil}-Q${a}`
+      : `${value.yil}-${a.padStart(2,'0')}`
+    return !availableDonemler.has(donemStr)
+  }
+
   return (
     <div style={{ display:'flex', gap:5, alignItems:'center', flexWrap:'wrap' }}>
       <select value={value.yil} onChange={e => onChange({ ...value, yil: parseInt(e.target.value) })} style={selSt}>
@@ -143,15 +164,24 @@ function DonemSecici({ value, onChange }: { value: DonemSec; onChange: (v: Donem
         })}
       </div>
       <div style={{ display:'flex', gap:2, flexWrap:'wrap' }}>
-        {altlar.map(a => (
-          <button key={a} onClick={() => onChange({ ...value, alt:a })}
-            style={{ padding:'2px 6px', borderRadius:3, fontSize:9, cursor:'pointer',
-              border:`1px solid ${altSec===a?'var(--blue)':'var(--bd)'}`,
-              background:altSec===a?'rgba(59,130,246,.15)':'var(--surf3)',
-              color:altSec===a?'var(--blue)':'var(--tx3)', fontWeight:altSec===a?700:400 }}>
-            {value.periyot==='Q'?`Q${a}`:value.periyot==='FY'?'FY':a}
-          </button>
-        ))}
+        {altlar.map(a => {
+          const dis = altDisabled(a)
+          return (
+            <button key={a} disabled={dis} onClick={() => !dis && onChange({ ...value, alt:a })}
+              title={dis ? 'Bu dönem için veri mevcut değil' : undefined}
+              style={{ padding:'2px 6px', borderRadius:3, fontSize:9,
+                cursor: dis ? 'not-allowed' : 'pointer',
+                border:`1px solid ${altSec===a?'var(--blue)':dis?'var(--bd)':'var(--bd)'}`,
+                background: dis ? 'var(--surf3)' : altSec===a?'rgba(59,130,246,.15)':'var(--surf3)',
+                color: dis ? 'var(--tx3)' : altSec===a?'var(--blue)':'var(--tx3)',
+                fontWeight: altSec===a ? 700 : 400,
+                opacity: dis ? 0.4 : 1,
+                textDecoration: dis ? 'line-through' : 'none',
+              }}>
+              {value.periyot==='Q'?`Q${a}`:value.periyot==='FY'?'FY':a}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
@@ -402,6 +432,17 @@ export default function TrendPage() {
   const [bit, setBit] = useState<DonemSec>({ yil:sonYil, periyot:'Q', alt:'4' })
   const aktifDonemler = useMemo(() => filtreDonemler(bas,bit), [bas,bit])
 
+  // Akıllı Filtre: CUBE'da gerçekten veri olan dönemler
+  // bSnap'teki segment seçimine göre güncellenir
+  const availableDonemler = useMemo(
+    () => getAvailableDonemler(
+      bSnap.segmentler[0] ?? '',  // tek segment seçiliyse onu kullan
+      selBolge,
+      selYas,
+    ),
+    [bSnap.segmentler, selBolge, selYas]
+  )
+
   // Ortak builder state
   const bRef = useRef<BuilderState>(emptyB())
   const [bSnap, setBSnap] = useState<BuilderState>(emptyB())
@@ -493,7 +534,7 @@ export default function TrendPage() {
           <div style={{ fontSize:9, fontWeight:700, color:'var(--tx3)', textTransform:'uppercase',
             letterSpacing:'.06em', marginBottom:10 }}>Dönem Aralığı</div>
           <div style={{ display:'flex', gap:14, alignItems:'flex-start', flexWrap:'wrap' }}>
-            <DonemSecici value={bas} onChange={v => {
+            <DonemSecici value={bas} availableDonemler={availableDonemler} onChange={v => {
               setBas(v)
               // Bitiş de aynı periyot+alt'a default gelsin, yıl olarak son yılı koy
               const altlarBit = getAltlar(v.periyot)
@@ -503,7 +544,7 @@ export default function TrendPage() {
               <span style={{ color:'var(--tx3)', fontSize:18 }}>→</span>
               <span style={{ fontSize:9, color:'var(--tx3)', whiteSpace:'nowrap' }}>{aktifDonemler.length} dönem</span>
             </div>
-            <DonemSecici value={bit} onChange={v => { setBit(v); if (donemSira(donemSecToStr(v))<donemSira(donemSecToStr(bas))) setBas({...v}) }} />
+            <DonemSecici value={bit} availableDonemler={availableDonemler} onChange={v => { setBit(v); if (donemSira(donemSecToStr(v))<donemSira(donemSecToStr(bas))) setBas({...v}) }} />
           </div>
         </div>
 
@@ -525,7 +566,7 @@ export default function TrendPage() {
 
             <PanelGrup title="Segment" icon="🔷">
               {['', ...SEGMENTLER].map(s => (
-                <SelectChip key={s||'tr'} label={s||'Tüm TR'} color={SEGMENT_HEX[s]||'#8496b0'}
+                <SelectChip key={s||'tr'} label={s||'Tüm TR'} color={getSegmentColor(s)}
                   active={bSnap.segmentler.includes(s)}
                   draggable onDrag={() => onChipDrag({ grup:'segment', seg:s })}
                   onClick={() => toggleSegment(s)} />
