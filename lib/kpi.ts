@@ -63,6 +63,8 @@ export {
 // ── Hesaplama Motoru ─────────────────────────────────────────
 export {
   isLowerBetter,
+  isLowerBetterByIndex,
+  isLowerBetterByNo,
   normalizeKpi,
   hesaplaKatveGenelSkor,
   getKpiScores,
