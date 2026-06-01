@@ -6,25 +6,41 @@ import RAW from '../kpi_data.json'
 import MARKA_RAW from '../marka_scores.json'
 import { KPI_META, MarkaScore } from './config'
 
-const rawData      = RAW      as any
+const rawData      = RAW       as any
 const rawMarkaData = MARKA_RAW as any
 
 // ─────────────────────────────────────────────────────────────
 // Tip tanımları (dahili)
 // ─────────────────────────────────────────────────────────────
-export type CubeRow  = [string, string, string, string, (number|null)[], number, number]
-type MarkaRow        = [string, string, string, string, string, number]
+export type CubeRow = [
+  string,          // segment
+  string,          // bolge
+  string,          // yas
+  string,          // donem
+  (number|null)[], // 12 ham KPI değeri
+  number,          // iş emri / örneklem sayısı
+  number           // servis sayısı
+]
+
+type MarkaRow = [
+  string, // marka
+  string, // segment
+  string, // bolge
+  string, // yas
+  string, // donem
+  number  // skor
+]
 
 // ─────────────────────────────────────────────────────────────
 // Ham veri yükleme
 // ─────────────────────────────────────────────────────────────
 export const CUBE: CubeRow[] = (rawData.cube ?? []) as CubeRow[]
 
-// score_cube legacy/precomputed veri alanıdır; runtime skor hesaplamasında kullanılmaz.
-// JSON içinde bırakılmıştır ancak getScore() artık bu veriyi okumaz.
-// Tüm skorlar normalizeKpi → hesaplaKatveGenelSkor pipeline'ından üretilir.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _SCORE_CUBE_LEGACY = (rawData.score_cube ?? [])
+// score_cube legacy veri alanıdır, runtime skor hesaplamasında kullanılmaz.
+// JSON içinde geriye dönük izlenebilirlik / eski backend çıktısı olarak kalabilir;
+// ancak getScore(), getScoreDetailed(), getKpiScores() ve UI skorları artık yalnızca
+// CUBE ham KPI değerleri üzerinden normalizeKpi → hesaplaKatveGenelSkor motoruyla üretilir.
+// Bu dosyada bilinçli olarak rawData.score_cube okunmaz ve herhangi bir scoreMap oluşturulmaz.
 
 const MARKA_CUBE: MarkaRow[] = Array.isArray(rawMarkaData)
   ? rawMarkaData as MarkaRow[]
@@ -37,9 +53,11 @@ export function cubeKey(seg = '', bolge = '', yas = 'Tümü', donem = ''): strin
   return `${seg}|${bolge}|${yas}|${donem}`
 }
 
-const cubeMap = new Map(CUBE.map(r => [cubeKey(r[0],r[1],r[2],r[3]), r]))
+const cubeMap = new Map(CUBE.map(r => [cubeKey(r[0], r[1], r[2], r[3]), r]))
 
-function nd(donem?: string) { return donem ?? '' }
+function nd(donem?: string): string {
+  return donem ?? ''
+}
 
 // ─────────────────────────────────────────────────────────────
 // Ham Cube Erişimi
@@ -67,6 +85,9 @@ export function getCube(seg = '', bolge = '', yas = 'Tümü', donem = ''): CubeR
 
 // ─────────────────────────────────────────────────────────────
 // Marka Veri Erişimi
+// Not: marka_score_cube / marka_scores.json ayrı precomputed marka skor kaynağıdır.
+// Bu prompt yalnızca segment/kategori/genel skorlarındaki score_cube kullanımını pasifleştirir.
+// Marka skor metodolojisi Prompt 13'te ayrıca ele alınacaktır.
 // ─────────────────────────────────────────────────────────────
 export function getMarkaRanking(
   seg = '', bolge = '', yas = 'Tümü', donem = ''
@@ -79,7 +100,7 @@ export function getMarkaRanking(
 
   // Rule of 3: <= 3 aktif oyuncu varsa marka kimliğini maskele
   if (sonuc.length > 0 && sonuc.length <= 3) {
-    return sonuc.map(m => ({ ...m, marka: 'Gizli Teşebbüs (Yetersiz Veri Oyuncu Eşiği)' }))
+    return sonuc.map((m, i) => ({ ...m, marka: `Gizli Teşebbüs ${i + 1}` }))
   }
   return sonuc
 }
@@ -132,7 +153,7 @@ export function getAvailableBolgeler(
 export function debugDonem(seg = '', bolge = '', yas = 'Tümü'): void {
   if (process.env.NODE_ENV === 'production') return
   const rows = CUBE.filter(r => r[0] === seg && r[1] === bolge && r[2] === yas)
-  console.group(`[kpi/data] debugDonem(seg="${seg||'TR'}", bolge="${bolge||'Tümü'}", yas="${yas}")`)
+  console.group(`[kpi/data] debugDonem(seg="${seg || 'TR'}", bolge="${bolge || 'Tümü'}", yas="${yas}")`)
   console.log('Satır:', rows.length)
   console.log('Dönemler:', Array.from(new Set(rows.map(r => r[3]).filter(Boolean))).sort())
   console.groupEnd()
