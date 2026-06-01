@@ -47,12 +47,12 @@ export default function DashboardPage() {
   // Marka sıralaması — gerçek marka×dönem×yaş verisi
   const markalar = useMemo(() =>
     getMarkaRanking(selSeg, selBolge, selYas, selDonem),
-    [selSeg, selYas, selDonem])
+    [selSeg, selBolge, selYas, selDonem])
 
   // Karşılaştırma dönem sıralaması
   const marklarCmp = useMemo(() =>
     selCmpDonem ? getMarkaRanking(selSeg, selBolge, selYas, selCmpDonem) : [],
-    [selSeg, selYas, selCmpDonem])
+    [selSeg, selBolge, selYas, selCmpDonem])
 
   // Bölge dağılımı
   const bolgeData = useMemo(() =>
