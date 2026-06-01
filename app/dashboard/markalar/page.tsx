@@ -7,7 +7,7 @@ import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, SEGMENT_HEX, SEGMENT_BG, KAT_YAPILAR,
-  getKpiScores, getScore, getMarkaRanking,
+  getKpiScores, getScore, getMarkaRanking, getRawMarkaRanking, getBrandPrivacyInfo,
   kpiScoreColor, kpiScoreBg, scoreColor, scoreBg,
   changePct, chgColor, isLowerBetter,
 } from '@/lib/kpi'
@@ -82,6 +82,11 @@ export default function MarkalarsPage() {
   const [katSortKey, setKatSortKey] = useState('genel')
 
   const filterLabel = (selBolge || 'Tum TR') + ' - ' + (selYas === 'Tümü' ? 'Tum Yas' : selYas) + ' - ' + (selDonem || 'Tum Donem')
+
+  const brandPrivacy = useMemo(function() {
+    const rawCount = getRawMarkaRanking(selSeg, selBolge, selYas, selDonem).length
+    return getBrandPrivacyInfo(rawCount)
+  }, [selSeg, selBolge, selYas, selDonem])
 
   const markalar = useMemo(function() {
     const ranked    = getMarkaRanking(selSeg, selBolge, selYas, selDonem)
@@ -223,6 +228,23 @@ export default function MarkalarsPage() {
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           <button onClick={function() { setTab('kpi') }} style={{ padding: '6px 18px', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: '1px solid ' + (tab === 'kpi' ? 'var(--blue)' : 'var(--bd)'), background: tab === 'kpi' ? 'rgba(59,130,246,.12)' : 'var(--surf)', color: tab === 'kpi' ? 'var(--blue)' : 'var(--tx2)' }}>KPI Bazli</button>
           <button onClick={function() { setTab('kategori') }} style={{ padding: '6px 18px', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: '1px solid ' + (tab === 'kategori' ? 'var(--blue)' : 'var(--bd)'), background: tab === 'kategori' ? 'rgba(59,130,246,.12)' : 'var(--surf)', color: tab === 'kategori' ? 'var(--blue)' : 'var(--tx2)' }}>Kategori Bazli</button>
+        </div>
+
+        <div style={{
+          background: 'var(--surf)',
+          border: '1px solid var(--bd)',
+          borderRadius: 10,
+          padding: '10px 14px',
+          marginBottom: 16,
+          fontSize: 10,
+          color: 'var(--tx3)',
+          lineHeight: 1.55,
+        }}>
+          <strong style={{ color: 'var(--tx2)' }}>Marka skoru notu:</strong> Marka sıralaması <code>marka_scores.json</code> içindeki hazır genel marka skorunu kullanır.
+          Bu veri kaynağında marka bazlı kategori/KPI kırılımı bulunmadığı için tablodaki kategori ve KPI sütunları, markanın segment referans skorlarıyla açıklama amaçlı gösterilir.
+          {brandPrivacy.isMasked && (
+            <span> Rekabet hassasiyeti nedeniyle 3 veya daha az marka bulunan kırılımlarda marka adları gizlenir.</span>
+          )}
         </div>
 
         {tab === 'kpi' && (
