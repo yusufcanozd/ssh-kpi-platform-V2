@@ -12,6 +12,7 @@ import {
 } from '@/lib/kpi'
 import { Bar, Line } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend, Filler } from 'chart.js'
+import { GeneralScoreMethodology, CategoryScoreMethodology } from '@/components/dashboard/MethodologyTooltip'
 import styles from './page.module.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend, Filler)
@@ -106,7 +107,7 @@ export default function DashboardPage() {
           {/* Segment skor bar grafik */}
           <div className={styles.card}>
             <div className={styles.cardHd}>
-              <h3>Segment Skor Karşılaştırması</h3>
+              <h3 style={{display:'inline-flex',alignItems:'center',gap:6}}>Segment Skor Karşılaştırması <GeneralScoreMethodology align="left" /></h3>
               <span className={styles.hint}>
                 {selDonem||'Tüm Dönem'}{selCmpDonem?` vs ${selCmpDonem}`:''}
               </span>
@@ -269,7 +270,10 @@ function SkorKutu({ label, baz, cmp, color, bg, bazDonem, cmpDonem }:{
   return (
     <div style={{background:bg, border:`1px solid ${color}44`, borderRadius:10, padding:'14px 16px', minHeight:110}}>
       {/* Başlık */}
-      <div style={{fontSize:11, fontWeight:700, color, marginBottom:10}}>{label}</div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:10}}>
+        <span style={{fontSize:11, fontWeight:700, color}}>{label}</span>
+        <GeneralScoreMethodology align="right" />
+      </div>
 
       {/* Dönem etiketleri + skorlar */}
       <div style={{display:'flex', alignItems:'flex-end', gap:12, marginBottom:10}}>
@@ -335,7 +339,10 @@ function KatDetayKutu({ label, score, color, bg }:{
 
   return (
     <div style={{background:bg||'var(--surf2)',border:`1px solid ${color}33`,borderRadius:10,padding:'12px 14px'}}>
-      <div style={{fontSize:10,fontWeight:700,color,marginBottom:10}}>{label} — Kategori Kırılımı</div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:10}}>
+        <span style={{fontSize:10,fontWeight:700,color}}>{label} — Kategori Kırılımı</span>
+        <CategoryScoreMethodology align="right" />
+      </div>
       {cats.map(c=>{
         const val = score[c.key as keyof SegmentScore] as number
         return (
@@ -517,7 +524,7 @@ function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, s
     <div style={{borderTop:'1px solid var(--bd)',marginTop:14,paddingTop:12}}>
       {/* Başlık */}
       <div style={{fontSize:10,fontWeight:600,color:'var(--tx3)',marginBottom:10}}>
-        Kategori Skor Karşılaştırması
+        <span style={{display:'inline-flex',alignItems:'center',gap:6}}>Kategori Skor Karşılaştırması <CategoryScoreMethodology align="left" /></span>
       </div>
 
       {/* 5 kategori için grouped bar grid */}
