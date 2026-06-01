@@ -31,6 +31,18 @@ type MarkaRow = [
   number  // skor
 ]
 
+export interface BrandPrivacyInfo {
+  isMasked: boolean
+  totalBrands: number
+  rule: 'rule-of-3' | 'none'
+}
+
+export interface MarkaScoreWithPrivacy extends MarkaScore {
+  /** Orijinal marka adı sadece internal/debug kullanım içindir; UI'da gösterilmemelidir. */
+  originalMarka?: string
+  isMasked?: boolean
+}
+
 // ─────────────────────────────────────────────────────────────
 // Ham veri yükleme
 // ─────────────────────────────────────────────────────────────
@@ -86,23 +98,46 @@ export function getCube(seg = '', bolge = '', yas = 'Tümü', donem = ''): CubeR
 // ─────────────────────────────────────────────────────────────
 // Marka Veri Erişimi
 // Not: marka_score_cube / marka_scores.json ayrı precomputed marka skor kaynağıdır.
-// Bu prompt yalnızca segment/kategori/genel skorlarındaki score_cube kullanımını pasifleştirir.
-// Marka skor metodolojisi Prompt 13'te ayrıca ele alınacaktır.
+// Marka skorları şu an yalnızca genel skor içerir; kategori/KPI kırılımı yoktur.
+// Segment/kategori/genel dashboard skorları ise score_cube kullanmaz, dinamik KPI motorundan gelir.
 // ─────────────────────────────────────────────────────────────
-export function getMarkaRanking(
+export function applyBrandPrivacyRule<T extends { marka: string }>(rows: T[]): T[] {
+  // Rekabet hassasiyeti / Rule of 3:
+  // Filtre sonucunda 1, 2 veya 3 marka varsa marka adları deterministik şekilde maskelenir.
+  if (rows.length > 0 && rows.length <= 3) {
+    return rows.map((row, i) => ({
+      ...row,
+      originalMarka: row.marka,
+      marka: `Gizli Teşebbüs ${i + 1}`,
+      isMasked: true,
+    }))
+  }
+
+  return rows.map(row => ({ ...row, isMasked: false }))
+}
+
+export function getBrandPrivacyInfo(count: number): BrandPrivacyInfo {
+  return {
+    isMasked: count > 0 && count <= 3,
+    totalBrands: count,
+    rule: count > 0 && count <= 3 ? 'rule-of-3' : 'none',
+  }
+}
+
+export function getRawMarkaRanking(
   seg = '', bolge = '', yas = 'Tümü', donem = ''
 ): MarkaScore[] {
   const d = nd(donem)
-  const sonuc = MARKA_CUBE
+  return MARKA_CUBE
     .filter(r => (!seg || r[1] === seg) && r[2] === bolge && r[3] === yas && r[4] === d)
     .map(r => ({ marka: r[0], segment: r[1], score: r[5] ?? 0 }))
     .sort((a, b) => b.score - a.score || a.marka.localeCompare(b.marka, 'tr'))
+}
 
-  // Rule of 3: <= 3 aktif oyuncu varsa marka kimliğini maskele
-  if (sonuc.length > 0 && sonuc.length <= 3) {
-    return sonuc.map((m, i) => ({ ...m, marka: `Gizli Teşebbüs ${i + 1}` }))
-  }
-  return sonuc
+export function getMarkaRanking(
+  seg = '', bolge = '', yas = 'Tümü', donem = ''
+): MarkaScoreWithPrivacy[] {
+  return applyBrandPrivacyRule(getRawMarkaRanking(seg, bolge, yas, donem)) as MarkaScoreWithPrivacy[]
 }
 
 export function getMarkaList(
@@ -114,7 +149,7 @@ export function getMarkaList(
 export function getMarkaScore(
   marka: string, bolge = '', yas = 'Tümü', donem = ''
 ): number | null {
-  const r = getMarkaRanking('', bolge, yas, donem).find(m => m.marka === marka)
+  const r = getMarkaRanking('', bolge, yas, donem).find(m => m.marka === marka || m.originalMarka === marka)
   return r?.score ?? null
 }
 
