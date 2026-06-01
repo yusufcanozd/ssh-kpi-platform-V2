@@ -1,0 +1,187 @@
+:root {
+  --font-dm-sans: 'DM Sans', sans-serif;
+  --font-dm-mono: 'DM Mono', monospace;
+
+  /* ── Koyu tema ── */
+  --bg:        #0b0f1a;
+  --surf:      #131929;
+  --surf2:     #1a2235;
+  --surf3:     #212d42;
+  --bd:        rgba(255,255,255,.07);
+  --bd2:       rgba(255,255,255,.14);
+  --tx:        #e4eaf4;
+  --tx2:       #8496b0;
+  --tx3:       #4d6070;
+  --blue:      #3b82f6;
+  --green:     #10b981;
+  --amber:     #f59e0b;
+  --red:       #ef4444;
+  --purple:    #8b5cf6;
+  --cyan:      #06b6d4;
+  --radius:    10px;
+  --radius-sm: 7px;
+  --shadow:    0 2px 16px rgba(0,0,0,.35);
+
+  /* Segment renkleri — koyu */
+  --seg-mass-color:    #60a5fa;
+  --seg-mass-bg:       rgba(59,130,246,.18);
+  --seg-mass-border:   rgba(59,130,246,.35);
+  --seg-premium-color: #c084fc;
+  --seg-premium-bg:    rgba(168,85,247,.18);
+  --seg-premium-border:rgba(168,85,247,.35);
+  --seg-ev-color:      #34d399;
+  --seg-ev-bg:         rgba(16,185,129,.18);
+  --seg-ev-border:     rgba(16,185,129,.35);
+  --seg-tr-color:      #fbbf24;
+  --seg-tr-bg:         rgba(251,191,36,.15);
+  --seg-tr-border:     rgba(251,191,36,.35);
+
+  /* Skor renkleri */
+  --skor-yesil:  #10b981;
+  --skor-sari:   #f59e0b;
+  --skor-kirmizi:#ef4444;
+}
+
+/* ── Açık tema ── */
+html.light,
+body.light {
+  --bg:      #f0f4f8;
+  --surf:    #e8eef5;
+  --surf2:   #dce4ee;
+  --surf3:   #cdd6e2;
+  --bd:      rgba(15,23,42,.09);
+  --bd2:     rgba(15,23,42,.18);
+  --tx:      #0f172a;
+  --tx2:     #334155;
+  --tx3:     #64748b;
+  --blue:    #2563eb;
+  --green:   #059669;
+  --amber:   #d97706;
+  --red:     #dc2626;
+  --purple:  #7c3aed;
+  --cyan:    #0891b2;
+  --shadow:  0 2px 12px rgba(0,0,0,.1);
+
+  /* Segment renkleri — açık */
+  --seg-mass-color:    #1d4ed8;
+  --seg-mass-bg:       rgba(37,99,235,.1);
+  --seg-mass-border:   rgba(37,99,235,.25);
+  --seg-premium-color: #6d28d9;
+  --seg-premium-bg:    rgba(109,40,217,.1);
+  --seg-premium-border:rgba(109,40,217,.25);
+  --seg-ev-color:      #047857;
+  --seg-ev-bg:         rgba(5,150,105,.1);
+  --seg-ev-border:     rgba(5,150,105,.25);
+  --seg-tr-color:      #b45309;
+  --seg-tr-bg:         rgba(180,83,9,.1);
+  --seg-tr-border:     rgba(180,83,9,.25);
+
+  --skor-yesil:  #059669;
+  --skor-sari:   #d97706;
+  --skor-kirmizi:#dc2626;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--tx);
+  font-family: var(--font-dm-sans), 'DM Sans', sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  transition: background .2s, color .2s;
+}
+
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: var(--surf3); border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes slideUp {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+.animate-in { animation: fadeIn .2s ease; }
+.mono { font-family: var(--font-dm-mono), monospace !important; }
+.muted { color: var(--tx3) !important; }
+
+.loading-spin {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid var(--bd2);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+/* ── Segment pill'ler ── */
+.pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.pill-premium { background: var(--seg-premium-bg); color: var(--seg-premium-color); border: 1px solid var(--seg-premium-border); }
+.pill-mass    { background: var(--seg-mass-bg);    color: var(--seg-mass-color);    border: 1px solid var(--seg-mass-border); }
+.pill-ev      { background: var(--seg-ev-bg);      color: var(--seg-ev-color);      border: 1px solid var(--seg-ev-border); }
+.pill-pending  { background: rgba(245,158,11,.12); color: var(--amber); }
+.pill-approved { background: rgba(16,185,129,.12); color: var(--green); }
+.pill-rejected { background: rgba(239,68,68,.12);  color: var(--red); }
+
+/* ── Toast ── */
+.toast-container {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(0,0,0,.25);
+  animation: slideUp .2s ease;
+  max-width: 320px;
+  line-height: 1.4;
+}
+
+/* ── Select / Input genel ── */
+select, input {
+  background: var(--surf2);
+  border: 1px solid var(--bd2);
+  color: var(--tx);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  font-size: 11px;
+  font-family: var(--font-dm-sans), sans-serif;
+  width: 100%;
+  transition: border-color .12s;
+  appearance: auto;
+}
+select:focus, input:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+/* Tema flash önleme */
+html.light-pre body,
+html.light-pre {
+  background: #f0f4f8 !important;
+  color: #0f172a !important;
+}

@@ -1,0 +1,47 @@
+.shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+.main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100vh;
+  flex: 1;
+  min-width: 0;
+  transition: flex .25s ease;
+}
+
+/* Filtreler */
+.filters { padding: 4px 0; }
+.filterTitle {
+  font-size: 9px; font-weight: 700; letter-spacing: .1em;
+  color: var(--tx3); text-transform: uppercase;
+  margin-bottom: 8px; padding: 0 2px;
+}
+.filterRow { margin-bottom: 8px; }
+.filterRow label {
+  display: block; font-size: 9px; color: var(--tx2);
+  margin-bottom: 3px; font-weight: 500;
+}
+.filterRow select {
+  width: 100%; background: var(--surf2);
+  border: 1px solid var(--bd2); border-radius: 6px;
+  color: var(--tx); padding: 5px 8px;
+  font-size: 11px; font-family: var(--font-dm-sans), sans-serif;
+  cursor: pointer; outline: none;
+}
+.filterRow select:focus { border-color: var(--blue); }
+.filterSep {
+  font-size: 9px; font-weight: 700; letter-spacing: .08em;
+  color: var(--blue); text-transform: uppercase;
+  border-top: 1px solid var(--bd);
+  padding-top: 8px; margin: 8px 0 6px;
+}
+.filterTwoCol { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.periodBadge {
+  background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.2);
+  border-radius: 5px; padding: 4px 8px; font-size: 10px;
+  color: #60a5fa; font-weight: 600; text-align: center; margin-top: 6px;
+}

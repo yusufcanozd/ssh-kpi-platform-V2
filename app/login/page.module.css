@@ -1,0 +1,200 @@
+.wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--bg);
+}
+.themeBtn {
+  position: fixed;
+  top: 16px; right: 16px;
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  border: 1px solid var(--bd2);
+  background: var(--surf);
+  color: var(--tx2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .12s;
+}
+.themeBtn:hover { background: var(--surf2); color: var(--tx); }
+
+.card {
+  background: var(--surf);
+  border: 1px solid var(--bd);
+  border-radius: 14px;
+  padding: 36px 32px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--shadow);
+  animation: fadeIn .2s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.logoIcon {
+  width: 40px; height: 40px;
+  background: rgba(59,130,246,.12);
+  border: 1px solid rgba(59,130,246,.2);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.logoTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--tx);
+  line-height: 1.2;
+}
+.logoSub {
+  font-size: 11px;
+  color: var(--tx3);
+  margin-top: 2px;
+}
+.desc {
+  font-size: 11px;
+  color: var(--tx3);
+  line-height: 1.6;
+  background: var(--surf2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 22px;
+}
+
+.form { display: flex; flex-direction: column; gap: 14px; }
+.errBox {
+  background: rgba(239,68,68,.1);
+  border: 1px solid rgba(239,68,68,.2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #f87171;
+}
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--tx2);
+}
+.field input {
+  background: var(--surf2);
+  border: 1px solid var(--bd2);
+  border-radius: 8px;
+  color: var(--tx);
+  padding: 9px 12px;
+  font-size: 13px;
+  font-family: var(--font-dm-sans), sans-serif;
+  outline: none;
+  transition: border .12s;
+  width: 100%;
+}
+.field input:focus { border-color: var(--blue); }
+
+.pwWrap { position: relative; }
+.pwWrap input { padding-right: 40px; }
+.eyeBtn {
+  position: absolute;
+  right: 10px; top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--tx3);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+}
+.eyeBtn:hover { color: var(--tx2); }
+
+.submitBtn {
+  width: 100%;
+  padding: 10px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-dm-sans), sans-serif;
+  transition: opacity .12s;
+  margin-top: 4px;
+}
+.submitBtn:hover { opacity: .88; }
+.submitBtn:disabled { opacity: .6; cursor: not-allowed; }
+
+.hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--bd);
+  font-size: 11px;
+  color: var(--tx3);
+}
+
+.modeTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--tx);
+  margin-bottom: 16px;
+  text-align: center;
+}
+.twoField {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.links {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.linkBtn {
+  background: none;
+  border: none;
+  color: var(--blue);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  font-family: var(--font-dm-sans), sans-serif;
+  text-decoration: underline;
+}
+.linkBtn:hover { opacity: .8; }
+.sucBox {
+  background: rgba(16,185,129,.1);
+  border: 1px solid rgba(16,185,129,.4);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #10b981;
+  font-size: 12px;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.infoBox {
+  background: rgba(59,130,246,.08);
+  border: 1px solid rgba(59,130,246,.2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: var(--tx2);
+  font-size: 12px;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}

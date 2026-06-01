@@ -1,0 +1,58 @@
+.topbar {
+  background: var(--surf);
+  border-bottom: 1px solid var(--bd);
+  padding: 10px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  transition: background .2s;
+}
+.left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--tx);
+  line-height: 1;
+}
+.subtitle {
+  font-size: 10px;
+  color: var(--tx3);
+  margin-top: 3px;
+}
+.right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.backBtn {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--bd2);
+  background: var(--surf2);
+  color: var(--tx2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .12s;
+  flex-shrink: 0;
+}
+.backBtn:hover { background: var(--surf3); color: var(--tx); }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+.pill-green { background: rgba(16,185,129,.12); color: #34d399; border: 1px solid rgba(16,185,129,.2); }
+.pill-amber { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.2); }
+.pill-blue  { background: rgba(59,130,246,.12);  color: #60a5fa; border: 1px solid rgba(59,130,246,.2); }
