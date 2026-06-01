@@ -1,15 +1,28 @@
 import { describe, expect, it, vi } from 'vitest'
 
-const refKpis = Array(12).fill(100) as number[]
+const refKpis = [
+  100,
+  100,
+  100,
+  10,  // KPI 4 lower-is-better referansı
+  100,
+  100,
+  10,  // KPI 7 lower-is-better referansı
+  100,
+  100,
+  100,
+  100,
+  100,
+] as number[]
 
 const fullRawKpis = [
   90,   // KPI 1  -> 90
   100,  // KPI 2  -> 100
   110,  // KPI 3  -> 110
-  8,    // KPI 4  -> lower better: 100 / 8 * 100 = 125
+  8,    // KPI 4  -> lower better: 10 / 8 * 100 = 125
   80,   // KPI 5  -> 80
   95,   // KPI 6  -> 95
-  8,    // KPI 7  -> lower better: 100 / 8 * 100 = 125
+  8,    // KPI 7  -> lower better: 10 / 8 * 100 = 125
   75,   // KPI 8  -> 75
   100,  // KPI 9  -> 100
   120,  // KPI 10 -> 120
