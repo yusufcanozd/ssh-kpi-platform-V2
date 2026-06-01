@@ -6,8 +6,17 @@ import RAW from '../kpi_data.json'
 import MARKA_RAW from '../marka_scores.json'
 import { KPI_META, MarkaScore } from './config'
 
-const rawData      = RAW       as any
-const rawMarkaData = MARKA_RAW as any
+interface RawKpiData {
+  cube?: CubeRow[]
+  marka_score_cube?: MarkaRow[]
+}
+
+interface RawMarkaScoresData {
+  cube?: MarkaRow[]
+}
+
+const rawData = RAW as unknown as RawKpiData
+const rawMarkaData = MARKA_RAW as unknown as RawMarkaScoresData | MarkaRow[]
 
 // ─────────────────────────────────────────────────────────────
 // Tip tanımları (dahili)
