@@ -11,17 +11,30 @@ import {
 import { getKpisFromCube } from './data'
 
 // ─────────────────────────────────────────────────────────────
-// isLowerBetter — JSON'dan dinamik okur
+// Lower-is-better yardımcıları — JSON'dan dinamik okur
 //
 // is_lower_better alanı kpi_data.json → kpi_meta içinde tutulur.
 // Şu an lower-is-better KPI'lar:
-//   idx=3 (no=4): İE Başına İşçilik Saati
-//   idx=6 (no=7): İş Emri Süresi Endeksi
+//   index=3 / no=4: İE Başına İşçilik Saati
+//   index=6 / no=7: İş Emri Süresi Endeksi
+//
+// Önemli: index ve KPI no bilinçli olarak ayrıldı.
+// Eski isLowerBetter fonksiyonu geriye dönük uyumluluk için index kabul eder.
 // ─────────────────────────────────────────────────────────────
-export function isLowerBetter(idxOrNo: number): boolean {
-  const byIdx = KPI_META[idxOrNo]
-  const byNo  = KPI_META.find(k => k.no === idxOrNo)
-  return (byIdx ?? byNo)?.is_lower_better ?? false
+export function isLowerBetterByIndex(index: number): boolean {
+  return KPI_META[index]?.is_lower_better ?? false
+}
+
+export function isLowerBetterByNo(no: number): boolean {
+  return KPI_META.find(k => k.no === no)?.is_lower_better ?? false
+}
+
+/**
+ * @deprecated Bu fonksiyon 0-bazlı KPI index'i kabul eder.
+ * KPI no ile kontrol için isLowerBetterByNo(no) kullan.
+ */
+export function isLowerBetter(index: number): boolean {
+  return isLowerBetterByIndex(index)
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -60,7 +73,7 @@ function _normalizeRaw(
     return { score: 100, isMissing: false, isReferenceMissing: false, isCapped: false, coverageIncluded: true }
   }
 
-  const lob = isLowerBetter(kpiIdx)
+  const lob = isLowerBetterByIndex(kpiIdx)
 
   // Referans sıfır → anlamsız oran
   if (ref === 0) {
@@ -204,7 +217,7 @@ export function getKpiScoresFullDetail(
       referenceValue:     ref ?? null,
       isMissing:          r.isMissing,
       isReferenceMissing: r.isReferenceMissing,
-      isLowerBetter:      isLowerBetter(i),
+      isLowerBetter:      isLowerBetterByIndex(i),
       isCapped:           r.isCapped,
       coverageIncluded:   r.coverageIncluded,
     }
