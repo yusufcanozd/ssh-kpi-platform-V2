@@ -114,14 +114,19 @@ export const YAS_COLORS: Record<string,string> = {
 // Veri küpleri
 // ─────────────────────────────────────────────────────────────
 const CUBE: CubeRow[] = (rawData.cube ?? []) as CubeRow[]
-const SCORE_CUBE: ScoreRow[] = (rawData.score_cube ?? []) as ScoreRow[]
+
+// score_cube legacy/precomputed veri alanıdır; runtime skor hesaplamasında kullanılmaz.
+// JSON içinde bırakılmıştır ancak getScore() artık bu veriyi okumaz.
+// Tüm skorlar normalizeKpi → hesaplaKatveGenelSkor pipeline'ından üretilir.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _SCORE_CUBE_LEGACY: ScoreRow[] = (rawData.score_cube ?? []) as ScoreRow[]
+
 const MARKA_CUBE: MarkaRow[] = Array.isArray(rawMarkaData)
   ? rawMarkaData as MarkaRow[]
   : (rawMarkaData.cube ?? rawData.marka_score_cube ?? []) as MarkaRow[]
 
-// O(1) lookup için map'ler
-const cubeMap  = new Map(CUBE.map(r  => [k4(r[0],r[1],r[2],r[3]), r]))
-const scoreMap = new Map(SCORE_CUBE.map(r => [k4(r[0],r[1],r[2],r[3]), r]))
+// O(1) lookup için map
+const cubeMap = new Map(CUBE.map(r => [k4(r[0],r[1],r[2],r[3]), r]))
 
 function k4(seg='', bolge='', yas='Tümü', donem='') {
   return `${seg}|${bolge}|${yas}|${donem}`
@@ -232,18 +237,20 @@ export function getKpiScoresDetailed(
   })
 }
 
-// getScore — segment/TR bazlı skor (score_cube'dan VEYA dinamik hesap)
+// getScore — segment/TR bazlı skor, tamamen dinamik hesap
+//
+// score_cube artık KULLANILMIYOR. Tüm kategori ve genel skorlar
+// normalizeKpi → hesaplaKatveGenelSkor pipeline'ından üretilir.
+//
+// Referans noktası: aynı (bolge, yas, donem) filtresi altında seg='' (TR genel)
+// Return shape: { genel, musteri, ticari, operasyonel, bayi, kapsam }
+// Geriye dönük uyumluluk: SegmentScore interface korunmuştur.
 export function getScore(
   seg='', bolge='', yas='Tümü', donem=''
 ): SegmentScore | null {
-  // Önce score_cube'a bak (backend hesaplanmış)
-  const r = scoreMap.get(k4(seg, bolge, yas, nd(donem)))
-  if (r) {
-    return { genel:r[4], musteri:r[5], ticari:r[6], operasyonel:r[7], bayi:r[8], kapsam:r[9] }
-  }
-  // score_cube'da yoksa dinamik hesapla
   const kpis    = getKpisFromCube(seg, bolge, yas, donem)
   const refKpis = getKpisFromCube('', bolge, yas, donem)
+  // Tüm değerler null ise veri yok → null dön
   if (kpis.every(v => v == null)) return null
   return hesaplaKatveGenelSkor(kpis, refKpis)
 }
