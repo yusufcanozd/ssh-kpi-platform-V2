@@ -46,6 +46,12 @@ const cubeCtx = vi.hoisted(() => {
     110,
   ] as Array<number | null>
 
+  /** Tüm segmentler + Tüm TR (cube ''|''): bölgesel ''|Marmara serisinden farklı olmalı (national skor ≠ 100). */
+  const nationalTrAllSeg = refKpis.map((v, i) => (i === 2 ? (v as number) + 5 : v)) as number[]
+
+  /** Mass segment Tüm TR (cube Mass|''): national benchmark; refKpis'ten farklı. */
+  const massTrKpis = refKpis.map((v, i) => (i === 0 ? 200 : v)) as number[]
+
   function defaultCube(
     seg = '',
     bolge = '',
@@ -54,7 +60,8 @@ const cubeCtx = vi.hoisted(() => {
   ): (number | null)[] {
     if (seg === 'MISSING') return missingRawKpis
     if (bolge === 'SAME_FILTER_HUNDRED') return refKpis
-    if (seg === '' && bolge === '') return refKpis
+    if (seg === '' && bolge === '') return nationalTrAllSeg
+    if (seg === 'Mass' && bolge === '') return massTrKpis
     if (seg === '') return refKpis
     return fullRawKpis
   }
@@ -215,5 +222,12 @@ describe('referans modu (same-filter vs national)', () => {
     expect(same?.genel).toBe(101)
     expect(nat?.genel).not.toBe(same?.genel)
     expect(getRegionalScore('Mass', 'Marmara', 'Tümü', '')?.genel).toBe(nat?.genel)
+  })
+
+  it('getRegionalScore("", Akdeniz) her zaman 100 olmak zorunda değil (national ref ≠ same-filter self)', () => {
+    const self = getScore('', 'Akdeniz', 'Tümü', '')
+    const regionalNat = getRegionalScore('', 'Akdeniz', 'Tümü', '')
+    expect(self?.genel).toBe(100)
+    expect(regionalNat?.genel).not.toBe(self?.genel)
   })
 })

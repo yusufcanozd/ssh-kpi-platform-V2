@@ -188,9 +188,29 @@ export function getKpiScoresDetailed(
 export type KpiReferenceMode = 'same-filter' | 'national'
 
 /**
+ * Ulusal (Türkiye geneli) kıyaslama için ham KPI referans küresi.
+ *
+ * - Segment **yok** (`seg === ''`): tüm segmentlerin birleşik Türkiye satırı
+ *   `getKpisFromCube('', '', yas, donem)` — cube anahtarı `''|''|yas|donem`.
+ * - Segment **seçili**: aynı segmentin bölgesiz (Tüm TR) satırı
+ *   `getKpisFromCube(seg, '', yas, donem)` — böylece bölge skoru, seçilen
+ *   segmentin Türkiye ortalamasına göre hesaplanır; `''|''` ile `seg|bölge`
+ *   karışımı önlenir (önizlemede yanlışlıkla hep 100 görünmesi riski).
+ */
+function nationalBenchmarkKpis(
+  seg: string,
+  yas = 'Tümü',
+  donem = ''
+): (number|null)[] {
+  return seg
+    ? getKpisFromCube(seg, '', yas, donem)
+    : getKpisFromCube('', '', yas, donem)
+}
+
+/**
  * getScore ile aynı motor; yalnızca referans KPI küresini moda göre seçer.
  * - same-filter: getKpisFromCube('', bolge, …) — mevcut getScore davranışı
- * - national:    getKpisFromCube('', '', …) — Tüm Türkiye (bölge filtresi yok)
+ * - national:    nationalBenchmarkKpis(seg, …) — bölge yok; segment varsa segment TR geneli
  */
 export function getScoreWithReferenceMode(
   seg = '',
@@ -202,7 +222,7 @@ export function getScoreWithReferenceMode(
   const kpis = getKpisFromCube(seg, bolge, yas, donem)
   const refKpis =
     referenceMode === 'national'
-      ? getKpisFromCube('', '', yas, donem)
+      ? nationalBenchmarkKpis(seg, yas, donem)
       : getKpisFromCube('', bolge, yas, donem)
   if (kpis.every(v => v == null)) return null
   return hesaplaKatveGenelSkor(kpis, refKpis)

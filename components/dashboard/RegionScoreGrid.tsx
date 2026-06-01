@@ -21,7 +21,9 @@ export default function RegionScoreGrid({ selSeg, selBolge, selYas, selDonem, se
         </span>
       </div>
       <p style={{ fontSize: 10, color: 'var(--tx3)', margin: '0 0 10px', lineHeight: 1.45 }}>
-        Bölge skorları, seçili filtrelerde ilgili bölgenin Türkiye geneli referansına göre hesaplanır. 100 referans seviyesidir.
+        Bölge skorları, seçili filtrelerde bölgenin Türkiye geneli referansına göre hesaplanır
+        {selSeg ? ` (aynı segmentin Tüm TR satırı: ${selSeg})` : ' (tüm segmentlerin birleşik Tüm TR satırı)'}.
+        100 referans seviyesidir.
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 8 }}>
         {bolgeList.map((b) => {
@@ -42,7 +44,7 @@ export default function RegionScoreGrid({ selSeg, selBolge, selYas, selDonem, se
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, marginBottom: 5, flexWrap: 'nowrap' }}>
                 <div style={{ flexShrink: 0 }}>
                   <div style={{ fontSize: 7, color: 'var(--tx3)', marginBottom: 1, fontWeight: 500, lineHeight: 1, whiteSpace: 'nowrap' }}>{selDonem ? selDonem.replace('20', '').replace('-FY', 'FY') : 'Tüm'}</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, fontFamily: 'var(--font-dm-mono)', color: scoreColor(bazG), lineHeight: 1 }}>{bazG || '—'}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, fontFamily: 'var(--font-dm-mono)', color: scoreColor(bazG), lineHeight: 1 }}>{baz == null ? '—' : bazG}</div>
                   <div style={{ fontSize: 7, color: 'var(--tx3)', marginTop: 1 }}>puan</div>
                 </div>
                 {cmp && (

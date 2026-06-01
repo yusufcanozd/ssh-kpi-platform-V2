@@ -182,7 +182,9 @@ export default function BolgelerPage() {
         {/* ── TABLO ── */}
         <div className={styles.card} style={{padding:0, overflow:'hidden', marginBottom:14}}>
           <p style={{fontSize:10, color:'var(--tx3)', margin:'10px 12px 0', lineHeight:1.45}}>
-            Bölge skorları, seçili filtrelerde ilgili bölgenin Türkiye geneli referansına göre hesaplanır. 100 referans seviyesidir.
+            Bölge skorları, seçili filtrelerde bölgenin Türkiye geneli referansına göre hesaplanır
+            {selSeg ? ` (aynı segmentin Tüm TR: ${selSeg})` : ' (tüm segmentlerin birleşik Tüm TR)'}.
+            100 referans seviyesidir.
           </p>
           <div style={{overflowX:'auto'}}>
             <table style={{width:'100%', borderCollapse:'collapse', fontSize:11, tableLayout:'auto'}}>
