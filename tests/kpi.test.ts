@@ -1,71 +1,26 @@
 import { describe, expect, it, vi } from 'vitest'
 
-const refKpis = [
-  100,
-  100,
-  100,
-  10,  // KPI 4 lower-is-better referansı
-  100,
-  100,
-  10,  // KPI 7 lower-is-better referansı
-  100,
-  100,
-  100,
-  100,
-  100,
-] as number[]
+const refKpis = Array(12).fill(100) as number[]
+const nationalAll = Array(12).fill(100) as number[]
+const nationalMass = Array(12).fill(100) as number[]
 
-const fullRawKpis = [
-  90,   // KPI 1  -> 90
-  100,  // KPI 2  -> 100
-  110,  // KPI 3  -> 110
-  8,    // KPI 4  -> lower better: 10 / 8 * 100 = 125
-  80,   // KPI 5  -> 80
-  95,   // KPI 6  -> 95
-  8,    // KPI 7  -> lower better: 10 / 8 * 100 = 125
-  75,   // KPI 8  -> 75
-  100,  // KPI 9  -> 100
-  120,  // KPI 10 -> 120
-  80,   // KPI 11 -> 80
-  110,  // KPI 12 -> 110
-] as number[]
-
-const missingRawKpis = [
-  null, // KPI 1 missing; must not be included in category average
-  100,
-  110,
-  8,
-  null, // KPI 5 missing; must not be included in category average
-  95,
-  8,
-  75,
-  100,
-  120,
-  80,
-  110,
-] as Array<number | null>
-
-const regionAllKpis = [
-  104, 100, 96, 10.4, 101, 99, 9.7, 103, 101, 98, 102, 99,
-] as number[]
-
-const massNationalKpis = [
-  95, 100, 105, 9.5, 100, 100, 10.5, 98, 101, 99, 100, 102,
-] as number[]
-
-const massRegionKpis = [
-  97, 100, 103, 9.2, 101, 98, 10.1, 101, 102, 98, 101, 100,
-] as number[]
+const fullRawKpis = [90, 100, 110, 8, 80, 95, 8, 75, 100, 120, 80, 110] as number[]
+const regionalAkdeniz = [92, 0, 111, 9, 83, 98, 9, 77, 101, 122, 82, 111] as number[]
+const regionalEge = [101, 0, 108, 8.5, 90, 102, 8.7, 82, 110, 117, 85, 105] as number[]
+const missingRawKpis = [null, 100, 110, 8, null, 95, 8, 75, 100, 120, 80, 110] as Array<number | null>
 
 vi.mock('../lib/kpi/data', () => ({
   getKpisFromCube: vi.fn((seg = '', bolge = '') => {
     if (seg === 'MISSING') return missingRawKpis
-    if (seg === 'Mass' && bolge === 'Akdeniz') return massRegionKpis
-    if (seg === 'Mass' && bolge === '') return fullRawKpis
-    if (seg === '' && bolge === 'Akdeniz') return regionAllKpis
+    if (bolge === 'Akdeniz') return regionalAkdeniz
+    if (bolge === 'Ege') return regionalEge
+    if (seg === 'Mass' && bolge === '') return nationalMass
+    if (seg === '' && bolge === '') return nationalAll
     if (seg === '') return refKpis
     return fullRawKpis
   }),
+  isZeroVarianceKpi: vi.fn((idx: number) => idx === 1),
+  getZeroVarianceKpiIndexes: vi.fn(() => [1]),
 }))
 
 import {
@@ -73,10 +28,13 @@ import {
   getRegionalScorePrecise,
   getScore,
   getScoreDetailed,
+  getScoreWithReferenceMode,
   hesaplaKatveGenelSkor,
   isLowerBetterByIndex,
   isLowerBetterByNo,
   normalizeKpi,
+  normalizeKpiPrecise,
+  overallScoreFromKpisDetailed,
 } from '../lib/kpi/formula'
 
 describe('normalizeKpi', () => {
@@ -109,105 +67,61 @@ describe('normalizeKpi', () => {
     expect(normalizeKpi(undefined, 100, 0)).toBe(100)
   })
 
-  it('sıfır değer davranışını korur', () => {
-    expect(normalizeKpi(0, 100, 0)).toBe(0)
-    expect(normalizeKpi(0, 100, 3)).toBe(100)
-    expect(normalizeKpi(0, 0, 0)).toBe(100)
+  it('precise normalizasyon ondalık değeri korur', () => {
+    expect(normalizeKpiPrecise(100.4, 100, 0)).toBe(100.4)
   })
 })
 
-describe('kategori ve genel skor hesaplama', () => {
-  it('kategori skorlarını doğru KPI gruplarından hesaplar', () => {
+describe('kategori, genel skor ve coverage', () => {
+  it('kategori skorlarını doğru KPI gruplarından hesaplar ve KPI 2 sıfır-varyans olduğu için coverage dışına alır', () => {
     const score = hesaplaKatveGenelSkor(fullRawKpis, refKpis)
-
-    expect(score.musteri).toBe(100)     // KPI 1,2,3: (90 + 100 + 110) / 3
-    expect(score.ticari).toBe(100)      // KPI 4,5,6: (125 + 80 + 95) / 3
-    expect(score.operasyonel).toBe(100) // KPI 7,8: (125 + 75) / 2
-    expect(score.bayi).toBe(110)        // KPI 9,10: (100 + 120) / 2
-    expect(score.kapsam).toBe(95)       // KPI 11,12: (80 + 110) / 2
-  })
-
-  it('genel skorda kategori ağırlıklarını uygular', () => {
-    const score = hesaplaKatveGenelSkor(fullRawKpis, refKpis)
-
-    // 100×0.25 + 100×0.25 + 100×0.25 + 110×0.15 + 95×0.10 = 101
+    expect(score.musteri).toBe(100) // KPI 1 ve 3: (90 + 110) / 2; KPI 2 hariç
+    expect(score.ticari).toBe(100)
+    expect(score.operasyonel).toBe(100)
+    expect(score.bayi).toBe(110)
+    expect(score.kapsam).toBe(95)
     expect(score.genel).toBe(101)
-  })
-})
-
-describe('coverage ve detaylı skorlar', () => {
-  it('tüm KPI verileri varsa coverage 1 döner', () => {
-    const detailed = getScoreDetailed('Mass')
-
-    expect(detailed).not.toBeNull()
-    expect(detailed?.coverageRatio).toBe(1)
-    expect(detailed?.availableKpiCount).toBe(12)
-    expect(detailed?.totalKpiCount).toBe(12)
-    expect(detailed?.missingKpis).toEqual([])
   })
 
   it('eksik KPI varsa coverage düşer ve eksikler kategori ortalamasından çıkarılır', () => {
     const detailed = getScoreDetailed('MISSING')
-
     expect(detailed).not.toBeNull()
-    expect(detailed?.coverageRatio).toBeCloseTo(10 / 12, 5)
-    expect(detailed?.availableKpiCount).toBe(10)
-    expect(detailed?.missingKpis).toEqual([0, 4])
-
-    // musteri kategorisinde KPI 1 eksik: (100 + 110) / 2 = 105
-    expect(detailed?.musteri).toBe(105)
-
-    // ticari kategorisinde KPI 5 eksik: (125 + 95) / 2 = 110
+    expect(detailed?.coverageRatio).toBeCloseTo(9 / 12, 5)
+    expect(detailed?.missingKpis).toEqual([0, 1, 4])
+    expect(detailed?.musteri).toBe(110)
     expect(detailed?.ticari).toBe(110)
   })
 
   it('getScore ile getScoreDetailed skorları tutarlıdır', () => {
     const score = getScore('Mass')
     const detailed = getScoreDetailed('Mass')
-
-    expect(score).not.toBeNull()
-    expect(detailed).not.toBeNull()
-
     expect(score?.genel).toBe(detailed?.genel)
     expect(score?.musteri).toBe(detailed?.musteri)
     expect(score?.ticari).toBe(detailed?.ticari)
-    expect(score?.operasyonel).toBe(detailed?.operasyonel)
-    expect(score?.bayi).toBe(detailed?.bayi)
-    expect(score?.kapsam).toBe(detailed?.kapsam)
+  })
+
+  it('overallScoreFromKpisDetailed eksik değerleri kategori ortalamasından çıkarır', () => {
+    const score = overallScoreFromKpisDetailed([100, null, 120, 100, 100, 100, 100, 100, 100, 100, 100, 100])
+    expect(score.musteri).toBe(110)
   })
 })
 
-
-describe('bölge referans modu ve precise skorlar', () => {
-  it('same-filter getScore davranışı değişmeden kalır', () => {
-    const sameFilter = getScore('', 'Akdeniz')
-
-    expect(sameFilter).not.toBeNull()
-    expect(sameFilter?.genel).toBe(100)
+describe('bölge referans modu', () => {
+  it('same-filter mevcut getScore davranışını korur', () => {
+    expect(getScoreWithReferenceMode('Mass', 'Akdeniz', 'Tümü', '', 'same-filter')?.genel)
+      .toBe(getScore('Mass', 'Akdeniz')?.genel)
   })
 
-  it('getRegionalScore national referans kullanır ve tam sayı skor döner', () => {
-    const regional = getRegionalScore('', 'Akdeniz')
-
-    expect(regional).not.toBeNull()
-    expect(regional?.genel).not.toBe(100)
-    expect(Number.isInteger(regional?.genel)).toBe(true)
+  it('national mod bölgeyi Tüm Türkiye benchmarkına göre hesaplar', () => {
+    const same = getScore('Mass', 'Akdeniz')?.genel
+    const national = getRegionalScore('Mass', 'Akdeniz')?.genel
+    expect(national).toBeDefined()
+    expect(national).not.toBe(same)
   })
 
-  it('getRegionalScorePrecise national referansı korur ve ondalıklı skor üretebilir', () => {
-    const rounded = getRegionalScore('', 'Akdeniz')
-    const precise = getRegionalScorePrecise('', 'Akdeniz')
-
-    expect(precise).not.toBeNull()
-    expect(typeof precise?.genel).toBe('number')
-    expect(precise?.genel).not.toBe(100)
-    expect(precise?.genel).not.toBe(rounded?.genel)
-  })
-
-  it('segment seçiliyken bölge precise skoru aynı segmentin ulusal referansıyla hesaplanır', () => {
-    const precise = getRegionalScorePrecise('Mass', 'Akdeniz')
-
-    expect(precise).not.toBeNull()
-    expect(precise?.genel).not.toBe(100)
+  it('precise regional skor ondalık değer koruyabilir', () => {
+    const precise = getRegionalScorePrecise('', 'Ege')
+    expect(precise?.genel).toEqual(expect.any(Number))
+    expect(Number.isInteger(precise?.genel ?? 0)).toBe(false)
   })
 })

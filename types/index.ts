@@ -1,5 +1,5 @@
 // ── Kullanıcı & Auth ─────────────────────────────────────────
-export type UserRole = 'superadmin' | 'admin' | 'analyst' | 'viewer' | 'user'
+export type UserRole = 'superadmin' | 'admin' | 'analyst' | 'viewer'
 
 export interface Profile {
   id: string

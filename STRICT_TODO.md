@@ -55,3 +55,9 @@ Bu doküman `strict: true` geçişi için teknik borç listesidir. Bu adımda `t
 npm run test
 npm run build
 ```
+
+## Son iyileştirme sonrası kalan strict-mode borçları
+
+- Dashboard sayfalarında bazı Chart.js callback tipleri hâlâ `any` kullanıyor; Chart.js tipleri projede tam kurulu ortamda aşamalı daraltılmalı.
+- Büyük sayfalar (`trend`, `ozet-rapor`, `markalar`) tamamen yeniden yazılmadan küçük component'lere ayrılmaya devam edilmeli.
+- Supabase response tipleri role/profile tarafında daha dar generic tiplerle güçlendirilmeli.

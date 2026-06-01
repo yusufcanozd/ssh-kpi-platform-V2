@@ -1,16 +1,19 @@
 'use client'
 
-import { BOLGELER, fmtSkor1, getRegionalScorePrecise, scoreColor } from '@/lib/kpi'
+import { BOLGELER, getRegionalScorePrecise, fmtSkor1, scoreColor, scoreBarWidth } from '@/lib/kpi'
 import styles from '@/app/dashboard/page.module.css'
 
-export default function RegionScoreGrid({ selSeg, selBolge, selYas, selDonem, selCmpDonem }: {
+interface RegionScoreGridProps {
   selSeg: string
   selBolge: string
   selYas: string
   selDonem: string
   selCmpDonem: string
-}) {
+}
+
+export default function RegionScoreGrid({ selSeg, selBolge, selYas, selDonem, selCmpDonem }: RegionScoreGridProps) {
   const bolgeList = selBolge ? [selBolge] : BOLGELER
+  const refLabel = selSeg ? `${selSeg} segmentinin Tüm Türkiye referansı` : 'Tüm Türkiye referansı'
 
   return (
     <div className={styles.card}>
@@ -20,9 +23,8 @@ export default function RegionScoreGrid({ selSeg, selBolge, selYas, selDonem, se
           {selSeg || 'Tüm Seg.'} · {selYas === 'Tümü' ? 'Tüm Yaş' : selYas + 'y'} · {selDonem || 'Tüm Dönem'}{selCmpDonem ? ` vs ${selCmpDonem}` : ''}
         </span>
       </div>
-      <p style={{ margin: '-4px 0 12px', fontSize: 10, color: 'var(--tx3)', lineHeight: 1.5 }}>
-        Bölge skorları, seçili filtrelerde ilgili bölgenin {selSeg ? 'aynı segmentin Tüm Türkiye' : 'Türkiye geneli'} referansına göre hesaplanır.
-        {' '}100 referans seviyesidir. Skorlar 1 ondalık basamakla gösterilir.
+      <p style={{ margin: '-4px 0 10px', fontSize: 10, color: 'var(--tx3)', lineHeight: 1.5 }}>
+        Bölge skorları, seçili filtrelerde ilgili bölgenin {refLabel}na göre hesaplanır. 100 referans seviyesidir; skorlar 1 ondalık basamakla gösterilir.
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 8 }}>
         {bolgeList.map((b) => {
@@ -31,9 +33,8 @@ export default function RegionScoreGrid({ selSeg, selBolge, selYas, selDonem, se
           const bazG = baz?.genel ?? 0
           const cmpG = cmp?.genel ?? 0
           const chg = cmp && cmpG ? ((bazG - cmpG) / cmpG) * 100 : null
-          const chgColor = chg === null ? 'var(--tx3)' : chg >= 0 ? '#10b981' : chg >= -10 ? '#f59e0b' : '#f87171'
-          const ratio = bazG / 100
-          const relColor = ratio >= 1.02 ? '#10b981' : ratio >= 0.98 ? '#f59e0b' : '#ef4444'
+          const trendColor = chg === null ? 'var(--tx3)' : chg >= 0 ? '#10b981' : chg >= -10 ? '#f59e0b' : '#f87171'
+          const relColor = scoreColor(bazG)
 
           return (
             <div key={b} style={{ padding: '10px 10px 8px', background: 'var(--surf2)', borderRadius: 8, border: `1px solid ${relColor}55` }}>
@@ -51,13 +52,13 @@ export default function RegionScoreGrid({ selSeg, selBolge, selYas, selDonem, se
                   </div>
                 )}
                 {chg !== null && (
-                  <div style={{ marginLeft: 'auto', paddingBottom: 2, fontSize: 10, fontWeight: 700, color: chgColor, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                  <div style={{ marginLeft: 'auto', paddingBottom: 2, fontSize: 10, fontWeight: 700, color: trendColor, flexShrink: 0, whiteSpace: 'nowrap' }}>
                     {chg >= 0 ? '▲ +' : '▼ '}{Math.abs(chg).toFixed(1)}%
                   </div>
                 )}
               </div>
               <div style={{ background: 'rgba(0,0,0,.10)', borderRadius: 4, height: 3, overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(bazG, 100)}%`, height: 3, borderRadius: 4, background: relColor + '99', transition: 'width .4s' }} />
+                <div style={{ width: `${scoreBarWidth(bazG)}%`, height: 3, borderRadius: 4, background: relColor + '99', transition: 'width .4s' }} />
               </div>
             </div>
           )

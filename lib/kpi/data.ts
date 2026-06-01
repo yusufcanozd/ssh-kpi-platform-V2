@@ -52,10 +52,42 @@ export interface MarkaScoreWithPrivacy extends MarkaScore {
   isMasked?: boolean
 }
 
+export interface MarkaMethodologyInfo {
+  source: 'marka_scores.json' | 'marka_score_cube'
+  hasCategoryBreakdown: boolean
+  hasKpiBreakdown: boolean
+  explanation: string
+}
+
+export function getMarkaMethodologyInfo(): MarkaMethodologyInfo {
+  return {
+    source: 'marka_scores.json',
+    hasCategoryBreakdown: false,
+    hasKpiBreakdown: false,
+    explanation: 'Marka sıralaması hazır genel marka skorunu kullanır; mevcut veri kaynağında marka bazlı kategori/KPI kırılımı yoktur.',
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // Ham veri yükleme
 // ─────────────────────────────────────────────────────────────
 export const CUBE: CubeRow[] = (rawData.cube ?? []) as CubeRow[]
+
+const zeroVarianceKpiCache = new Map<number, boolean>()
+
+export function isZeroVarianceKpi(kpiIdx: number): boolean {
+  if (zeroVarianceKpiCache.has(kpiIdx)) return zeroVarianceKpiCache.get(kpiIdx) ?? false
+  const values = CUBE
+    .map(row => row[4]?.[kpiIdx])
+    .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+  const result = values.length > 0 && values.every(v => v === 0)
+  zeroVarianceKpiCache.set(kpiIdx, result)
+  return result
+}
+
+export function getZeroVarianceKpiIndexes(): number[] {
+  return KPI_META.map((_, idx) => idx).filter(isZeroVarianceKpi)
+}
 
 // score_cube legacy veri alanıdır, runtime skor hesaplamasında kullanılmaz.
 // JSON içinde geriye dönük izlenebilirlik / eski backend çıktısı olarak kalabilir;
@@ -110,7 +142,7 @@ export function getCube(seg = '', bolge = '', yas = 'Tümü', donem = ''): CubeR
 // Marka skorları şu an yalnızca genel skor içerir; kategori/KPI kırılımı yoktur.
 // Segment/kategori/genel dashboard skorları ise score_cube kullanmaz, dinamik KPI motorundan gelir.
 // ─────────────────────────────────────────────────────────────
-export function applyBrandPrivacyRule<T extends { marka: string }>(rows: T[]): T[] {
+export function applyBrandPrivacyRule<T extends { marka: string }>(rows: T[]): Array<T & { originalMarka?: string; isMasked: boolean }> {
   // Rekabet hassasiyeti / Rule of 3:
   // Filtre sonucunda 1, 2 veya 3 marka varsa marka adları deterministik şekilde maskelenir.
   if (rows.length > 0 && rows.length <= 3) {

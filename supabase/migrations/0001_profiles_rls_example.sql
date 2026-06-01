@@ -15,16 +15,16 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
   full_name text,
-  role text not null default 'user',
+  role text not null default 'viewer',
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
 
-  constraint profiles_role_check check (role in ('user', 'admin', 'superadmin'))
+  constraint profiles_role_check check (role in ('viewer', 'analyst', 'admin', 'superadmin'))
 );
 
 comment on table public.profiles is 'Application user profile and authorization metadata for SSH KPI Platform.';
-comment on column public.profiles.role is 'Allowed values: user, admin, superadmin.';
+comment on column public.profiles.role is 'Allowed values: viewer, analyst, admin, superadmin.';
 comment on column public.profiles.is_active is 'Inactive users are blocked from protected application operations.';
 
 -- 2) updated_at trigger
@@ -171,7 +171,7 @@ begin
     new.id,
     coalesce(new.email, ''),
     coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name'),
-    'user',
+    'viewer',
     true
   )
   on conflict (id) do nothing;

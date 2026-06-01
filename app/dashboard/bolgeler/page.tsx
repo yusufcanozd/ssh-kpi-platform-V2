@@ -6,8 +6,8 @@ import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, BOLGELER,
   fmtKpi, fmtSkor1, getKpisFromCube, heatColor, isLowerBetter,
-  getScore, getRegionalScorePrecise, scoreColor, scoreBg, kpiUnit, chgColor,
-  getKpiScores, getRegionalKpiScoresPrecise, kpiScoreColor, kpiScoreBg
+  getScore, getRegionalScorePrecise, scoreColor, scoreBg, scoreBarWidth, kpiUnit, chgColor,
+  getKpiScores, getRegionalKpiScores, kpiScoreColor, kpiScoreBg, type SegmentScore
 } from '@/lib/kpi'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
@@ -70,12 +70,12 @@ function KpiScoreCell({ baz, cmp, active }: { baz: number; cmp: number | null; a
 
 function SkorSutun({ bazG, cmpG, bazRank, cmpRank }: { bazG:number; cmpG:number|null; bazRank:number; cmpRank:number|null }) {
   const rankDiff = cmpRank !== null ? bazRank - cmpRank : null
-  const sc = bazG>=80?'#10b981':bazG>=65?'#3b82f6':bazG>=50?'#f59e0b':'#ef4444'
+  const sc = scoreColor(bazG)
   return (
     <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', position:'sticky', right:0, background:'var(--surf)', minWidth:80}}>
       <div style={{display:'flex', alignItems:'center', gap:4}}>
         <div style={{flex:1, background:'var(--surf3)', borderRadius:3, height:4, overflow:'hidden', minWidth:28}}>
-          <div style={{width:Math.min(bazG,100)+'%', height:4, borderRadius:3, background:sc+'99'}}/>
+          <div style={{width:scoreBarWidth(bazG)+'%', height:4, borderRadius:3, background:sc+'99'}}/>
         </div>
         <div style={{textAlign:'right'}}>
           <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:sc}}>{fmtSkor1(bazG)}</div>
@@ -113,8 +113,8 @@ export default function BolgelerPage() {
     bolge: b,
     kpis:          getKpisFromCube(selSeg,b,selYas,selDonem),
     kpisCmp:       selCmpDonem?getKpisFromCube(selSeg,b,selYas,selCmpDonem):null,
-    kpiScores:     getRegionalKpiScoresPrecise(selSeg,b,selYas,selDonem),
-    kpiScoresCmp:  selCmpDonem?getRegionalKpiScoresPrecise(selSeg,b,selYas,selCmpDonem):null,
+    kpiScores:     getRegionalKpiScores(selSeg,b,selYas,selDonem),
+    kpiScoresCmp:  selCmpDonem?getRegionalKpiScores(selSeg,b,selYas,selCmpDonem):null,
     score:         getRegionalScorePrecise(selSeg,b,selYas,selDonem),
     scoreCmp:      selCmpDonem?getRegionalScorePrecise(selSeg,b,selYas,selCmpDonem):null,
   })), [selSeg,selBolge,selYas,selDonem,selCmpDonem])
@@ -128,10 +128,10 @@ export default function BolgelerPage() {
   // Bar grafik
   const barLabels = ['Tüm TR', ...bolgeList]
 
-  function getKatVal(s: any, key: string): number {
+  function getKatVal(s: SegmentScore | null, key: string): number {
     if (!s) return 0
     if (key==='genel') return s.genel || 0
-    return (s[key as keyof typeof s] as number) || 0
+    return (s[key as keyof SegmentScore] as number) || 0
   }
 
   function getBarBaz(b: typeof bolgeData[0]) {
@@ -177,13 +177,9 @@ export default function BolgelerPage() {
           ))}
         </div>
 
-
-
-        <div style={{fontSize:10, color:'var(--tx3)', lineHeight:1.5, margin:'-4px 0 12px'}}>
-          Bölge skorları, seçili filtrelerde ilgili bölgenin {selSeg ? 'aynı segmentin Tüm Türkiye' : 'Türkiye geneli'} referansına göre hesaplanır.
-          {' '}100 referans seviyesidir. Skorlar 1 ondalık basamakla gösterilir.
+        <div style={{ marginBottom: 12, fontSize: 10, color: 'var(--tx3)', lineHeight: 1.5 }}>
+          Bölge skorları, seçili filtrelerde ilgili bölgenin {selSeg ? selSeg + ' segmentinin Tüm Türkiye' : 'Tüm Türkiye'} referansına göre hesaplanır. 100 referans seviyesidir; skorlar 1 ondalık basamakla gösterilir.
         </div>
-
 
         {/* ── TABLO ── */}
         <div className={styles.card} style={{padding:0, overflow:'hidden', marginBottom:14}}>
@@ -249,7 +245,7 @@ export default function BolgelerPage() {
                   })}
 
                   <td style={{padding:'6px 8px', borderBottom:'2px solid var(--bd2)', position:'sticky', right:0, background:'var(--surf)', textAlign:'center'}}>
-                    <span style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:700, color:scoreColor(trScore?.genel||0)}}>{trScore ? fmtSkor1(trScore.genel) : '-'}</span>
+                    <span style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:700, color:scoreColor(trScore?.genel||0)}}>{fmtSkor1(trScore?.genel)}</span>
                     {trScoreCmp && <div style={{fontSize:9, color:'var(--tx3)'}}>{fmtSkor1(trScoreCmp.genel)}</div>}
                   </td>
                 </tr>

@@ -13,7 +13,7 @@ Beklenen alanlar:
 | `id` | `uuid` | `auth.users.id` ile ilişkili kullanıcı ID'si |
 | `email` | `text` | Kullanıcı e-posta adresi |
 | `full_name` | `text` | Kullanıcı adı / görünen ad |
-| `role` | `text` | `user`, `admin`, `superadmin` |
+| `role` | `text` | `viewer`, `admin`, `superadmin` |
 | `is_active` | `boolean` | Pasif kullanıcıların uygulama işlemleri engellenir |
 | `created_at` | `timestamptz` | Oluşturulma zamanı |
 | `updated_at` | `timestamptz` | Son güncelleme zamanı |
@@ -22,7 +22,7 @@ Beklenen alanlar:
 
 Önerilen roller:
 
-- `user`: Standart kullanıcı.
+- `viewer`: Standart kullanıcı.
 - `admin`: Kullanıcıları görüntüleyebilir; kritik yönetim işlemleri yapamaz.
 - `superadmin`: Kullanıcı rolü ve aktiflik durumu gibi kritik alanları yönetebilir.
 

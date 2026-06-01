@@ -183,3 +183,14 @@ Deploy sonrası en az şu sayfalar kontrol edilmelidir:
 ```
 
 Ayrıca login, logout, admin kullanıcı yönetimi, AI yorum üretimi ve marka gizleme kuralı manuel test edilmelidir.
+
+## Güncel metodoloji ve kalite notları
+
+- Runtime skor hesaplaması `score_cube` kullanmaz; ham KPI değerleri dinamik KPI motorunda normalize edilir.
+- Bölge karşılaştırmalarında national reference kullanılır: seçili bölge, aynı segmentin veya tüm segmentlerin Türkiye geneli benchmarkına göre hesaplanır.
+- KPI 2 gibi sıfır-varyans KPI'lar geçici olarak coverage dışına alınır; veri üretimi düzeltilince bu karar tekrar gözden geçirilmelidir.
+- Skor renkleri ve progress bar mantığı 0-200 ölçeğine göre güncellenmiştir. 100 referans seviyesidir.
+- Kök dizindeki eski `kpi_data.json` kaldırılmıştır; kullanılan veri kaynağı `lib/kpi_data.json` dosyasıdır.
+- Canonical rol seti: `superadmin`, `admin`, `analyst`, `viewer`.
+
+Ayrıntılar için `METHODOLOGY.md`, `SUPABASE.md`, `STRICT_TODO.md` ve `TEST_PLAN.md` dosyalarını inceleyin.

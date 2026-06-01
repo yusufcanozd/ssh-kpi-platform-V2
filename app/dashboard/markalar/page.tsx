@@ -7,13 +7,21 @@ import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, SEGMENT_HEX, SEGMENT_BG, KAT_YAPILAR,
-  getKpiScores, getScore, getMarkaRanking, getRawMarkaRanking, getBrandPrivacyInfo,
+  getKpiScores, getScore, getMarkaRanking, getRawMarkaRanking, getBrandPrivacyInfo, getMarkaMethodologyInfo,
   kpiScoreColor, kpiScoreBg, scoreColor, scoreBg,
-  changePct, chgColor, isLowerBetter,
+  changePct, chgColor, isLowerBetter, type SegmentScore, type CategoryKey,
 } from '@/lib/kpi'
 import styles from './page.module.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
+
+type ScoreKey = 'genel' | CategoryKey
+
+function getScoreField(score: SegmentScore | null | undefined, key: string): number {
+  if (!score) return 0
+  if (key === 'genel') return score.genel
+  return score[key as CategoryKey] ?? 0
+}
 
 const barValuePlugin = {
   id: 'barValueLabels',
@@ -32,11 +40,7 @@ const barValuePlugin = {
         if (!val && val !== 0) return
         const rounded = Math.round(val)
         // Bar rengiyle ayni renk
-        const color = isPrev
-          ? 'rgba(100,116,139,.85)'
-          : rounded >= 77 ? '#10b981'
-          : rounded >= 66 ? '#3b82f6'
-          : '#ef4444'
+        const color = isPrev ? 'rgba(100,116,139,.85)' : kpiScoreColor(rounded)
         ctx.save()
         ctx.font = 'bold ' + String(fontSize) + 'px monospace'
         ctx.textAlign = 'center'
@@ -79,7 +83,7 @@ export default function MarkalarsPage() {
   const { selSeg, selBolge, selYas, selDonem, selCmpDonem } = useDashboardCtx()
   const [tab, setTab]             = useState('kpi')
   const [sortKpi, setSortKpi]     = useState(-1)
-  const [katSortKey, setKatSortKey] = useState('genel')
+  const [katSortKey, setKatSortKey] = useState<ScoreKey>('genel')
 
   const filterLabel = (selBolge || 'Tum TR') + ' - ' + (selYas === 'Tümü' ? 'Tum Yas' : selYas) + ' - ' + (selDonem || 'Tum Donem')
 
@@ -87,6 +91,10 @@ export default function MarkalarsPage() {
     const rawCount = getRawMarkaRanking(selSeg, selBolge, selYas, selDonem).length
     return getBrandPrivacyInfo(rawCount)
   }, [selSeg, selBolge, selYas, selDonem])
+
+  const markaMethodology = useMemo(function() {
+    return getMarkaMethodologyInfo()
+  }, [])
 
   const markalar = useMemo(function() {
     const ranked    = getMarkaRanking(selSeg, selBolge, selYas, selDonem)
@@ -130,8 +138,8 @@ export default function MarkalarsPage() {
     })
     return result.sort(function(a, b) {
       if (katSortKey === 'genel') return b.score - a.score
-      const av = a.katSkor ? (a.katSkor as any)[katSortKey] ?? 0 : 0
-      const bv = b.katSkor ? (b.katSkor as any)[katSortKey] ?? 0 : 0
+      const av = getScoreField(a.katSkor, katSortKey)
+      const bv = getScoreField(b.katSkor, katSortKey)
       return bv - av
     })
   }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, katSortKey])
@@ -168,8 +176,8 @@ export default function MarkalarsPage() {
 
   const katBarData = useMemo(function() {
     const labels  = katMarkalar.map(function(m) { return m.marka })
-    const vals    = katMarkalar.map(function(m) { return katSortKey === 'genel' ? m.score : (m.katSkor ? (m.katSkor as any)[katSortKey] ?? 0 : 0) })
-    const cmpVals = selCmpDonem ? katMarkalar.map(function(m) { return katSortKey === 'genel' ? (m.cmpScore ?? 0) : (m.katSkorCmp ? (m.katSkorCmp as any)[katSortKey] ?? 0 : 0) }) : null
+    const vals    = katMarkalar.map(function(m) { return katSortKey === 'genel' ? m.score : getScoreField(m.katSkor, katSortKey) })
+    const cmpVals = selCmpDonem ? katMarkalar.map(function(m) { return katSortKey === 'genel' ? (m.cmpScore ?? 0) : getScoreField(m.katSkorCmp, katSortKey) }) : null
     return makeBarData(labels, vals, cmpVals, katLabel)
   }, [katMarkalar, katSortKey, katLabel, selCmpDonem])
 
@@ -240,8 +248,8 @@ export default function MarkalarsPage() {
           color: 'var(--tx3)',
           lineHeight: 1.55,
         }}>
-          <strong style={{ color: 'var(--tx2)' }}>Marka skoru notu:</strong> Marka sıralaması <code>marka_scores.json</code> içindeki hazır genel marka skorunu kullanır.
-          Bu veri kaynağında marka bazlı kategori/KPI kırılımı bulunmadığı için tablodaki kategori ve KPI sütunları, markanın segment referans skorlarıyla açıklama amaçlı gösterilir.
+          <strong style={{ color: 'var(--tx2)' }}>Marka skoru notu:</strong> Marka sıralaması <code>{markaMethodology.source}</code> içindeki hazır genel marka skorunu kullanır.
+          Bu veri kaynağında marka bazlı kategori/KPI kırılımı {markaMethodology.hasCategoryBreakdown || markaMethodology.hasKpiBreakdown ? 'bulunur' : 'bulunmaz'}; tablodaki kategori ve KPI sütunları, markanın segment referans skorlarıyla açıklama amaçlı gösterilir.
           {brandPrivacy.isMasked && (
             <span> Rekabet hassasiyeti nedeniyle 3 veya daha az marka bulunan kırılımlarda marka adları gizlenir.</span>
           )}
@@ -353,8 +361,8 @@ export default function MarkalarsPage() {
                             <span style={{ background: SEGMENT_BG[m.segment], color: SEGMENT_HEX[m.segment], padding: '2px 7px', borderRadius: 20, fontSize: 8, fontWeight: 700, border: '1px solid ' + SEGMENT_HEX[m.segment] + '44' }}>{m.segment}</span>
                           </td>
                           {KAT_YAPILAR.map(function(kat) {
-                            const skor    = m.katSkor    ? (m.katSkor    as any)[kat.key] ?? 0 : 0
-                            const cmpSkor = m.katSkorCmp ? (m.katSkorCmp as any)[kat.key] ?? null : null
+                            const skor    = getScoreField(m.katSkor, kat.key)
+                            const cmpSkor = m.katSkorCmp ? getScoreField(m.katSkorCmp, kat.key) : null
                             return (
                               <td key={kat.key} style={{ ...tdS, background: katSortKey === kat.key ? kpiScoreBg(skor) : undefined }}>
                                 <SkorHucre skor={skor} cmpSkor={selCmpDonem ? cmpSkor : null} size="sm" />
@@ -399,7 +407,7 @@ export default function MarkalarsPage() {
 
         <div style={{ display: 'flex', gap: 16, marginTop: 16, fontSize: 10, color: 'var(--tx3)' }}>
           {['#10b981', '#3b82f6', '#ef4444'].map(function(c, i) {
-            const lbl = i === 0 ? '>= 77: TR Ust' : i === 1 ? '66-77: TR Yakin' : '< 66: TR Alt'
+            const lbl = i === 0 ? '≥110: Güçlü' : i === 1 ? '95-110: Referansa yakın' : '<95: Dikkat/Kritik'
             return (
               <div key={c} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: c, display: 'inline-block' }} />

@@ -237,3 +237,36 @@ Yuvarlanmış genel skor:
 ```text
 Genel skor = 103
 ```
+
+---
+
+## 14. Kalan iyileştirmeler sonrası metodoloji notları
+
+### Bölge skor referansı
+Bölge karşılaştırma ekranlarında skorlar `same-filter` referans yerine `national` referansla hesaplanır. Segment seçili değilse referans `Tüm segmentler / Tüm Türkiye`; segment seçiliyse referans `aynı segment / Tüm Türkiye` satırıdır. Bu sayede Akdeniz, Ege, Marmara gibi bölgeler aynı ulusal benchmark ile karşılaştırılır.
+
+### KPI 2 veri kalitesi ve coverage kararı
+KPI 2 veri setinde sıfır-varyans / tüm değerleri 0 olan KPI olarak tespit edilirse skor hesaplamasında coverage dışına alınır. Bu karar, veri üretimi düzeltilene kadar KPI 2'nin kategori ortalamasını yapay şekilde 100'e çekmesini engeller. Eksik/coverage dışı KPI'lar `getScoreDetailed` ve kategori detaylarında görünür.
+
+### 0-200 skor ölçeği ve görsel eşikler
+Normalize skor ölçeği 0-200'dür ve 100 referans seviyesidir. Güncel görsel eşikler:
+
+- 110 ve üzeri: güçlü / referans üstü
+- 95-110: referansa yakın
+- 85-95: dikkat
+- 85 altı: kritik
+
+Progress bar genişlikleri 0-200 ölçeğini dikkate alarak hesaplanır; 200 puan %100 bar genişliğine karşılık gelir.
+
+### Marka skorları
+Marka sıralaması `marka_scores.json` içindeki hazır genel marka skorunu kullanır. Bu kaynakta marka bazlı kategori/KPI kırılımı olmadığı için UI bunu açıkça belirtir. Kategori/KPI sütunları, markanın segment referans skorları üzerinden açıklama amaçlı gösterilir; marka skorunun birebir alt kırılımı olarak yorumlanmamalıdır.
+
+### Roller
+Uygulamanın canonical rol seti:
+
+- `superadmin`
+- `admin`
+- `analyst`
+- `viewer`
+
+Supabase migration ve uygulama kodu bu rol setine göre uyumlu hale getirilmiştir.

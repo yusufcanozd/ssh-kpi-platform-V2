@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-
-const ROLES = new Set(['superadmin', 'admin', 'analyst', 'viewer'])
+import { isUserRole } from '@/lib/roles'
 
 export async function PATCH(
   request: NextRequest,
@@ -36,7 +35,7 @@ export async function PATCH(
   const updates: { role?: string; is_active?: boolean } = {}
 
   if (body.role !== undefined) {
-    if (!ROLES.has(body.role)) {
+    if (!isUserRole(body.role)) {
       return NextResponse.json({ error: 'Geçersiz rol.' }, { status: 400 })
     }
     if (params.id === user.id) {
@@ -74,7 +73,8 @@ export async function PATCH(
       .eq('is_active', true)
 
     if (countError) {
-      return NextResponse.json({ error: countError.message }, { status: 500 })
+      console.error('[admin/users] superadmin count failed', countError)
+      return NextResponse.json({ error: 'Kullanıcı güvenlik kontrolü tamamlanamadı.' }, { status: 500 })
     }
 
     if ((count ?? 0) <= 1) {
@@ -90,7 +90,8 @@ export async function PATCH(
     .single()
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('[admin/users] update failed', error)
+    return NextResponse.json({ error: 'Kullanıcı güncellenemedi.' }, { status: 500 })
   }
 
   return NextResponse.json({ user: data })

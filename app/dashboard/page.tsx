@@ -8,7 +8,7 @@ import {
   SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG, CAT_COLORS,
   fmtKpi, getKpisFromCube, getN, getMarkaList, getMarkaRanking,
   overallScoreFromKpis, heatColor, isLowerBetter,
-  getScore, scoreColor, scoreBg, changePct, SegmentScore
+  getScore, scoreColor, scoreBg, scoreBarWidth, changePct, SegmentScore
 } from '@/lib/kpi'
 import { Bar, Line } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend, Filler } from 'chart.js'
@@ -47,12 +47,12 @@ export default function DashboardPage() {
   // Marka sıralaması — gerçek marka×dönem×yaş verisi
   const markalar = useMemo(() =>
     getMarkaRanking(selSeg, selBolge, selYas, selDonem),
-    [selSeg, selBolge, selYas, selDonem])
+    [selSeg, selYas, selDonem])
 
   // Karşılaştırma dönem sıralaması
   const marklarCmp = useMemo(() =>
     selCmpDonem ? getMarkaRanking(selSeg, selBolge, selYas, selCmpDonem) : [],
-    [selSeg, selBolge, selYas, selCmpDonem])
+    [selSeg, selYas, selCmpDonem])
 
   // Bölge dağılımı
   const bolgeData = useMemo(() =>
@@ -348,7 +348,7 @@ function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, s
                   {/* Baz bar */}
                   <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:cmpV?3:0}}>
                     <div style={{flex:1,background:'rgba(255,255,255,.08)',borderRadius:3,height:6,overflow:'hidden'}}>
-                      <div style={{width:`${Math.min(bazV,100)}%`,height:6,borderRadius:3,
+                      <div style={{width:`${scoreBarWidth(bazV)}%`,height:6,borderRadius:3,
                         background:color+'55',borderRight:`2px solid ${color}`}}/>
                     </div>
                     <span style={{fontSize:10,fontFamily:'var(--font-dm-mono)',fontWeight:700,
@@ -358,7 +358,7 @@ function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, s
                   {cmpV!==null && (
                     <div style={{display:'flex',alignItems:'center',gap:5}}>
                       <div style={{flex:1,background:'rgba(255,255,255,.05)',borderRadius:3,height:5,overflow:'hidden'}}>
-                        <div style={{width:`${Math.min(cmpV,100)}%`,height:5,borderRadius:3,
+                        <div style={{width:`${scoreBarWidth(cmpV)}%`,height:5,borderRadius:3,
                           background:color+'88'}}/>
                       </div>
                       <span style={{fontSize:9,fontFamily:'var(--font-dm-mono)',color:'var(--tx3)',minWidth:26,textAlign:'right'}}>{cmpV}</span>
