@@ -71,6 +71,13 @@ export interface SegmentScoreDetailed extends SegmentScore {
   categories: KatScoreDetail[]
 }
 
+export interface CategoryConfig {
+  key: CategoryKey
+  ad: string
+  agirlik: number
+  kpis: readonly number[]
+}
+
 type KpiRawData = {
   kpi_meta?: KpiMeta[]
   bolgeler?: string[]
@@ -105,12 +112,7 @@ export const KAT_YAPILAR = [
   { key: 'operasyonel', ad: 'Süreç ve Operasyonel Akış', agirlik: 0.25, kpis: [6, 7] },
   { key: 'bayi', ad: 'Bayi Ağı Kapasite Yönetimi', agirlik: 0.15, kpis: [8, 9] },
   { key: 'kapsam', ad: 'Stratejik Kapsam Dağılımı', agirlik: 0.10, kpis: [10, 11] },
-] as const satisfies readonly Array<{
-  key: CategoryKey
-  ad: string
-  agirlik: number
-  kpis: readonly number[]
-}>
+] as const satisfies readonly CategoryConfig[]
 
 // ─────────────────────────────────────────────────────────────
 // Renk Sabitleri
@@ -119,6 +121,7 @@ function hexToRgba(hex: string, alpha: number): string {
   const clean = hex.replace('#', '')
   const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean
   const val = parseInt(full, 16)
+
   return `rgba(${(val >> 16) & 255},${(val >> 8) & 255},${val & 255},${alpha})`
 }
 
@@ -128,6 +131,8 @@ export const CAT_COLORS: Record<string, string> = {
   'Süreç ve Operasyonel Akış': '#f59e0b',
   'Bayi Ağı Kapasite Yönetimi': '#8b5cf6',
   'Stratejik Kapsam Dağılımı': '#ef4444',
+
+  // Eski/kısa kategori adlarıyla geriye dönük uyumluluk
   'Müşteri': '#10b981',
   'Ticari': '#3b82f6',
   'Operasyonel': '#f59e0b',
@@ -141,15 +146,29 @@ export const SEGMENT_HEX: Record<string, string> = {
   EV: '#10b981',
   '': '#fbbf24',
 }
+
 export const SEGMENT_COLORS = SEGMENT_HEX
+
 export const SEGMENT_BG: Record<string, string> = Object.fromEntries(
   Object.entries(SEGMENT_HEX).map(([k, v]) => [k, `${v}18`])
 )
+
 export const SEGMENT_HEX_BG: Record<string, string> = Object.fromEntries(
   Object.entries(SEGMENT_HEX).map(([k, v]) => [k, hexToRgba(v, 0.25)])
 )
+
 export const SEGMENT_BORDER: Record<string, string> = SEGMENT_HEX
-export const BOLGE_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899']
+
+export const BOLGE_COLORS = [
+  '#3b82f6',
+  '#8b5cf6',
+  '#10b981',
+  '#f59e0b',
+  '#ef4444',
+  '#06b6d4',
+  '#ec4899',
+]
+
 export const YAS_COLORS: Record<string, string> = {
   'Tümü': '#64748b',
   '0-3': '#10b981',
