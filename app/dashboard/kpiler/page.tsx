@@ -7,10 +7,11 @@ import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, SEGMENT_HEX, SEGMENT_BG, KAT_YAPILAR,
-  getKpiScores, getScore, getMarkaRanking,
+  getKpiScores, getKpiScoresFullDetail, getScore, getMarkaRanking,
   kpiScoreColor, kpiScoreBg, scoreColor, scoreBg,
   changePct, chgColor, isLowerBetter,
 } from '@/lib/kpi'
+import { GeneralScoreMethodology, CategoryScoreMethodology, KpiMethodologyTooltip } from '@/components/dashboard/MethodologyTooltip'
 import styles from './page.module.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
@@ -93,6 +94,7 @@ export default function KpiDetayPage() {
       return {
         seg: s,
         kpiSkorlar:    getKpiScores(s, selBolge, selYas, selDonem),
+        kpiDetaylar:   getKpiScoresFullDetail(s, selBolge, selYas, selDonem),
         kpiSkorlarCmp: selCmpDonem ? getKpiScores(s, selBolge, selYas, selCmpDonem) : null,
         katSkor:       getScore(s, selBolge, selYas, selDonem),
         katSkorCmp:    selCmpDonem ? getScore(s, selBolge, selYas, selCmpDonem) : null,
@@ -201,21 +203,32 @@ export default function KpiDetayPage() {
                   <div key={sd.seg} style={{ background: 'var(--surf)', border: '1px solid ' + SEGMENT_HEX[sd.seg] + '44', borderRadius: 12, padding: 14, borderTop: '3px solid ' + SEGMENT_HEX[sd.seg] }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                       <span style={{ fontWeight: 800, fontSize: 14, color: SEGMENT_HEX[sd.seg] }}>{sd.seg}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <GeneralScoreMethodology align="right" />
                       {sd.katSkor && (
                         <button onClick={function() { setSortKpi(-1) }} style={{ background: sortKpi === -1 ? scoreBg(sd.katSkor.genel) : 'transparent', color: scoreColor(sd.katSkor.genel), border: '2px solid ' + (sortKpi === -1 ? scoreColor(sd.katSkor.genel) : scoreColor(sd.katSkor.genel) + '44'), borderRadius: 8, padding: '3px 10px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
                           {sd.katSkor.genel}
                         </button>
                       )}
+                      </span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 6 }}>
                       {KPI_META.map(function(k, i) {
                         const skor    = sd.kpiSkorlar[i] ?? 100
+                        const detay   = sd.kpiDetaylar[i]
                         const cmpSkor = sd.kpiSkorlarCmp ? (sd.kpiSkorlarCmp[i] ?? null) : null
                         const aktif   = sortKpi === i
                         return (
                           <div key={i} onClick={function() { setSortKpi(i) }} style={{ background: aktif ? kpiScoreBg(skor) : 'var(--surf2)', border: aktif ? '2px solid ' + kpiScoreColor(skor) : '1px solid ' + kpiScoreColor(skor) + '22', borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}>
-                            <div style={{ fontSize: 8, color: 'var(--tx3)', marginBottom: 6, lineHeight: 1.3 }}>{k.ad}</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6, marginBottom: 6 }}>
+                              <span style={{ fontSize: 8, color: 'var(--tx3)', lineHeight: 1.3 }}>{k.ad}</span>
+                              <KpiMethodologyTooltip detail={detay} kpiName={k.ad} align="right" />
+                            </div>
                             <SkorHucre skor={skor} cmpSkor={selCmpDonem ? cmpSkor : null} size="lg" />
+                            <div style={{ marginTop: 5, fontSize: 8, color: 'var(--tx3)', display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <span>{detay?.isLowerBetter ? 'Düşük daha iyi' : 'Yüksek daha iyi'}</span>
+                              {!detay?.coverageIncluded && <span>Coverage dışı</span>}
+                            </div>
                           </div>
                         )
                       })}
@@ -227,7 +240,7 @@ export default function KpiDetayPage() {
 
             <div style={{ background: 'var(--surf)', border: '1px solid var(--bd)', borderRadius: 10, padding: '16px 20px', marginBottom: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx)' }}>Segment Karsilastirma — {aktifKpiAd}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>Segment Karsilastirma — {aktifKpiAd}{sortKpi === -1 ? <GeneralScoreMethodology align="left" /> : null}</span>
                 <button onClick={function() { setSortKpi(-1) }} style={{ padding: '5px 14px', borderRadius: 20, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: '1px solid ' + (sortKpi === -1 ? '#f59e0b' : 'var(--bd)'), background: sortKpi === -1 ? 'rgba(245,158,11,.12)' : 'var(--surf2)', color: sortKpi === -1 ? '#f59e0b' : 'var(--tx3)' }}>Genel Skor</button>
               </div>
               <div style={{ height: 260 }}>
@@ -245,11 +258,14 @@ export default function KpiDetayPage() {
                   <div key={sd.seg} style={{ background: 'var(--surf)', border: '1px solid ' + SEGMENT_HEX[sd.seg] + '44', borderRadius: 12, padding: 14, borderTop: '3px solid ' + SEGMENT_HEX[sd.seg] }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingBottom: 10, borderBottom: '1px solid var(--bd)' }}>
                       <span style={{ fontWeight: 800, fontSize: 14, color: SEGMENT_HEX[sd.seg] }}>{sd.seg}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <GeneralScoreMethodology align="right" />
                       {sd.katSkor && (
                         <button onClick={function() { setKatSortKey('genel') }} style={{ background: katSortKey === 'genel' ? scoreBg(sd.katSkor.genel) : 'transparent', color: scoreColor(sd.katSkor.genel), border: '2px solid ' + (katSortKey === 'genel' ? scoreColor(sd.katSkor.genel) : scoreColor(sd.katSkor.genel) + '44'), borderRadius: 8, padding: '3px 10px', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
                           {sd.katSkor.genel}
                         </button>
                       )}
+                      </span>
                     </div>
                     {KAT_YAPILAR.map(function(kat) {
                       const skor    = sd.katSkor    ? (sd.katSkor    as any)[kat.key] ?? 0 : 0
@@ -259,7 +275,10 @@ export default function KpiDetayPage() {
                       return (
                         <div key={kat.key} onClick={function() { setKatSortKey(kat.key) }} style={{ marginBottom: 10, cursor: 'pointer', borderRadius: 6, padding: '4px 6px', background: aktif ? scoreColor(skor) + '10' : 'transparent', border: aktif ? '1px solid ' + scoreColor(skor) + '44' : '1px solid transparent' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                            <span style={{ fontSize: 9, color: 'var(--tx2)', fontWeight: aktif ? 700 : 600 }}>{kat.ad}</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                              <span style={{ fontSize: 9, color: 'var(--tx2)', fontWeight: aktif ? 700 : 600 }}>{kat.ad}</span>
+                              <CategoryScoreMethodology align="left" />
+                            </span>
                             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                               {delta != null && selCmpDonem && <span style={{ fontSize: 8, fontWeight: 700, color: chgColor(delta) }}>{delta > 0 ? '+' : ''}{delta}%</span>}
                               <span style={{ fontSize: 13, fontWeight: 800, color: scoreColor(skor) }}>{Math.round(skor)}</span>
@@ -278,7 +297,7 @@ export default function KpiDetayPage() {
 
             <div style={{ background: 'var(--surf)', border: '1px solid var(--bd)', borderRadius: 10, padding: '16px 20px', marginBottom: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx)' }}>Marka Karsilastirma — {aktifKatAd}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>Marka Karsilastirma — {aktifKatAd}{katSortKey === 'genel' ? <GeneralScoreMethodology align="left" /> : <CategoryScoreMethodology align="left" />}</span>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <button onClick={function() { setKatSortKey('genel') }} style={{ padding: '4px 12px', borderRadius: 20, fontSize: 9, fontWeight: 700, cursor: 'pointer', border: '1px solid ' + (katSortKey === 'genel' ? '#f59e0b' : 'var(--bd)'), background: katSortKey === 'genel' ? 'rgba(245,158,11,.12)' : 'var(--surf2)', color: katSortKey === 'genel' ? '#f59e0b' : 'var(--tx3)' }}>Genel</button>
                   {KAT_YAPILAR.map(function(kat) {
