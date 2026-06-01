@@ -34,6 +34,12 @@ export function fmtKpi(v: unknown, f: string): string {
   }
 }
 
+
+export function fmtSkor1(v: number | null | undefined): string {
+  if (v === null || v === undefined || !Number.isFinite(Number(v))) return '—'
+  return Number(v).toFixed(1)
+}
+
 export function kpiUnit(fmt: string): string {
   if (fmt.startsWith('pct') || fmt === '%') return '%'
   if (fmt.startsWith('tl'))                 return '₺'

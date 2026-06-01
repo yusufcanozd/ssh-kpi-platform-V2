@@ -5,9 +5,9 @@ import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, BOLGELER,
-  fmtKpi, getKpisFromCube, heatColor, isLowerBetter,
-  getScore, getRegionalScore, scoreColor, scoreBg, kpiUnit, chgColor,
-  getKpiScores, kpiScoreColor, kpiScoreBg
+  fmtKpi, fmtSkor1, getKpisFromCube, heatColor, isLowerBetter,
+  getScore, getRegionalScorePrecise, scoreColor, scoreBg, kpiUnit, chgColor,
+  getKpiScores, getRegionalKpiScoresPrecise, kpiScoreColor, kpiScoreBg
 } from '@/lib/kpi'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
@@ -34,8 +34,8 @@ function ScoreCell({ baz, cmp, large }: { baz: number; cmp: number | null; large
   const clr = chgColor(chg ?? 0)
   return (
     <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center', background:scoreBg(baz)}}>
-      <div style={{fontFamily:'var(--font-dm-mono)', fontSize:large?14:12, fontWeight:800, color:scoreColor(baz), lineHeight:1}}>{baz||'-'}</div>
-      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{cmp}</div>}
+      <div style={{fontFamily:'var(--font-dm-mono)', fontSize:large?14:12, fontWeight:800, color:scoreColor(baz), lineHeight:1}}>{fmtSkor1(baz)}</div>
+      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtSkor1(cmp)}</div>}
       {chg!==null && <div style={{fontSize:8, fontWeight:700, color:clr, marginTop:1}}>{chg>=0?'+':''}{chg}%</div>}
     </td>
   )
@@ -61,8 +61,8 @@ function KpiScoreCell({ baz, cmp, active }: { baz: number; cmp: number | null; a
   return (
     <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center',
       background: kpiScoreBg(baz), outline: active ? `2px solid ${kpiScoreColor(baz)}55` : 'none', outlineOffset:-1}}>
-      <div style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:800, color:kpiScoreColor(baz), lineHeight:1}}>{baz}</div>
-      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{cmp}</div>}
+      <div style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:800, color:kpiScoreColor(baz), lineHeight:1}}>{fmtSkor1(baz)}</div>
+      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtSkor1(cmp)}</div>}
       {chg!==null && <div style={{fontSize:8, fontWeight:700, marginTop:1, color:chgColor(chg)}}>{chg>=0?'+':''}{chg}%</div>}
     </td>
   )
@@ -78,8 +78,8 @@ function SkorSutun({ bazG, cmpG, bazRank, cmpRank }: { bazG:number; cmpG:number|
           <div style={{width:Math.min(bazG,100)+'%', height:4, borderRadius:3, background:sc+'99'}}/>
         </div>
         <div style={{textAlign:'right'}}>
-          <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:sc}}>{bazG}</div>
-          {cmpG!==null && <div style={{fontSize:8, color:'var(--tx3)'}}>{cmpG}</div>}
+          <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:sc}}>{fmtSkor1(bazG)}</div>
+          {cmpG!==null && <div style={{fontSize:8, color:'var(--tx3)'}}>{fmtSkor1(cmpG)}</div>}
           {rankDiff!==null && (
             <div style={{fontSize:8, fontWeight:700, color:rankDiff>0?'#10b981':rankDiff<0?'#f87171':'var(--tx3)'}}>
               {rankDiff>0?`+${rankDiff}`:rankDiff<0?rankDiff:'-'}
@@ -113,10 +113,10 @@ export default function BolgelerPage() {
     bolge: b,
     kpis:          getKpisFromCube(selSeg,b,selYas,selDonem),
     kpisCmp:       selCmpDonem?getKpisFromCube(selSeg,b,selYas,selCmpDonem):null,
-    kpiScores:     getKpiScores(selSeg,b,selYas,selDonem),
-    kpiScoresCmp:  selCmpDonem?getKpiScores(selSeg,b,selYas,selCmpDonem):null,
-    score:         getRegionalScore(selSeg,b,selYas,selDonem),
-    scoreCmp:      selCmpDonem?getRegionalScore(selSeg,b,selYas,selCmpDonem):null,
+    kpiScores:     getRegionalKpiScoresPrecise(selSeg,b,selYas,selDonem),
+    kpiScoresCmp:  selCmpDonem?getRegionalKpiScoresPrecise(selSeg,b,selYas,selCmpDonem):null,
+    score:         getRegionalScorePrecise(selSeg,b,selYas,selDonem),
+    scoreCmp:      selCmpDonem?getRegionalScorePrecise(selSeg,b,selYas,selCmpDonem):null,
   })), [selSeg,selBolge,selYas,selDonem,selCmpDonem])
 
   // Skor sütunu için genel puan
@@ -179,13 +179,14 @@ export default function BolgelerPage() {
 
 
 
+        <div style={{fontSize:10, color:'var(--tx3)', lineHeight:1.5, margin:'-4px 0 12px'}}>
+          Bölge skorları, seçili filtrelerde ilgili bölgenin {selSeg ? 'aynı segmentin Tüm Türkiye' : 'Türkiye geneli'} referansına göre hesaplanır.
+          {' '}100 referans seviyesidir. Skorlar 1 ondalık basamakla gösterilir.
+        </div>
+
+
         {/* ── TABLO ── */}
         <div className={styles.card} style={{padding:0, overflow:'hidden', marginBottom:14}}>
-          <p style={{fontSize:10, color:'var(--tx3)', margin:'10px 12px 0', lineHeight:1.45}}>
-            Bölge skorları, seçili filtrelerde bölgenin Türkiye geneli referansına göre hesaplanır
-            {selSeg ? ` (aynı segmentin Tüm TR: ${selSeg})` : ' (tüm segmentlerin birleşik Tüm TR)'}.
-            100 referans seviyesidir.
-          </p>
           <div style={{overflowX:'auto'}}>
             <table style={{width:'100%', borderCollapse:'collapse', fontSize:11, tableLayout:'auto'}}>
               <thead>
@@ -248,8 +249,8 @@ export default function BolgelerPage() {
                   })}
 
                   <td style={{padding:'6px 8px', borderBottom:'2px solid var(--bd2)', position:'sticky', right:0, background:'var(--surf)', textAlign:'center'}}>
-                    <span style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:700, color:scoreColor(trScore?.genel||0)}}>{trScore?.genel||'-'}</span>
-                    {trScoreCmp && <div style={{fontSize:9, color:'var(--tx3)'}}>{trScoreCmp.genel}</div>}
+                    <span style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:700, color:scoreColor(trScore?.genel||0)}}>{trScore ? fmtSkor1(trScore.genel) : '-'}</span>
+                    {trScoreCmp && <div style={{fontSize:9, color:'var(--tx3)'}}>{fmtSkor1(trScoreCmp.genel)}</div>}
                   </td>
                 </tr>
 
@@ -274,8 +275,8 @@ export default function BolgelerPage() {
                         <td key={i} onClick={()=>setSelKpi(i)}
                           style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center', cursor:'pointer',
                             background:kpiScoreBg(v), outline:selKpi===i?`2px solid ${kpiScoreColor(v)}55`:'none', outlineOffset:-1}}>
-                          <div style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:800, color:kpiScoreColor(v), lineHeight:1}}>{v}</div>
-                          {b.kpiScoresCmp && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{b.kpiScoresCmp[i]}</div>}
+                          <div style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:800, color:kpiScoreColor(v), lineHeight:1}}>{fmtSkor1(v)}</div>
+                          {b.kpiScoresCmp && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtSkor1(b.kpiScoresCmp[i])}</div>}
                           {b.kpiScoresCmp && pct(v,b.kpiScoresCmp[i])!==null && (
                             <div style={{fontSize:7, fontWeight:700, marginTop:1, color:chgColor(pct(v,b.kpiScoresCmp[i])!)}}>{pct(v,b.kpiScoresCmp[i])!>=0?'+':''}{pct(v,b.kpiScoresCmp[i])}%</div>
                           )}
@@ -350,11 +351,11 @@ export default function BolgelerPage() {
                 responsive:true, maintainAspectRatio:false,
                 plugins:{
                   legend:{display:!!selCmpDonem, position:'top', labels:{color:'#8496b0', font:{size:10}, boxWidth:12}},
-                  tooltip:{callbacks:{label:(ctx)=>`${ctx.dataset.label}: ${mode==='kpiDeger'?fmtKpi(ctx.parsed.y as number,meta.fmt):ctx.parsed.y+' puan'}`}}
+                  tooltip:{callbacks:{label:(ctx)=>`${ctx.dataset.label}: ${mode==='kpiDeger'?fmtKpi(ctx.parsed.y as number,meta.fmt):fmtSkor1(ctx.parsed.y as number)+' puan'}`}}
                 },
                 scales:{
                   y:{min:0, max:barMax, grid:{color:'rgba(255,255,255,.05)'},
-                    ticks:{color:'#8496b0', font:{size:9}, callback:(v)=>mode==='kpiDeger'?fmtKpi(Number(v),meta.fmt):String(v)}},
+                    ticks:{color:'#8496b0', font:{size:9}, callback:(v)=>mode==='kpiDeger'?fmtKpi(Number(v),meta.fmt):fmtSkor1(Number(v))}},
                   x:{grid:{display:false}, ticks:{color:'#8496b0', font:{size:9}, maxRotation:30}}
                 }
               }}/>
