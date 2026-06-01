@@ -287,7 +287,7 @@ export default function OzetRaporPage() {
                     🖨 PDF
                   </button>
                   <div style={{ fontSize:8, color:'var(--tx3)', textAlign:'right', maxWidth:160, lineHeight:1.4 }}>
-                    Print dialog'da "Üstbilgi ve altbilgi" seçeneğini kapatın
+                    Print dialog&apos;da &quot;Üstbilgi ve altbilgi&quot; seçeneğini kapatın
                   </div>
                 </div>
               )}
