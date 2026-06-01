@@ -33,16 +33,51 @@ export interface MarkaScore {
 }
 
 export interface KpiScoreDetail {
-  value: number       // normalize skor (0-200)
-  isDefault: boolean  // veri yoktu, nötr 100 atandı
+  value: number           // normalize skor (0-200); eksik veri → 100 (nötr)
+  isDefault: boolean      // veri yoktu, nötr 100 atandı — ESKİ uyumluluk
   rawVal: number | null
   refVal: number | null
 }
 
-export interface MarkaData {
-  marka: string
-  segment: string
-  score: number
+// Genişletilmiş KPI detay — kapsama ve kalite bilgisi dahil
+export interface KpiScoreDetailFull {
+  kpiIdx:               number          // 0-bazlı KPI index
+  kpiNo:                number          // 1-bazlı KPI no (kpi_meta.no)
+  score:                number          // normalize skor (0-200); eksik → undefined, hesaba dahil değil
+  rawValue:             number | null   // ham segment değeri
+  referenceValue:       number | null   // ham referans (TR genel) değeri
+  isMissing:            boolean         // segment verisi yok
+  isReferenceMissing:   boolean         // referans verisi yok
+  isLowerBetter:        boolean         // düşük daha iyi mi?
+  isCapped:             boolean         // skor 200 tavanına çarptı mı?
+  coverageIncluded:     boolean         // bu KPI kategori ortalamasına dahil edildi mi?
+}
+
+// Kategori detay — hangi KPI'lar dahil edildi, hangisi eksik
+export interface KatScoreDetail {
+  key:               string
+  ad:                string
+  agirlik:           number
+  score:             number             // kategori skoru (sadece geçerli KPI'lardan)
+  validKpiCount:     number             // geçerli (veri olan) KPI sayısı
+  totalKpiCount:     number             // toplam KPI sayısı bu kategoride
+  missingKpiIdxs:    number[]           // eksik KPI'ların index listesi
+}
+
+// Tam detaylı skor — getScoreDetailed tarafından döner
+export interface SegmentScoreDetailed {
+  genel:             number
+  musteri:           number
+  ticari:            number
+  operasyonel:       number
+  bayi:              number
+  kapsam:            number
+  coverageRatio:     number             // geçerli KPI sayısı / toplam KPI sayısı (0-1)
+  availableKpiCount: number             // veri olan KPI sayısı
+  totalKpiCount:     number             // toplam KPI sayısı (12)
+  missingKpis:       number[]           // eksik KPI index listesi
+  detailedKpis:      KpiScoreDetailFull[]
+  categories:        KatScoreDetail[]
 }
 
 // ─────────────────────────────────────────────────────────────
