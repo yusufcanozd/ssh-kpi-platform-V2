@@ -1,61 +1,82 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const refKpis = [
-  100,
-  100,
-  100,
-  10,  // KPI 4 lower-is-better referansı
-  100,
-  100,
-  10,  // KPI 7 lower-is-better referansı
-  100,
-  100,
-  100,
-  100,
-  100,
-] as number[]
+const cubeCtx = vi.hoisted(() => {
+  const refKpis = [
+    100,
+    100,
+    100,
+    10, // KPI 4 lower-is-better referansı
+    100,
+    100,
+    10, // KPI 7 lower-is-better referansı
+    100,
+    100,
+    100,
+    100,
+    100,
+  ] as number[]
 
-const fullRawKpis = [
-  90,   // KPI 1  -> 90
-  100,  // KPI 2  -> 100
-  110,  // KPI 3  -> 110
-  8,    // KPI 4  -> lower better: 10 / 8 * 100 = 125
-  80,   // KPI 5  -> 80
-  95,   // KPI 6  -> 95
-  8,    // KPI 7  -> lower better: 10 / 8 * 100 = 125
-  75,   // KPI 8  -> 75
-  100,  // KPI 9  -> 100
-  120,  // KPI 10 -> 120
-  80,   // KPI 11 -> 80
-  110,  // KPI 12 -> 110
-] as number[]
+  const fullRawKpis = [
+    90, // KPI 1  -> 90
+    100, // KPI 2  -> 100
+    110, // KPI 3  -> 110
+    8, // KPI 4  -> lower better: 10 / 8 * 100 = 125
+    80, // KPI 5  -> 80
+    95, // KPI 6  -> 95
+    8, // KPI 7  -> lower better: 10 / 8 * 100 = 125
+    75, // KPI 8  -> 75
+    100, // KPI 9  -> 100
+    120, // KPI 10 -> 120
+    80, // KPI 11 -> 80
+    110, // KPI 12 -> 110
+  ] as number[]
 
-const missingRawKpis = [
-  null, // KPI 1 missing; must not be included in category average
-  100,
-  110,
-  8,
-  null, // KPI 5 missing; must not be included in category average
-  95,
-  8,
-  75,
-  100,
-  120,
-  80,
-  110,
-] as Array<number | null>
+  const missingRawKpis = [
+    null, // KPI 1 missing; must not be included in category average
+    100,
+    110,
+    8,
+    null, // KPI 5 missing; must not be included in category average
+    95,
+    8,
+    75,
+    100,
+    120,
+    80,
+    110,
+  ] as Array<number | null>
+
+  function defaultCube(
+    seg = '',
+    bolge = '',
+    _yas = 'Tümü',
+    _donem = ''
+  ): (number | null)[] {
+    if (seg === 'MISSING') return missingRawKpis
+    if (bolge === 'SAME_FILTER_HUNDRED') return refKpis
+    if (seg === '' && bolge === '') return refKpis
+    if (seg === '') return refKpis
+    return fullRawKpis
+  }
+
+  return { refKpis, fullRawKpis, missingRawKpis, defaultCube }
+})
+
+const refKpis = cubeCtx.refKpis
+const fullRawKpis = cubeCtx.fullRawKpis
+const missingRawKpis = cubeCtx.missingRawKpis
 
 vi.mock('../lib/kpi/data', () => ({
-  getKpisFromCube: vi.fn((seg = '') => {
-    if (seg === '') return refKpis
-    if (seg === 'MISSING') return missingRawKpis
-    return fullRawKpis
-  }),
+  getKpisFromCube: vi.fn((seg = '', bolge = '', yas = 'Tümü', donem = '') =>
+    cubeCtx.defaultCube(seg, bolge, yas, donem)),
 }))
 
+import { getKpisFromCube } from '../lib/kpi/data'
 import {
+  getRegionalScore,
   getScore,
   getScoreDetailed,
+  getScoreWithReferenceMode,
   hesaplaKatveGenelSkor,
   isLowerBetterByIndex,
   isLowerBetterByNo,
@@ -103,11 +124,11 @@ describe('kategori ve genel skor hesaplama', () => {
   it('kategori skorlarını doğru KPI gruplarından hesaplar', () => {
     const score = hesaplaKatveGenelSkor(fullRawKpis, refKpis)
 
-    expect(score.musteri).toBe(100)     // KPI 1,2,3: (90 + 100 + 110) / 3
-    expect(score.ticari).toBe(100)      // KPI 4,5,6: (125 + 80 + 95) / 3
+    expect(score.musteri).toBe(100) // KPI 1,2,3: (90 + 100 + 110) / 3
+    expect(score.ticari).toBe(100) // KPI 4,5,6: (125 + 80 + 95) / 3
     expect(score.operasyonel).toBe(100) // KPI 7,8: (125 + 75) / 2
-    expect(score.bayi).toBe(110)        // KPI 9,10: (100 + 120) / 2
-    expect(score.kapsam).toBe(95)       // KPI 11,12: (80 + 110) / 2
+    expect(score.bayi).toBe(110) // KPI 9,10: (100 + 120) / 2
+    expect(score.kapsam).toBe(95) // KPI 11,12: (80 + 110) / 2
   })
 
   it('genel skorda kategori ağırlıklarını uygular', () => {
@@ -157,5 +178,42 @@ describe('coverage ve detaylı skorlar', () => {
     expect(score?.operasyonel).toBe(detailed?.operasyonel)
     expect(score?.bayi).toBe(detailed?.bayi)
     expect(score?.kapsam).toBe(detailed?.kapsam)
+  })
+})
+
+describe('referans modu (same-filter vs national)', () => {
+  afterEach(() => {
+    vi.mocked(getKpisFromCube).mockImplementation(cubeCtx.defaultCube)
+  })
+
+  it('getScore, same-filter getScoreWithReferenceMode ile aynı kalır', () => {
+    expect(getScore('Mass', 'Marmara')).toEqual(
+      getScoreWithReferenceMode('Mass', 'Marmara', 'Tümü', '', 'same-filter')
+    )
+  })
+
+  it('same-filter modda bölge skoru 100 olabilir (değer küresi bölgesel ref ile özdeş)', () => {
+    const sc = getScoreWithReferenceMode(
+      'Mass',
+      'SAME_FILTER_HUNDRED',
+      'Tümü',
+      '',
+      'same-filter'
+    )
+    expect(sc?.genel).toBe(100)
+  })
+
+  it('national modda Türkiye geneli referansı farklıysa skor same-filterdan ayrışabilir', () => {
+    const altNational = refKpis.map((v, i) => (i === 0 ? 50 : v))
+    vi.mocked(getKpisFromCube).mockImplementation((seg = '', bolge = '', yas = 'Tümü', donem = '') => {
+      if (seg === '' && bolge === '') return altNational
+      return cubeCtx.defaultCube(seg, bolge, yas, donem)
+    })
+
+    const same = getScoreWithReferenceMode('Mass', 'Marmara', 'Tümü', '', 'same-filter')
+    const nat = getScoreWithReferenceMode('Mass', 'Marmara', 'Tümü', '', 'national')
+    expect(same?.genel).toBe(101)
+    expect(nat?.genel).not.toBe(same?.genel)
+    expect(getRegionalScore('Mass', 'Marmara', 'Tümü', '')?.genel).toBe(nat?.genel)
   })
 })

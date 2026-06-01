@@ -184,16 +184,44 @@ export function getKpiScoresDetailed(
   })
 }
 
-// getScore — geriye dönük uyumlu SegmentScore
+/** KPI referans kapsamı: bölgeye göre yerel ref veya Türkiye geneli (boş bölge). */
+export type KpiReferenceMode = 'same-filter' | 'national'
+
+/**
+ * getScore ile aynı motor; yalnızca referans KPI küresini moda göre seçer.
+ * - same-filter: getKpisFromCube('', bolge, …) — mevcut getScore davranışı
+ * - national:    getKpisFromCube('', '', …) — Tüm Türkiye (bölge filtresi yok)
+ */
+export function getScoreWithReferenceMode(
+  seg = '',
+  bolge = '',
+  yas = 'Tümü',
+  donem = '',
+  referenceMode: KpiReferenceMode = 'same-filter'
+): SegmentScore | null {
+  const kpis = getKpisFromCube(seg, bolge, yas, donem)
+  const refKpis =
+    referenceMode === 'national'
+      ? getKpisFromCube('', '', yas, donem)
+      : getKpisFromCube('', bolge, yas, donem)
+  if (kpis.every(v => v == null)) return null
+  return hesaplaKatveGenelSkor(kpis, refKpis)
+}
+
+/** Bölge skoru: ham değerler seçili (seg, bolge) küresinden; referans Türkiye geneli. */
+export function getRegionalScore(
+  seg = '', bolge = '', yas = 'Tümü', donem = ''
+): SegmentScore | null {
+  return getScoreWithReferenceMode(seg, bolge, yas, donem, 'national')
+}
+
+// getScore — geriye dönük uyumlu SegmentScore (= same-filter referans)
 // Eksik KPI'lar artık ortalamaya dahil edilmez (hesap daha doğru)
 // Return shape değişmedi → dashboard sayfaları etkilenmez
 export function getScore(
   seg = '', bolge = '', yas = 'Tümü', donem = ''
 ): SegmentScore | null {
-  const kpis    = getKpisFromCube(seg, bolge, yas, donem)
-  const refKpis = getKpisFromCube('', bolge, yas, donem)
-  if (kpis.every(v => v == null)) return null
-  return hesaplaKatveGenelSkor(kpis, refKpis)
+  return getScoreWithReferenceMode(seg, bolge, yas, donem, 'same-filter')
 }
 
 // ─────────────────────────────────────────────────────────────

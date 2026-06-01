@@ -6,7 +6,7 @@ import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, BOLGELER,
   fmtKpi, getKpisFromCube, heatColor, isLowerBetter,
-  getScore, scoreColor, scoreBg, kpiUnit, chgColor,
+  getScore, getRegionalScore, scoreColor, scoreBg, kpiUnit, chgColor,
   getKpiScores, kpiScoreColor, kpiScoreBg
 } from '@/lib/kpi'
 import { Bar } from 'react-chartjs-2'
@@ -115,8 +115,8 @@ export default function BolgelerPage() {
     kpisCmp:       selCmpDonem?getKpisFromCube(selSeg,b,selYas,selCmpDonem):null,
     kpiScores:     getKpiScores(selSeg,b,selYas,selDonem),
     kpiScoresCmp:  selCmpDonem?getKpiScores(selSeg,b,selYas,selCmpDonem):null,
-    score:         getScore(selSeg,b,selYas,selDonem),
-    scoreCmp:      selCmpDonem?getScore(selSeg,b,selYas,selCmpDonem):null,
+    score:         getRegionalScore(selSeg,b,selYas,selDonem),
+    scoreCmp:      selCmpDonem?getRegionalScore(selSeg,b,selYas,selCmpDonem):null,
   })), [selSeg,selBolge,selYas,selDonem,selCmpDonem])
 
   // Skor sütunu için genel puan
@@ -181,6 +181,9 @@ export default function BolgelerPage() {
 
         {/* ── TABLO ── */}
         <div className={styles.card} style={{padding:0, overflow:'hidden', marginBottom:14}}>
+          <p style={{fontSize:10, color:'var(--tx3)', margin:'10px 12px 0', lineHeight:1.45}}>
+            Bölge skorları, seçili filtrelerde ilgili bölgenin Türkiye geneli referansına göre hesaplanır. 100 referans seviyesidir.
+          </p>
           <div style={{overflowX:'auto'}}>
             <table style={{width:'100%', borderCollapse:'collapse', fontSize:11, tableLayout:'auto'}}>
               <thead>

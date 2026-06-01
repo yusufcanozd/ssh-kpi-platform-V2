@@ -1,6 +1,6 @@
 'use client'
 
-import { BOLGELER, getScore, scoreColor } from '@/lib/kpi'
+import { BOLGELER, getRegionalScore, getScore, scoreColor } from '@/lib/kpi'
 import styles from '@/app/dashboard/page.module.css'
 
 export default function RegionScoreGrid({ selSeg, selBolge, selYas, selDonem, selCmpDonem }: {
@@ -20,10 +20,13 @@ export default function RegionScoreGrid({ selSeg, selBolge, selYas, selDonem, se
           {selSeg || 'Tüm Seg.'} · {selYas === 'Tümü' ? 'Tüm Yaş' : selYas + 'y'} · {selDonem || 'Tüm Dönem'}{selCmpDonem ? ` vs ${selCmpDonem}` : ''}
         </span>
       </div>
+      <p style={{ fontSize: 10, color: 'var(--tx3)', margin: '0 0 10px', lineHeight: 1.45 }}>
+        Bölge skorları, seçili filtrelerde ilgili bölgenin Türkiye geneli referansına göre hesaplanır. 100 referans seviyesidir.
+      </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 8 }}>
         {bolgeList.map((b) => {
-          const baz = getScore(selSeg, b, selYas, selDonem)
-          const cmp = selCmpDonem ? getScore(selSeg, b, selYas, selCmpDonem) : null
+          const baz = getRegionalScore(selSeg, b, selYas, selDonem)
+          const cmp = selCmpDonem ? getRegionalScore(selSeg, b, selYas, selCmpDonem) : null
           const trRef = getScore(selSeg, '', selYas, selDonem)
           const bazG = baz?.genel ?? 0
           const cmpG = cmp?.genel ?? 0
