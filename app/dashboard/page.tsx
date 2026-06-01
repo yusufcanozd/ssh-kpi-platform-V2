@@ -13,6 +13,9 @@ import {
 import { Bar, Line } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend, Filler } from 'chart.js'
 import { GeneralScoreMethodology, CategoryScoreMethodology } from '@/components/dashboard/MethodologyTooltip'
+import ScoreSummaryCards, { type SegmentScoreCardItem } from '@/components/dashboard/ScoreSummaryCards'
+import CategoryBreakdown, { type CategoryBreakdownItem } from '@/components/dashboard/CategoryBreakdown'
+import RegionScoreGrid from '@/components/dashboard/RegionScoreGrid'
 import styles from './page.module.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend, Filler)
@@ -67,6 +70,29 @@ export default function DashboardPage() {
     selDonem||'Tüm Dönem'
   ].join(' · ')
 
+  const scoreCardItems: SegmentScoreCardItem[] = [
+    { key: 'tr', label: '🇹🇷 Tüm Türkiye', baz: trBaz, cmp: trCmp, color: 'var(--seg-tr-color)', bg: 'var(--seg-tr-bg)' },
+    ...visibleSegs.slice(0, 3).map((s) => ({
+      key: s.seg,
+      label: s.seg,
+      baz: s.baz,
+      cmp: s.cmp,
+      color: SEGMENT_COLORS[s.seg],
+      bg: SEGMENT_BG[s.seg],
+    })),
+  ]
+
+  const categoryBreakdownItems: CategoryBreakdownItem[] = [
+    { key: 'tr', label: '🇹🇷 Tüm Türkiye', score: trBaz, color: 'var(--seg-tr-color)', bg: 'var(--seg-tr-bg)' },
+    ...visibleSegs.slice(0, 3).map((s) => ({
+      key: s.seg,
+      label: s.seg,
+      score: s.baz,
+      color: SEGMENT_COLORS[s.seg],
+      bg: SEGMENT_BG[s.seg],
+    })),
+  ]
+
   return (
     <div className={styles.wrap}>
       <Topbar title="SSH KPI Rekabet Skorkartı" subtitle={filterLabel}
@@ -74,34 +100,14 @@ export default function DashboardPage() {
       <div className={styles.content}>
 
         {/* ── Üst 4 kutu: Segment Skor Kartları ── */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:10}}>
-          {/* Tüm Türkiye */}
-          <SkorKutu
-            label="🇹🇷 Tüm Türkiye"
-            baz={trBaz} cmp={trCmp}
-            color="var(--seg-tr-color)" bg="var(--seg-tr-bg)"
-            bazDonem={selDonem||'Tüm Dönem'}
-            cmpDonem={selCmpDonem}
-          />
-          {visibleSegs.slice(0,3).map(s=>(
-            <SkorKutu key={s.seg}
-              label={s.seg}
-              baz={s.baz} cmp={s.cmp}
-              color={SEGMENT_COLORS[s.seg]}
-              bg={SEGMENT_BG[s.seg]}
-              bazDonem={selDonem||'Tüm Dönem'}
-              cmpDonem={selCmpDonem}
-            />
-          ))}
-        </div>
+        <ScoreSummaryCards
+          items={scoreCardItems}
+          bazDonem={selDonem || 'Tüm Dönem'}
+          cmpDonem={selCmpDonem}
+        />
 
         {/* ── 2. Satır: Kategori kırılım detayları ── */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:14}}>
-          <KatDetayKutu label="🇹🇷 Tüm Türkiye" score={trBaz} color="var(--seg-tr-color)" bg="var(--seg-tr-bg)"/>
-          {visibleSegs.slice(0,3).map(s=>(
-            <KatDetayKutu key={s.seg} label={s.seg} score={s.baz} color={SEGMENT_COLORS[s.seg]} bg={SEGMENT_BG[s.seg]}/>
-          ))}
-        </div>
+        <CategoryBreakdown items={categoryBreakdownItems} />
 
         <div className={styles.twoCol}>
           {/* Segment skor bar grafik */}
@@ -246,209 +252,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Bölge Skor Dağılımı */}
-        <BolgeSkorGrid selSeg={selSeg} selBolge={selBolge} selYas={selYas} selDonem={selDonem} selCmpDonem={selCmpDonem}/>
+        <RegionScoreGrid selSeg={selSeg} selBolge={selBolge} selYas={selYas} selDonem={selDonem} selCmpDonem={selCmpDonem} />
 
-      </div>
-    </div>
-  )
-}
-
-// ── Skor Kutusu ──────────────────────────────────────────────
-function SkorKutu({ label, baz, cmp, color, bg, bazDonem, cmpDonem }:{
-  label:string; baz:SegmentScore|null; cmp:SegmentScore|null
-  color:string; bg:string; bazDonem:string; cmpDonem:string
-}) {
-  const bazG = baz?.genel ?? 0
-  const cmpG = cmp?.genel ?? 0
-  const chg  = (cmp && cmpG) ? ((bazG - cmpG) / cmpG * 100) : null
-
-  const chgColor = chg===null ? 'var(--tx3)'
-    : chg >= 0  ? '#10b981'
-    : chg >= -10 ? '#f59e0b'
-    : '#f87171'
-
-  return (
-    <div style={{background:bg, border:`1px solid ${color}44`, borderRadius:10, padding:'14px 16px', minHeight:110}}>
-      {/* Başlık */}
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:10}}>
-        <span style={{fontSize:11, fontWeight:700, color}}>{label}</span>
-        <GeneralScoreMethodology align="right" />
-      </div>
-
-      {/* Dönem etiketleri + skorlar */}
-      <div style={{display:'flex', alignItems:'flex-end', gap:12, marginBottom:10}}>
-        {/* Baz dönem */}
-        <div>
-          <div style={{fontSize:9, color:'var(--tx3)', marginBottom:3, fontWeight:500}}>{bazDonem}</div>
-          <div style={{fontSize:32, fontWeight:800, fontFamily:'var(--font-dm-mono)',
-            color:scoreColor(bazG), lineHeight:1}}>
-            {bazG || '—'}
-          </div>
-          <div style={{fontSize:9, color:'var(--tx3)', marginTop:2}}>puan</div>
-        </div>
-
-        {/* Karşılaştırma dönem */}
-        {cmp && (
-          <div style={{paddingBottom:4}}>
-            <div style={{fontSize:9, color:'var(--tx3)', marginBottom:3, fontWeight:500}}>{cmpDonem}</div>
-            <div style={{fontSize:22, fontWeight:700, fontFamily:'var(--font-dm-mono)',
-              color:'var(--tx2)', lineHeight:1}}>
-              {cmpG}
-            </div>
-          </div>
-        )}
-
-        {/* Değişim */}
-        {chg !== null && (
-          <div style={{paddingBottom:6, marginLeft:'auto'}}>
-            <div style={{fontSize:13, fontWeight:700, color:chgColor}}>
-              {chg >= 0 ? '▲ +' : '▼ '}{Math.abs(chg).toFixed(1)}%
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Progress bar */}
-      <div style={{background:'rgba(0,0,0,.12)', borderRadius:6, height:4, overflow:'hidden'}}>
-        <div style={{width:`${Math.min(bazG, 100)}%`, height:4, borderRadius:6,
-          background:bazG>=100?'rgba(16,185,129,.5)':bazG>=90?'rgba(245,158,11,.5)':'rgba(239,68,68,.45)',
-          transition:'width .4s'}}/>
-      </div>
-    </div>
-  )
-}
-
-// ── Kategori Detay Kutusu ─────────────────────────────────────
-function KatDetayKutu({ label, score, color, bg }:{
-  label:string; score:SegmentScore|null; color:string; bg?:string
-}) {
-  if (!score) return (
-    <div style={{background:bg||'var(--surf2)',border:`1px solid ${color}22`,borderRadius:10,padding:'12px 14px'}}>
-      <div style={{fontSize:11,fontWeight:700,color,marginBottom:8}}>{label}</div>
-      <div style={{fontSize:10,color:'var(--tx3)'}}>Veri yok</div>
-    </div>
-  )
-
-  const cats = [
-    {key:'musteri',   label:'Müşteri Sadakati ve Deneyimi'},
-    {key:'ticari',    label:'Finansal Verimlilik ve Rasyo Analizi'},
-    {key:'operasyonel',label:'Süreç ve Operasyonel Akış'},
-    {key:'bayi',      label:'Bayi Ağı Kapasite Yönetimi'},
-    {key:'kapsam',    label:'Stratejik Kapsam Dağılımı'},
-  ]
-
-  return (
-    <div style={{background:bg||'var(--surf2)',border:`1px solid ${color}33`,borderRadius:10,padding:'12px 14px'}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:10}}>
-        <span style={{fontSize:10,fontWeight:700,color}}>{label} — Kategori Kırılımı</span>
-        <CategoryScoreMethodology align="right" />
-      </div>
-      {cats.map(c=>{
-        const val = score[c.key as keyof SegmentScore] as number
-        return (
-          <div key={c.key} style={{marginBottom:7}}>
-            <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
-              <span style={{fontSize:9,color:'var(--tx3)'}}>{c.label}</span>
-              <span style={{fontSize:10,fontWeight:700,fontFamily:'var(--font-dm-mono)',
-                color:scoreColor(val)}}>{val}</span>
-            </div>
-            <div style={{background:'var(--surf3)',borderRadius:4,height:5,overflow:'hidden'}}>
-              <div style={{width:`${Math.min(val,100)}%`,height:5,borderRadius:4,
-                background:val>=100?'rgba(16,185,129,.55)':val>=90?'rgba(245,158,11,.55)':'rgba(239,68,68,.55)',
-                transition:'width .3s'}}/>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// ── Bölge Skor Grid ──────────────────────────────────────────
-function BolgeSkorGrid({ selSeg, selBolge, selYas, selDonem, selCmpDonem }:{
-  selSeg:string; selBolge:string; selYas:string; selDonem:string; selCmpDonem:string
-}) {
-  const bolgeList = selBolge ? [selBolge] : BOLGELER
-
-  return (
-    <div className={styles.card}>
-      <div className={styles.cardHd}>
-        <h3>Bölge Skor Dağılımı</h3>
-        <span className={styles.hint}>
-          {selSeg||'Tüm Seg.'} · {selYas==='Tümü'?'Tüm Yaş':selYas+'y'} ·{' '}
-          {selDonem||'Tüm Dönem'}{selCmpDonem?` vs ${selCmpDonem}`:''}
-        </span>
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:8}}>
-        {bolgeList.map(b=>{
-          const baz    = getScore(selSeg, b, selYas, selDonem)
-          const cmp    = selCmpDonem ? getScore(selSeg, b, selYas, selCmpDonem) : null
-          const trRef  = getScore(selSeg, '', selYas, selDonem)
-          const bazG   = baz?.genel ?? 0
-          const cmpG   = cmp?.genel ?? 0
-          const trG    = trRef?.genel ?? bazG
-          const chg    = (cmp && cmpG) ? ((bazG - cmpG) / cmpG * 100) : null
-          const chgColor = chg===null?'var(--tx3)':chg>=0?'#10b981':chg>=-10?'#f59e0b':'#f87171'
-          // Renk: TR ortalamasına göre — %2 üstü yeşil, ±%2 sarı, altı kırmızı
-          const ratio    = trG > 0 ? bazG / trG : 1
-          const relColor = ratio >= 1.02 ? '#10b981' : ratio >= 0.98 ? '#f59e0b' : '#ef4444'
-          const relBg    = ratio >= 1.02 ? 'rgba(16,185,129,.1)' : ratio >= 0.98 ? 'rgba(245,158,11,.08)' : 'rgba(239,68,68,.08)'
-
-          return (
-            <div key={b} style={{
-              padding:'10px 10px 8px',
-              background: 'var(--surf2)',
-              borderRadius:8,
-              border:`1px solid ${relColor}55`,
-            }}>
-              {/* Bölge adı */}
-              <div style={{fontSize:8,fontWeight:700,color:relColor,
-                marginBottom:6,lineHeight:1.3,
-                overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                {b}
-              </div>
-
-              {/* Skorlar */}
-              <div style={{display:'flex',alignItems:'flex-end',gap:4,marginBottom:5,flexWrap:'nowrap'}}>
-                {/* Baz */}
-                <div style={{flexShrink:0}}>
-                  <div style={{fontSize:7,color:'var(--tx3)',marginBottom:1,fontWeight:500,lineHeight:1,whiteSpace:'nowrap'}}>
-                    {selDonem ? selDonem.replace('20','').replace('-FY','FY') : 'Tüm'}
-                  </div>
-                  <div style={{fontSize:20,fontWeight:800,fontFamily:'var(--font-dm-mono)',
-                    color:scoreColor(bazG),lineHeight:1}}>
-                    {bazG||'—'}
-                  </div>
-                  <div style={{fontSize:7,color:'var(--tx3)',marginTop:1}}>puan</div>
-                </div>
-                {/* Karşılaştırma */}
-                {cmp && (
-                  <div style={{paddingBottom:2,flexShrink:0}}>
-                    <div style={{fontSize:7,color:'var(--tx3)',marginBottom:1,fontWeight:500,lineHeight:1,whiteSpace:'nowrap'}}>
-                      {selCmpDonem ? selCmpDonem.replace('20','').replace('-FY','FY') : ''}
-                    </div>
-                    <div style={{fontSize:13,fontWeight:700,fontFamily:'var(--font-dm-mono)',
-                      color:'var(--tx2)',lineHeight:1}}>
-                      {cmpG}
-                    </div>
-                  </div>
-                )}
-                {/* Değişim */}
-                {chg !== null && (
-                  <div style={{marginLeft:'auto',paddingBottom:2,fontSize:10,fontWeight:700,color:chgColor,flexShrink:0,whiteSpace:'nowrap'}}>
-                    {chg>=0?'▲ +':'▼ '}{Math.abs(chg).toFixed(1)}%
-                  </div>
-                )}
-              </div>
-
-              {/* Progress bar */}
-              <div style={{background:'rgba(0,0,0,.10)',borderRadius:4,height:3,overflow:'hidden'}}>
-                <div style={{width:`${Math.min(bazG,100)}%`,height:3,borderRadius:4,
-                  background:relColor+'99',transition:'width .4s'}}/>
-              </div>
-            </div>
-          )
-        })}
       </div>
     </div>
   )
