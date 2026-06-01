@@ -18,7 +18,9 @@ export type {
   SegmentScore,
   MarkaScore,
   KpiScoreDetail,
-  MarkaData,
+  KpiScoreDetailFull,
+  KatScoreDetail,
+  SegmentScoreDetailed,
 } from './kpi/config'
 
 // ── Metadata ve Sabitler ─────────────────────────────────────
@@ -65,7 +67,9 @@ export {
   hesaplaKatveGenelSkor,
   getKpiScores,
   getKpiScoresDetailed,
+  getKpiScoresFullDetail,
   getScore,
+  getScoreDetailed,
   overallScoreFromKpis,
   getSegAvg,
 } from './kpi/formula'
