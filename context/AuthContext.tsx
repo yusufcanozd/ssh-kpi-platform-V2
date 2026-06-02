@@ -18,6 +18,29 @@ const AuthContext = createContext<AuthContextType>({
   logout: async () => {}, isAdmin: false, isSuperAdmin: false,
 })
 
+function clearSupabaseBrowserSession() {
+  if (typeof window === 'undefined') return
+
+  const clear = (storage: Storage) => {
+    for (let i = storage.length - 1; i >= 0; i -= 1) {
+      const key = storage.key(i)
+      if (!key) continue
+      if (key.startsWith('sb-') || key.includes('supabase.auth')) {
+        storage.removeItem(key)
+      }
+    }
+  }
+
+  try { clear(window.localStorage) } catch {}
+  try { clear(window.sessionStorage) } catch {}
+}
+
+function goLoginFallback() {
+  if (typeof window !== 'undefined') {
+    window.location.replace('/login')
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -87,11 +110,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const logout = async () => {
+    setLoading(true)
+    setProfile(null)
+
     try {
-      await supabase.auth.signOut()
+      await supabase.auth.signOut({ scope: 'global' })
+    } catch {
+      // Ağ/Supabase kaynaklı hata olsa bile istemci oturumu temizlenir.
+    } finally {
+      clearSupabaseBrowserSession()
       router.replace('/login')
-    } catch (e) {
-      router.replace('/login')
+      router.refresh()
+      setTimeout(goLoginFallback, 150)
     }
   }
 

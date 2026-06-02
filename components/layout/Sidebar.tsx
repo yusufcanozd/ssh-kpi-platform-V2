@@ -34,12 +34,17 @@ export default function Sidebar({ variant, filters, collapsed: collapsedProp, on
   const { theme, toggleTheme } = useTheme()
   // Dashboard'dan prop gelirse onu kullan, yoksa internal state
   const [internalCollapsed, setInternalCollapsed] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   const collapsed = collapsedProp !== undefined ? collapsedProp : internalCollapsed
   const toggle = onToggle || (() => setInternalCollapsed(v=>!v))
 
   const nav = variant === 'admin' ? ADMIN_NAV : DASHBOARD_NAV
 
-  const handleLogout = async () => { await logout() }
+  const handleLogout = async () => {
+    if (loggingOut) return
+    setLoggingOut(true)
+    await logout()
+  }
 
   return (
     <aside className={clsx(styles.sidebar, collapsed && styles.collapsed)}>
@@ -121,8 +126,8 @@ export default function Sidebar({ variant, filters, collapsed: collapsedProp, on
             {theme==='dark'?<SunIcon/>:<MoonIcon/>}
           </button>
           {!collapsed && (
-            <button className={styles.logoutBtn} onClick={handleLogout} type="button">
-              Çıkış Yap
+            <button className={styles.logoutBtn} onClick={handleLogout} type="button" disabled={loggingOut}>
+              {loggingOut ? 'Çıkılıyor...' : 'Çıkış Yap'}
             </button>
           )}
         </div>

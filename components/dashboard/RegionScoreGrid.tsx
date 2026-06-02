@@ -1,6 +1,6 @@
 'use client'
 
-import { BOLGELER, fmtSkor1, getRegionalScorePrecise, scoreBarWidth, scoreColor } from '@/lib/kpi'
+import { BOLGELER, fmtSkor0, getRegionalScorePrecise, scoreBarWidth, scoreColor } from '@/lib/kpi'
 import styles from '@/app/dashboard/page.module.css'
 
 export default function RegionScoreGrid({ selSeg, selBolge, selYas, selDonem, selCmpDonem }: {
@@ -18,7 +18,7 @@ export default function RegionScoreGrid({ selSeg, selBolge, selYas, selDonem, se
         <div>
           <h3>Bölge Skor Dağılımı</h3>
           <div style={{ fontSize: 10, color: 'var(--tx3)', marginTop: 4 }}>
-            Bölge skorları, seçili filtrelerde ilgili bölgenin {selSeg ? 'aynı segmentin Türkiye geneli' : 'Türkiye geneli'} referansına göre hesaplanır. 100 referans seviyesidir; skorlar 1 ondalık basamakla gösterilir.
+            Bölge skorları, seçili filtrelerde ilgili bölgenin {selSeg ? 'aynı segmentin Türkiye geneli' : 'Türkiye geneli'} referansına göre hesaplanır. 100 referans seviyesidir; skorlar tam sayı olarak gösterilir.
           </div>
         </div>
         <span className={styles.hint}>
@@ -41,13 +41,13 @@ export default function RegionScoreGrid({ selSeg, selBolge, selYas, selDonem, se
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, marginBottom: 5, flexWrap: 'nowrap' }}>
                 <div style={{ flexShrink: 0 }}>
                   <div style={{ fontSize: 7, color: 'var(--tx3)', marginBottom: 1, fontWeight: 500, lineHeight: 1, whiteSpace: 'nowrap' }}>{selDonem ? selDonem.replace('20', '').replace('-FY', 'FY') : 'Tüm'}</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, fontFamily: 'var(--font-dm-mono)', color: scoreColor(bazG), lineHeight: 1 }}>{baz ? fmtSkor1(bazG) : '—'}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, fontFamily: 'var(--font-dm-mono)', color: scoreColor(bazG), lineHeight: 1 }}>{baz ? fmtSkor0(bazG) : '—'}</div>
                   <div style={{ fontSize: 7, color: 'var(--tx3)', marginTop: 1 }}>puan</div>
                 </div>
                 {cmp && (
                   <div style={{ paddingBottom: 2, flexShrink: 0 }}>
                     <div style={{ fontSize: 7, color: 'var(--tx3)', marginBottom: 1, fontWeight: 500, lineHeight: 1, whiteSpace: 'nowrap' }}>{selCmpDonem ? selCmpDonem.replace('20', '').replace('-FY', 'FY') : ''}</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-dm-mono)', color: 'var(--tx2)', lineHeight: 1 }}>{fmtSkor1(cmpG)}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-dm-mono)', color: 'var(--tx2)', lineHeight: 1 }}>{fmtSkor0(cmpG)}</div>
                   </div>
                 )}
                 {chg !== null && (

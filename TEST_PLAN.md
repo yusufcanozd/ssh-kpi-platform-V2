@@ -59,3 +59,10 @@
 - Adımlar: Özet raporda AI yorum üret.
 - Beklenen sonuç: Yetkili kullanıcı yorum alır; yetkisiz kullanıcı 401/403 alır.
 - Risk: Yüksek.
+
+## Ek kontrol maddeleri
+
+- Bölge skor kartlarında ve Bölge Analizi sayfasında skorların tam sayı göründüğünü doğrula.
+- Çıkış Yap düğmesine basıldığında kullanıcının `/login` sayfasına yönlendiğini ve geri tuşuyla dashboard'a dönmediğini doğrula.
+- GitHub Actions üzerinde test, lint ve build işlerinin main/cursor-local-snapshot push sonrası çalıştığını kontrol et.
+- Kök dizinde `kpi_data.json` bulunmadığını, yalnızca `lib/kpi_data.json` kullanıldığını doğrula.

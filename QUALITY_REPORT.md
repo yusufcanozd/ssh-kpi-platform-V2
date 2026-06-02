@@ -77,3 +77,11 @@ npm run build
   - Karadeniz: 78.0
   - Marmara: 78.3
   - İç Anadolu: 80.6
+
+## Son üretim temizliği
+
+- Kök dizindeki eski `kpi_data.json` kaldırıldı; tek canonical KPI veri kaynağı `lib/kpi_data.json` olarak bırakıldı.
+- Bölge skor gösterimleri tam sayı formatına alındı; hassas hesaplama içeride korunur, UI'da `78,6` yerine `79` gibi yuvarlanmış değer gösterilir.
+- Çıkış yap akışı güçlendirildi: Supabase global sign-out, istemci auth storage temizliği, router yenileme ve `/login` fallback yönlendirmesi birlikte uygulanır.
+- GitHub Actions CI eklendi: `npm run test`, `npm run lint`, `npm run build` main ve preview branch push'larında çalışacak şekilde yapılandırıldı.
+- Özet rapor başlıkları `components/report/ReportSectionHeader.tsx` bileşenine ayrılarak rapor refactor süreci başlatıldı.

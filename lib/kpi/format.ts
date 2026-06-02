@@ -34,6 +34,11 @@ export function fmtSkor1(v: number | null | undefined): string {
   return v.toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 }
 
+export function fmtSkor0(v: number | null | undefined): string {
+  if (v == null || !Number.isFinite(v)) return '—'
+  return v.toLocaleString('tr-TR', { maximumFractionDigits: 0 })
+}
+
 export function kpiUnit(fmt: string): string {
   if (fmt.startsWith('pct') || fmt === '%') return '%'
   if (fmt.startsWith('tl')) return '₺'

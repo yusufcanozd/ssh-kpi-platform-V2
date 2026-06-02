@@ -7,7 +7,7 @@ import {
   KPI_META, BOLGELER,
   fmtKpi, getKpisFromCube, heatColor, isLowerBetter,
   getScore, getRegionalScorePrecise, getRegionalKpiScoresPrecise, scoreColor, scoreBg, kpiUnit, chgColor,
-  getKpiScores, kpiScoreColor, kpiScoreBg, scoreBarWidth, fmtSkor1
+  getKpiScores, kpiScoreColor, kpiScoreBg, scoreBarWidth, fmtSkor1, fmtSkor0
 } from '@/lib/kpi'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
@@ -34,8 +34,8 @@ function ScoreCell({ baz, cmp, large }: { baz: number; cmp: number | null; large
   const clr = chgColor(chg ?? 0)
   return (
     <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center', background:scoreBg(baz)}}>
-      <div style={{fontFamily:'var(--font-dm-mono)', fontSize:large?14:12, fontWeight:800, color:scoreColor(baz), lineHeight:1}}>{fmtSkor1(baz)}</div>
-      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtSkor1(cmp)}</div>}
+      <div style={{fontFamily:'var(--font-dm-mono)', fontSize:large?14:12, fontWeight:800, color:scoreColor(baz), lineHeight:1}}>{fmtSkor0(baz)}</div>
+      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtSkor0(cmp)}</div>}
       {chg!==null && <div style={{fontSize:8, fontWeight:700, color:clr, marginTop:1}}>{chg>=0?'+':''}{chg}%</div>}
     </td>
   )
@@ -61,8 +61,8 @@ function KpiScoreCell({ baz, cmp, active }: { baz: number; cmp: number | null; a
   return (
     <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center',
       background: kpiScoreBg(baz), outline: active ? `2px solid ${kpiScoreColor(baz)}55` : 'none', outlineOffset:-1}}>
-      <div style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:800, color:kpiScoreColor(baz), lineHeight:1}}>{fmtSkor1(baz)}</div>
-      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtSkor1(cmp)}</div>}
+      <div style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:800, color:kpiScoreColor(baz), lineHeight:1}}>{fmtSkor0(baz)}</div>
+      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtSkor0(cmp)}</div>}
       {chg!==null && <div style={{fontSize:8, fontWeight:700, marginTop:1, color:chgColor(chg)}}>{chg>=0?'+':''}{chg}%</div>}
     </td>
   )
@@ -78,8 +78,8 @@ function SkorSutun({ bazG, cmpG, bazRank, cmpRank }: { bazG:number; cmpG:number|
           <div style={{width:scoreBarWidth(bazG), height:4, borderRadius:3, background:sc+'99'}}/>
         </div>
         <div style={{textAlign:'right'}}>
-          <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:sc}}>{fmtSkor1(bazG)}</div>
-          {cmpG!==null && <div style={{fontSize:8, color:'var(--tx3)'}}>{fmtSkor1(cmpG)}</div>}
+          <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:sc}}>{fmtSkor0(bazG)}</div>
+          {cmpG!==null && <div style={{fontSize:8, color:'var(--tx3)'}}>{fmtSkor0(cmpG)}</div>}
           {rankDiff!==null && (
             <div style={{fontSize:8, fontWeight:700, color:rankDiff>0?'#10b981':rankDiff<0?'#f87171':'var(--tx3)'}}>
               {rankDiff>0?`+${rankDiff}`:rankDiff<0?rankDiff:'-'}
@@ -243,8 +243,8 @@ export default function BolgelerPage() {
                   })}
 
                   <td style={{padding:'6px 8px', borderBottom:'2px solid var(--bd2)', position:'sticky', right:0, background:'var(--surf)', textAlign:'center'}}>
-                    <span style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:700, color:scoreColor(trScore?.genel||0)}}>{trScore ? fmtSkor1(trScore.genel) : '-'}</span>
-                    {trScoreCmp && <div style={{fontSize:9, color:'var(--tx3)'}}>{fmtSkor1(trScoreCmp.genel)}</div>}
+                    <span style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:700, color:scoreColor(trScore?.genel||0)}}>{trScore ? fmtSkor0(trScore.genel) : '-'}</span>
+                    {trScoreCmp && <div style={{fontSize:9, color:'var(--tx3)'}}>{fmtSkor0(trScoreCmp.genel)}</div>}
                   </td>
                 </tr>
 

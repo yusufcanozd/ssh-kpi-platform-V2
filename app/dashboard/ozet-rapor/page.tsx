@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
+import ReportSectionHeader from '@/components/report/ReportSectionHeader'
 import {
   KPI_META, SEGMENTLER, SEGMENT_HEX, SEGMENT_BG,
   BOLGELER, YAS_GRUPLARI, DONEMLER, CAT_COLORS,
-  fmtKpi, getKpisFromCube, getScore, getRegionalScorePrecise, getKpiScores, getMarkaRanking,
+  fmtKpi, fmtSkor0, scoreColor, scoreBarWidth, getKpisFromCube, getScore, getRegionalScorePrecise, getKpiScores, getMarkaRanking,
   isLowerBetter, heatColor,
 } from '@/lib/kpi'
 import styles from './page.module.css'
@@ -382,10 +383,7 @@ export default function OzetRaporPage() {
 
             <div className="rapor-sayfa">
               <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, paddingBottom:8, borderBottom:'1px solid var(--bd)' }}>
-                  <span style={{ fontSize:16 }}>🏆</span>
-                  <span style={{ fontSize:12, fontWeight:800, color:'var(--tx)' }}>Marka Sıralaması</span>
-                </div>
+                <ReportSectionHeader icon="🏆" title="Marka Sıralaması" />
                 <div style={{ overflowX:'auto' }}>
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:10 }}>
                     <thead>
@@ -427,10 +425,7 @@ export default function OzetRaporPage() {
 
             <div className="rapor-sayfa">
               <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, paddingBottom:8, borderBottom:'1px solid var(--bd)' }}>
-                  <span style={{ fontSize:16 }}>📊</span>
-                  <span style={{ fontSize:12, fontWeight:800 }}>KPI Detay Analizi</span>
-                </div>
+                <ReportSectionHeader icon="📊" title="KPI Detay Analizi" />
                 <div style={{ overflowX:'auto' }}>
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:10 }}>
                     <thead>
@@ -471,29 +466,26 @@ export default function OzetRaporPage() {
 
             <div className="rapor-sayfa">
               <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, paddingBottom:8, borderBottom:'1px solid var(--bd)' }}>
-                  <span style={{ fontSize:16 }}>🗺</span>
-                  <span style={{ fontSize:12, fontWeight:800 }}>Bölge Analizi</span>
-                </div>
+                <ReportSectionHeader icon="🗺" title="Bölge Analizi" />
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:12 }}>
                   <div>
                     {d.bolgeData.map((b: any) => {
                       const sc = b.score?.genel??0
                       const scC = b.scoreCmp?.genel??null
                       const maxSc = Math.max(...d.bolgeData.map((x: any) => x.score?.genel??0), 1)
-                      const c = sc>=100?'#10b981':sc>=90?'#f59e0b':'#ef4444'
+                      const c = scoreColor(sc)
                       const diff = scC !== null ? sc - scC : null
                       return (
                         <div key={b.bolge} style={{ marginBottom:8 }}>
                           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
                             <span style={{ fontSize:9, color:'var(--tx2)', fontWeight:600 }}>{b.bolge||'Tüm TR'}</span>
                             <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                              {diff !== null && <span style={{ fontSize:9, fontWeight:700, color:diff>=0?'#10b981':'#ef4444' }}>{diff>=0?'▲ +':'▼ '}{diff}</span>}
-                              <span style={{ fontSize:10, fontWeight:700, color:c, fontFamily:'var(--font-dm-mono)' }}>{sc}</span>
+                              {diff !== null && <span style={{ fontSize:9, fontWeight:700, color:diff>=0?'#10b981':'#ef4444' }}>{diff>=0?'▲ +':'▼ '}{fmtSkor0(Math.abs(diff))}</span>}
+                              <span style={{ fontSize:10, fontWeight:700, color:c, fontFamily:'var(--font-dm-mono)' }}>{fmtSkor0(sc)}</span>
                             </div>
                           </div>
                           <div style={{ background:'var(--surf3)', borderRadius:4, height:8, overflow:'hidden' }}>
-                            <div style={{ width:Math.round(sc/maxSc*100)+'%', height:'100%', background:c, borderRadius:4 }} />
+                            <div style={{ width:scoreBarWidth(sc), height:'100%', background:c, borderRadius:4 }} />
                           </div>
                         </div>
                       )
@@ -526,10 +518,7 @@ export default function OzetRaporPage() {
               </div>
 
               <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, paddingBottom:8, borderBottom:'1px solid var(--bd)' }}>
-                  <span style={{ fontSize:16 }}>🔷</span>
-                  <span style={{ fontSize:12, fontWeight:800 }}>Segment Analizi</span>
-                </div>
+                <ReportSectionHeader icon="🔷" title="Segment Analizi" />
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(' + SEGMENTLER.length + ',1fr)', gap:12 }}>
                   {d.segData.map((s: any) => (
                     <div key={s.seg} style={{ background:SEGMENT_BG[s.seg], border:'1px solid ' + SEGMENT_HEX[s.seg] + '55', borderRadius:10, padding:'12px 14px' }}>
@@ -577,10 +566,7 @@ export default function OzetRaporPage() {
 
             <div className="rapor-sayfa">
               <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, paddingBottom:8, borderBottom:'1px solid var(--bd)' }}>
-                  <span style={{ fontSize:16 }}>📈</span>
-                  <span style={{ fontSize:12, fontWeight:800 }}>Dönemsel Trend ({d.trendDonemler.join(' → ')})</span>
-                </div>
+                <ReportSectionHeader icon="📈" title={`Dönemsel Trend (${d.trendDonemler.join(' → ')})`} />
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
                   {KPI_META.slice(0,8).map((k, idx) => {
                     const vals = d.trendDonemler.map((dt: string) => getKpisFromCube('', selBolge, selYas, dt)[idx]??0)
@@ -616,10 +602,7 @@ export default function OzetRaporPage() {
             {cmpStr && (
               <div className="rapor-sayfa">
                 <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, paddingBottom:8, borderBottom:'1px solid var(--bd)' }}>
-                    <span style={{ fontSize:16 }}>⚖️</span>
-                    <span style={{ fontSize:12, fontWeight:800 }}>{'Dönem Karşılaştırması: ' + bazStr + ' vs ' + cmpStr}</span>
-                  </div>
+                  <ReportSectionHeader icon="⚖️" title={'Dönem Karşılaştırması: ' + bazStr + ' vs ' + cmpStr} />
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:14 }}>
                     {[
                       { label:'Baz Dönem (' + bazStr + ')', val:d.trScore?.genel??0, color:'var(--blue)' },
