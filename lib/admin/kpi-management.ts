@@ -1,32 +1,21 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   CAT_COLORS,
   CATEGORY_SHORT_NAMES,
   KAT_YAPILAR,
   KPI_META,
-  RAW_CATEGORY_TO_KEY,
   type CategoryKey,
-} from '@/lib/kpi'
+} from '@/lib/kpi/config'
 
 export type KpiDirection = 'higher_is_better' | 'lower_is_better'
-export type KpiDataType = 'index' | 'ratio' | 'currency' | 'duration' | 'count'
+export type KpiDataType = 'index' | 'ratio' | 'currency' | 'duration' | 'count' | 'percentage'
+export type CoverageRule = 'included' | 'excluded_zero_variance' | 'optional' | 'required'
+export type AuditEntityType = 'kpi_definition' | 'kpi_category'
+export type AuditAction = 'create' | 'update' | 'deactivate' | 'reactivate'
 
-export interface ManagedKpiDefinition {
+export interface AdminCategoryDefinition {
   id: string
-  no: number
-  name: string
-  shortName: string
-  description: string
-  categoryKey: CategoryKey
-  isActive: boolean
-  direction: KpiDirection
-  dataType: KpiDataType
-  coverageRule: string
-  source: 'supabase' | 'fallback'
-}
-
-export interface ManagedCategoryDefinition {
-  id: string
-  key: CategoryKey
+  key: string
   name: string
   shortName: string
   description: string
@@ -36,54 +25,83 @@ export interface ManagedCategoryDefinition {
   source: 'supabase' | 'fallback'
 }
 
-export interface AdminAuditDraft {
-  action: 'create' | 'update' | 'deactivate'
-  entity: 'kpi_definition' | 'kpi_category'
+export interface AdminKpiDefinition {
+  id: string
+  kpiNo: number
+  name: string
+  shortName: string
+  description: string
+  categoryKey: string
+  isActive: boolean
+  direction: KpiDirection
+  dataType: KpiDataType
+  coverageRule: CoverageRule
+  source: 'supabase' | 'fallback'
+}
+
+export interface AdminKpiConfig {
+  kpis: AdminKpiDefinition[]
+  categories: AdminCategoryDefinition[]
+  source: 'supabase' | 'fallback'
+  warning?: string
+}
+
+export interface AuditDraft<TPayload extends Record<string, unknown> = Record<string, unknown>> {
+  entityType: AuditEntityType
   entityId: string
-  summary: string
+  action: AuditAction
+  payload: TPayload
+  createdAt: string
+  note: string
 }
 
-export const KPI_DATA_TYPE_OPTIONS: Array<{ value: KpiDataType; label: string }> = [
-  { value: 'index', label: 'Endeks' },
-  { value: 'ratio', label: 'Oran / yüzde' },
-  { value: 'currency', label: 'Tutar' },
-  { value: 'duration', label: 'Süre' },
-  { value: 'count', label: 'Adet' },
-]
+type MaybeRecord = Record<string, unknown>
 
-function toRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null ? value as Record<string, unknown> : null
+function asRecord(value: unknown): MaybeRecord | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as MaybeRecord : null
 }
 
-function stringValue(value: unknown, fallback = ''): string {
-  return typeof value === 'string' && value.trim() ? value.trim() : fallback
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback
 }
 
-function numberValue(value: unknown, fallback: number): number {
+function asNumber(value: unknown, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
-function booleanValue(value: unknown, fallback: boolean): boolean {
+function asBoolean(value: unknown, fallback = true): boolean {
   return typeof value === 'boolean' ? value : fallback
 }
 
-function categoryKeyFrom(value: unknown, fallback: CategoryKey): CategoryKey {
-  const raw = stringValue(value)
-  return RAW_CATEGORY_TO_KEY[raw] ?? (KAT_YAPILAR.some(cat => cat.key === raw) ? raw as CategoryKey : fallback)
+function normalizeDirection(value: unknown, lowerBetterFallback = false): KpiDirection {
+  if (value === 'lower_is_better' || value === 'lower') return 'lower_is_better'
+  if (value === 'higher_is_better' || value === 'higher') return 'higher_is_better'
+  return lowerBetterFallback ? 'lower_is_better' : 'higher_is_better'
 }
 
-function dataTypeFrom(value: unknown): KpiDataType {
-  const raw = stringValue(value, 'index')
-  return KPI_DATA_TYPE_OPTIONS.some(option => option.value === raw) ? raw as KpiDataType : 'index'
+function normalizeCoverageRule(value: unknown): CoverageRule {
+  if (value === 'excluded_zero_variance') return 'excluded_zero_variance'
+  if (value === 'optional') return 'optional'
+  if (value === 'required') return 'required'
+  return 'included'
 }
 
-export function buildFallbackCategories(): ManagedCategoryDefinition[] {
+function normalizeDataType(value: unknown, fmt?: string): KpiDataType {
+  if (value === 'ratio' || value === 'currency' || value === 'duration' || value === 'count' || value === 'percentage' || value === 'index') {
+    return value
+  }
+  if (fmt?.includes('%')) return 'percentage'
+  if (fmt?.includes('₺') || fmt?.toLowerCase().includes('tl')) return 'currency'
+  return 'index'
+}
+
+export function getFallbackCategories(): AdminCategoryDefinition[] {
   return KAT_YAPILAR.map((category, index) => ({
     id: `fallback-category-${category.key}`,
     key: category.key,
     name: category.ad,
-    shortName: CATEGORY_SHORT_NAMES[category.key],
-    description: `${category.ad} altında ${category.kpis.length} KPI bulunur. Varsayılan ağırlık %${Math.round(category.agirlik * 100)}.` ,
+    shortName: CATEGORY_SHORT_NAMES[category.key as CategoryKey] ?? category.ad,
+    description: `${category.ad} kategorisi, mevcut config.ts fallback metodolojisinden okunur.`,
     color: CAT_COLORS[category.ad] ?? '#64748b',
     sortOrder: index + 1,
     isActive: true,
@@ -91,78 +109,146 @@ export function buildFallbackCategories(): ManagedCategoryDefinition[] {
   }))
 }
 
-export function buildFallbackKpis(): ManagedKpiDefinition[] {
-  return KPI_META.map((kpi, index) => {
-    const category = KAT_YAPILAR.find(item => item.kpis.some(kpiIndex => kpiIndex === index)) ?? KAT_YAPILAR[0]
-    return {
-      id: `fallback-kpi-${kpi.no}`,
-      no: kpi.no,
-      name: kpi.ad,
-      shortName: `KPI ${kpi.no}`,
-      description: `${kpi.ad} için mevcut demo/fallback KPI tanımı. Format: ${kpi.fmt}.`,
-      categoryKey: category.key,
-      isActive: true,
-      direction: kpi.is_lower_better ? 'lower_is_better' : 'higher_is_better',
-      dataType: kpi.fmt.includes('%') ? 'ratio' : 'index',
-      coverageRule: kpi.no === 2
-        ? 'Zero-variance özel coverage mantığı korunur.'
-        : 'Varsayılan coverage: geçerli referans ve ham değer varsa skora dahil edilir.',
-      source: 'fallback',
-    }
+export function getFallbackKpis(): AdminKpiDefinition[] {
+  const categoryByKpiIndex = new Map<number, string>()
+  KAT_YAPILAR.forEach(category => {
+    category.kpis.forEach(kpiIndex => categoryByKpiIndex.set(kpiIndex, category.key))
   })
+
+  return KPI_META.map((kpi, index) => ({
+    id: `fallback-kpi-${kpi.no}`,
+    kpiNo: kpi.no,
+    name: kpi.ad,
+    shortName: `KPI ${kpi.no}`,
+    description: `${kpi.ad} KPI tanımı mevcut config.ts/kpi_data.json fallback kaynağından okunur.`,
+    categoryKey: categoryByKpiIndex.get(index) ?? '',
+    isActive: true,
+    direction: kpi.is_lower_better ? 'lower_is_better' : 'higher_is_better',
+    dataType: normalizeDataType(undefined, kpi.fmt),
+    coverageRule: 'included',
+    source: 'fallback',
+  }))
 }
 
-export function parseSupabaseCategories(rows: unknown): ManagedCategoryDefinition[] {
+function parseSupabaseCategories(rows: unknown): AdminCategoryDefinition[] {
   if (!Array.isArray(rows)) return []
-
-  return rows.map((row, index): ManagedCategoryDefinition | null => {
-    const record = toRecord(row)
+  const parsed: Array<AdminCategoryDefinition | null> = rows.map((row, index) => {
+    const record = asRecord(row)
     if (!record) return null
-    const key = categoryKeyFrom(record.key ?? record.category_key ?? record.name, KAT_YAPILAR[index]?.key ?? 'musteri')
-    const name = stringValue(record.name ?? record.ad ?? record.display_name, KAT_YAPILAR.find(cat => cat.key === key)?.ad ?? key)
-
+    const key = asString(record.key ?? record.slug ?? record.category_key, `category-${index + 1}`)
+    const name = asString(record.name ?? record.ad ?? record.title, key)
     return {
-      id: stringValue(record.id, `supabase-category-${key}`),
+      id: asString(record.id, `supabase-category-${key}`),
       key,
       name,
-      shortName: stringValue(record.short_name ?? record.kisa_ad, CATEGORY_SHORT_NAMES[key]),
-      description: stringValue(record.description ?? record.aciklama, `${name} kategori tanımı.`),
-      color: stringValue(record.color ?? record.renk, CAT_COLORS[name] ?? '#64748b'),
-      sortOrder: numberValue(record.sort_order ?? record.siralama, index + 1),
-      isActive: booleanValue(record.is_active ?? record.aktif, true),
+      shortName: asString(record.short_name ?? record.shortName ?? record.kisa_ad, name),
+      description: asString(record.description ?? record.aciklama, ''),
+      color: asString(record.color ?? record.renk, '#64748b'),
+      sortOrder: asNumber(record.sort_order ?? record.sortOrder ?? record.siralama, index + 1),
+      isActive: asBoolean(record.is_active ?? record.isActive ?? record.aktif, true),
       source: 'supabase' as const,
     }
-  }).filter((item): item is ManagedCategoryDefinition => item !== null)
+  })
+  return parsed.filter((item): item is AdminCategoryDefinition => Boolean(item))
 }
 
-export function parseSupabaseKpis(rows: unknown): ManagedKpiDefinition[] {
+function parseSupabaseKpis(rows: unknown): AdminKpiDefinition[] {
   if (!Array.isArray(rows)) return []
-
-  return rows.map((row, index): ManagedKpiDefinition | null => {
-    const record = toRecord(row)
+  const parsed: Array<AdminKpiDefinition | null> = rows.map((row, index) => {
+    const record = asRecord(row)
     if (!record) return null
-    const fallback = KPI_META[index]
-    const no = numberValue(record.no ?? record.kpi_no, fallback?.no ?? index + 1)
-    const fallbackCategory = KAT_YAPILAR.find(cat => cat.kpis.some(kpiIndex => kpiIndex === no - 1))?.key ?? 'musteri'
-    const lowerBetter = booleanValue(record.is_lower_better ?? record.lower_is_better, Boolean(fallback?.is_lower_better))
-
+    const kpiNo = asNumber(record.kpi_no ?? record.kpiNo ?? record.no, index + 1)
+    const name = asString(record.name ?? record.ad ?? record.title, `KPI ${kpiNo}`)
     return {
-      id: stringValue(record.id, `supabase-kpi-${no}`),
-      no,
-      name: stringValue(record.name ?? record.ad ?? record.display_name, fallback?.ad ?? `KPI ${no}`),
-      shortName: stringValue(record.short_name ?? record.kisa_ad, `KPI ${no}`),
-      description: stringValue(record.description ?? record.aciklama, fallback ? `${fallback.ad} KPI tanımı.` : ''),
-      categoryKey: categoryKeyFrom(record.category_key ?? record.category ?? record.kat, fallbackCategory),
-      isActive: booleanValue(record.is_active ?? record.aktif, true),
-      direction: lowerBetter ? 'lower_is_better' : 'higher_is_better',
-      dataType: dataTypeFrom(record.data_type ?? record.veri_tipi),
-      coverageRule: stringValue(record.coverage_rule ?? record.coverage_kurali, 'Varsayılan coverage kuralı.'),
+      id: asString(record.id, `supabase-kpi-${kpiNo}`),
+      kpiNo,
+      name,
+      shortName: asString(record.short_name ?? record.shortName ?? record.kisa_ad, `KPI ${kpiNo}`),
+      description: asString(record.description ?? record.aciklama, ''),
+      categoryKey: asString(record.category_key ?? record.categoryKey ?? record.kategori_key ?? record.category_id, ''),
+      isActive: asBoolean(record.is_active ?? record.isActive ?? record.aktif, true),
+      direction: normalizeDirection(record.direction ?? record.yon, asBoolean(record.is_lower_better, false)),
+      dataType: normalizeDataType(record.data_type ?? record.dataType ?? record.veri_tipi),
+      coverageRule: normalizeCoverageRule(record.coverage_rule ?? record.coverageRule ?? record.coverage_kurali),
       source: 'supabase' as const,
     }
-  }).filter((item): item is ManagedKpiDefinition => item !== null)
+  })
+  return parsed.filter((item): item is AdminKpiDefinition => Boolean(item))
 }
 
-export function buildAuditDraft(event: AdminAuditDraft): AdminAuditDraft {
-  // TODO Prompt 2 migration aktif olduğunda bu olay audit_logs tablosuna yazılacak.
-  return event
+export async function loadAdminKpiConfig(supabase: SupabaseClient): Promise<AdminKpiConfig> {
+  const fallback: AdminKpiConfig = {
+    kpis: getFallbackKpis(),
+    categories: getFallbackCategories(),
+    source: 'fallback',
+  }
+
+  try {
+    const [categoryResult, kpiResult] = await Promise.all([
+      supabase.from('kpi_categories').select('*').order('sort_order', { ascending: true }),
+      supabase.from('kpi_definitions').select('*').order('kpi_no', { ascending: true }),
+    ])
+
+    if (categoryResult.error || kpiResult.error) {
+      return {
+        ...fallback,
+        warning: 'Supabase yönetim tabloları okunamadı; config.ts fallback verisi gösteriliyor.',
+      }
+    }
+
+    const categories = parseSupabaseCategories(categoryResult.data)
+    const kpis = parseSupabaseKpis(kpiResult.data)
+
+    if (!categories.length || !kpis.length) {
+      return {
+        ...fallback,
+        warning: 'Supabase yönetim tabloları boş; config.ts fallback verisi gösteriliyor.',
+      }
+    }
+
+    return { categories, kpis, source: 'supabase' }
+  } catch {
+    return {
+      ...fallback,
+      warning: 'Supabase bağlantısı kurulamadı; config.ts fallback verisi gösteriliyor.',
+    }
+  }
+}
+
+export function buildAuditDraft<TPayload extends Record<string, unknown>>(
+  entityType: AuditEntityType,
+  entityId: string,
+  action: AuditAction,
+  payload: TPayload,
+): AuditDraft<TPayload> {
+  return {
+    entityType,
+    entityId,
+    action,
+    payload,
+    createdAt: new Date().toISOString(),
+    note: 'TODO: audit_logs tablosu aktif olduğunda bu taslak kayıt Supabase’e yazılacak.',
+  }
+}
+
+export function validateKpiDraft(kpi: AdminKpiDefinition, existing: AdminKpiDefinition[], editingId?: string): string[] {
+  const errors: string[] = []
+  if (!Number.isInteger(kpi.kpiNo) || kpi.kpiNo <= 0) errors.push('KPI no pozitif tam sayı olmalı.')
+  if (!kpi.name.trim()) errors.push('KPI adı zorunludur.')
+  if (!kpi.shortName.trim()) errors.push('Kısa ad zorunludur.')
+  if (!kpi.categoryKey) errors.push('Kategori seçimi zorunludur.')
+  const duplicate = existing.some(item => item.kpiNo === kpi.kpiNo && item.id !== editingId)
+  if (duplicate) errors.push(`KPI no ${kpi.kpiNo} zaten kullanılıyor.`)
+  return errors
+}
+
+export function validateCategoryDraft(category: AdminCategoryDefinition, existing: AdminCategoryDefinition[], editingId?: string): string[] {
+  const errors: string[] = []
+  if (!category.name.trim()) errors.push('Kategori adı zorunludur.')
+  if (!category.shortName.trim()) errors.push('Kısa ad zorunludur.')
+  if (!category.key.trim()) errors.push('Kategori anahtarı zorunludur.')
+  if (!Number.isInteger(category.sortOrder) || category.sortOrder <= 0) errors.push('Sıralama pozitif tam sayı olmalı.')
+  const duplicateKey = existing.some(item => item.key === category.key && item.id !== editingId)
+  if (duplicateKey) errors.push(`Kategori anahtarı ${category.key} zaten kullanılıyor.`)
+  return errors
 }

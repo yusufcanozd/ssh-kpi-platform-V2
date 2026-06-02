@@ -5,11 +5,12 @@ import { getRawMarkaRanking } from '@/lib/kpi'
 
 const modules = [
   { href: '/admin/users', title: 'Kullanıcılar', desc: 'Rol, aktiflik ve mevcut kullanıcı listesi.', status: 'Aktif' },
-  { href: '/admin/kpi-settings', title: 'KPI Ayarları', desc: 'KPI tanımları, yönleri, coverage ve kategori bağlantıları.', status: 'İskelet' },
-  { href: '/admin/categories', title: 'Kategoriler', desc: 'Kategori ağırlıkları, KPI bağlantıları ve skor metodolojisi.', status: 'İskelet' },
+  { href: '/admin/kpi-settings', title: 'KPI Ayarları', desc: 'KPI tanımları, yönleri, coverage ve kategori bağlantıları.', status: 'Prompt 4' },
+  { href: '/admin/categories', title: 'Kategoriler', desc: 'Kategori adı, kısa ad, renk, sıralama ve aktif/pasif yönetimi.', status: 'Prompt 4' },
+  { href: '/admin/weights', title: 'Kategori Ağırlıkları', desc: 'Kategori ağırlıkları ve metodoloji versiyonlama hazırlığı.', status: 'Hazırlık' },
   { href: '/admin/brands', title: 'Markalar', desc: 'Marka listesi, segment dağılımı ve gizlilik kuralı görünümü.', status: 'İskelet' },
   { href: '/admin/data-import', title: 'Data Import', desc: 'Excel/CSV import akışı, kolon eşleştirme ve validasyon planı.', status: 'İskelet' },
-  { href: '/admin/permissions', title: 'Kullanıcı Kısıtları', desc: 'Segment, marka ve bölge bazlı görünürlük kurgusu.', status: 'İskelet' },
+  { href: '/admin/user-permissions', title: 'Kullanıcı Kısıtları', desc: 'Segment, marka ve bölge bazlı görünürlük kurgusu.', status: 'Hazırlık' },
   { href: '/admin/theme', title: 'Tema / Görsel Ayarlar', desc: 'Executive renk sistemi, grafik standardı ve rapor görsel dili.', status: 'İskelet' },
 ]
 
@@ -26,7 +27,7 @@ export default function AdminHomePage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-      <Topbar title="Yönetim Merkezi" subtitle="Super Admin modülleri ve geliştirme yol haritası" pills={[{ label: 'Prompt 2', variant: 'blue' }]} />
+      <Topbar title="Yönetim Merkezi" subtitle="Super Admin modülleri ve geliştirme yol haritası" pills={[{ label: 'Prompt 4 hazır', variant: 'green' }]} />
       <div style={{ flex: 1, overflow: 'auto', padding: '22px 24px 32px' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gap: 18 }}>
           <section style={{ ...cardStyle, padding: 20 }}>
@@ -35,7 +36,7 @@ export default function AdminHomePage() {
             </div>
             <h1 style={{ margin: 0, fontSize: 26, color: 'var(--tx)' }}>Platform yönetimi tek merkezde toplanıyor</h1>
             <p style={{ color: 'var(--tx3)', fontSize: 13, lineHeight: 1.65, maxWidth: 820, margin: '10px 0 0' }}>
-              Bu ekranlar şimdilik güvenli iskelet modundadır. Veriyi değiştirmez, KPI hesaplama motoruna müdahale etmez ve Supabase tablosuna yazmaz. Sonraki promptlarda her modül kontrollü şekilde aktif hale getirilecektir.
+              KPI ve kategori yönetimi Prompt 4 kapsamında gerçek form/validasyon yapısına taşındı. Diğer modüller güvenli hazırlık modunda kalır; skor motoru ve dashboard hesapları henüz değiştirilmez.
             </p>
           </section>
 

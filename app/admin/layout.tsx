@@ -1,6 +1,7 @@
 'use client'
 
 import Sidebar from '@/components/layout/Sidebar'
+import AdminAccessGuard from '@/components/admin/AdminAccessGuard'
 import styles from './layout.module.css'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -8,7 +9,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className={styles.shell}>
       <Sidebar variant="admin" />
       <main className={styles.main}>
-        {children}
+        <AdminAccessGuard>{children}</AdminAccessGuard>
       </main>
     </div>
   )

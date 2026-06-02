@@ -164,3 +164,23 @@ Risk değerlendirmesi:
 
 - Düşük/orta risk: Değişiklik yalnızca trend sayfası KPI seçim UX'i ve merkezi kategori helper'ları ile sınırlıdır.
 - Manuel testte özellikle kategori seçimi, KPI listesi ve mevcut grafik serilerinin korunması kontrol edilmelidir.
+
+## Prompt 1–4 uyumluluk notu
+
+Bu sürümde Prompt 4’e geçmeden önce mini Prompt 1–3 uyumluluk düzeltmeleri uygulanmıştır:
+
+- `/admin/weights` hazırlık route’u eklendi.
+- `/admin/user-permissions` hazırlık route’u eklendi.
+- Eski `/admin/permissions` route’u `/admin/user-permissions` adresine yönlendirildi.
+- Admin menüsü PDF route yapısıyla hizalandı.
+- `/admin/users` admin + superadmin erişimli bırakıldı.
+- Diğer Super Admin modülleri superadmin-only guard ile korundu.
+- Login sonrası yönlendirme role göre ayrıştırıldı.
+- Supabase browser client için kalıcı session kapatıldı: `persistSession: false`, `autoRefreshToken: false`, `detectSessionInUrl: false`.
+- Prompt 4 KPI/kategori ekranları fallback-first form/validasyon yapısına taşındı.
+- Skor motoru ve dashboard hesapları değiştirilmedi.
+
+Bilinen açıklar:
+
+- `npm run test` içinde mevcut KPI hesaplama beklentileri kırık olabilir; Prompt 4 kapsamında skor motoruna dokunulmadı.
+- Gerçek DB yazımı ve audit log insert işlemleri Prompt 2 migration production ortamında uygulandıktan sonra bağlanmalıdır.

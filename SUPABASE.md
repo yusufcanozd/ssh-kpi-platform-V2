@@ -93,3 +93,45 @@ lib/marka_scores.json
 ```
 
 Bu nedenle KPI ham veri tabloları için RLS migration bu adımda eklenmemiştir. Eğer ileride KPI verileri Supabase tablolarına taşınırsa, ayrıca tablo bazlı RLS politikaları eklenmelidir.
+
+## Prompt 1–4 Super Admin yönetim şeması
+
+Role set tek kaynak olarak şu şekilde kabul edilir:
+
+- `viewer`
+- `analyst`
+- `admin`
+- `superadmin`
+
+Erişim ayrımı:
+
+- `/admin/users`: `admin` ve `superadmin` erişebilir.
+- Diğer Super Admin yönetim modülleri: sadece `superadmin` erişebilir.
+- `viewer` ve `analyst`: admin paneline giremez, dashboard görünümüne yönlendirilir.
+
+Prompt 2/4 için additive migration dosyası:
+
+- `supabase/migrations/0002_super_admin_management_schema.sql`
+
+Bu migration mevcut production tablolarını bozmaz; KPI/kategori/marka/import/kullanıcı veri kısıtı ve audit log altyapısını yeni tablolarla hazırlar.
+
+Yeni yönetim tabloları:
+
+- `kpi_categories`
+- `kpi_definitions`
+- `kpi_methodology_versions`
+- `kpi_category_weights`
+- `brands`
+- `user_data_permissions`
+- `data_import_batches`
+- `kpi_fact_rows`
+- `audit_logs`
+
+Prompt 4 ekranları önce Supabase tablolarını okumayı dener. Tablolar yoksa veya boşsa mevcut `config.ts` / `kpi_data.json` fallback verisi gösterilir. Dashboard skor motoru bu aşamada yeni tablolardan okumaya zorlanmaz.
+
+RLS yaklaşımı:
+
+- Superadmin yönetim tablolarında tam yetkili olmalıdır.
+- Admin kullanıcı yönetimiyle sınırlı tutulmalıdır.
+- Analyst/viewer, ileride `user_data_permissions` üzerinden izin verilen segment/marka/bölge verilerini okuyacaktır.
+- App-level permission helper ve Supabase RLS politikaları Prompt 7’de birlikte netleştirilmelidir.

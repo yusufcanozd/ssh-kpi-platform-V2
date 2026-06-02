@@ -1,224 +1,180 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Topbar from '@/components/layout/Topbar'
-import { useAuth } from '@/context/AuthContext'
 import { createClient } from '@/lib/supabase/client'
-import { CATEGORY_SHORT_NAMES, KAT_YAPILAR } from '@/lib/kpi'
 import {
-  KPI_DATA_TYPE_OPTIONS,
+  type AdminCategoryDefinition,
+  type AdminKpiDefinition,
   buildAuditDraft,
-  buildFallbackKpis,
-  parseSupabaseKpis,
-  type KpiDataType,
-  type KpiDirection,
-  type ManagedKpiDefinition,
+  getFallbackCategories,
+  getFallbackKpis,
+  loadAdminKpiConfig,
+  validateKpiDraft,
 } from '@/lib/admin/kpi-management'
 import styles from '@/components/admin/KpiManagement.module.css'
 
-type KpiFormState = Omit<ManagedKpiDefinition, 'id' | 'source'>
-
-const emptyForm: KpiFormState = {
-  no: 1,
+const emptyKpi: AdminKpiDefinition = {
+  id: 'draft',
+  kpiNo: 13,
   name: '',
   shortName: '',
   description: '',
-  categoryKey: 'musteri',
+  categoryKey: '',
   isActive: true,
   direction: 'higher_is_better',
   dataType: 'index',
-  coverageRule: '',
+  coverageRule: 'included',
+  source: 'fallback',
 }
 
-function toForm(kpi: ManagedKpiDefinition): KpiFormState {
-  return {
-    no: kpi.no,
-    name: kpi.name,
-    shortName: kpi.shortName,
-    description: kpi.description,
-    categoryKey: kpi.categoryKey,
-    isActive: kpi.isActive,
-    direction: kpi.direction,
-    dataType: kpi.dataType,
-    coverageRule: kpi.coverageRule,
-  }
+function getNextKpiNo(kpis: AdminKpiDefinition[]) {
+  return Math.max(0, ...kpis.map(kpi => kpi.kpiNo)) + 1
 }
 
 export default function KpiSettingsAdminPage() {
-  const router = useRouter()
-  const { isSuperAdmin, loading } = useAuth()
-  const [kpis, setKpis] = useState<ManagedKpiDefinition[]>(() => buildFallbackKpis())
+  const [kpis, setKpis] = useState<AdminKpiDefinition[]>(getFallbackKpis())
+  const [categories, setCategories] = useState<AdminCategoryDefinition[]>(getFallbackCategories())
+  const [source, setSource] = useState<'supabase' | 'fallback'>('fallback')
+  const [warning, setWarning] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [form, setForm] = useState<KpiFormState>(emptyForm)
-  const [errors, setErrors] = useState<string[]>([])
-  const [message, setMessage] = useState('')
-  const [dataSource, setDataSource] = useState<'supabase' | 'fallback'>('fallback')
+  const [draft, setDraft] = useState<AdminKpiDefinition>({ ...emptyKpi, kpiNo: getNextKpiNo(getFallbackKpis()) })
+  const [auditNote, setAuditNote] = useState('')
 
   useEffect(() => {
-    if (!loading && !isSuperAdmin) router.replace('/dashboard')
-  }, [isSuperAdmin, loading, router])
-
-  useEffect(() => {
-    let mounted = true
+    let cancelled = false
     const supabase = createClient()
-
-    async function loadKpis() {
-      const { data, error } = await supabase
-        .from('kpi_definitions')
-        .select('*')
-        .order('no', { ascending: true })
-
-      if (!mounted) return
-      const parsed = !error ? parseSupabaseKpis(data as unknown) : []
-      if (parsed.length > 0) {
-        setKpis(parsed)
-        setDataSource('supabase')
-      } else {
-        setKpis(buildFallbackKpis())
-        setDataSource('fallback')
-      }
-    }
-
-    loadKpis().catch(() => {
-      if (!mounted) return
-      setKpis(buildFallbackKpis())
-      setDataSource('fallback')
+    loadAdminKpiConfig(supabase).then(config => {
+      if (cancelled) return
+      setKpis(config.kpis)
+      setCategories(config.categories)
+      setSource(config.source)
+      setWarning(config.warning ?? '')
+      setDraft(prev => ({ ...prev, kpiNo: getNextKpiNo(config.kpis), categoryKey: config.categories[0]?.key ?? '' }))
     })
-
-    return () => { mounted = false }
+    return () => { cancelled = true }
   }, [])
 
-  const selected = useMemo(
-    () => kpis.find(kpi => kpi.id === selectedId) ?? null,
-    [kpis, selectedId]
-  )
-  const activeCount = kpis.filter(kpi => kpi.isActive).length
-  const lowerBetterCount = kpis.filter(kpi => kpi.direction === 'lower_is_better').length
+  const categoryNameByKey = useMemo(() => {
+    return new Map(categories.map(category => [category.key, category.name]))
+  }, [categories])
 
-  function startCreate() {
+  const validationErrors = useMemo(() => validateKpiDraft(draft, kpis, selectedId ?? undefined), [draft, kpis, selectedId])
+
+  function resetForm() {
     setSelectedId(null)
-    setForm({ ...emptyForm, no: Math.max(0, ...kpis.map(kpi => kpi.no)) + 1 })
-    setErrors([])
-    setMessage('Yeni KPI taslağı açıldı. Kaydetme bu aşamada ekran durumunu günceller; kalıcı DB yazımı audit TODO ile hazırlandı.')
+    setDraft({ ...emptyKpi, id: 'draft', kpiNo: getNextKpiNo(kpis), categoryKey: categories[0]?.key ?? '' })
+    setAuditNote('')
   }
 
-  function startEdit(kpi: ManagedKpiDefinition) {
+  function editKpi(kpi: AdminKpiDefinition) {
     setSelectedId(kpi.id)
-    setForm(toForm(kpi))
-    setErrors([])
-    setMessage('')
+    setDraft({ ...kpi })
+    setAuditNote('')
   }
 
-  function validate(): string[] {
-    const nextErrors: string[] = []
-    if (!Number.isInteger(form.no) || form.no <= 0) nextErrors.push('KPI no pozitif tam sayı olmalı.')
-    if (!form.name.trim()) nextErrors.push('KPI adı zorunludur.')
-    if (!form.shortName.trim()) nextErrors.push('Kısa ad zorunludur.')
-    if (!form.description.trim()) nextErrors.push('Açıklama zorunludur.')
-    if (!form.coverageRule.trim()) nextErrors.push('Coverage kuralı zorunludur.')
+  function saveDraft() {
+    const errors = validateKpiDraft(draft, kpis, selectedId ?? undefined)
+    if (errors.length) return
 
-    const duplicate = kpis.some(kpi => kpi.no === form.no && kpi.id !== selectedId)
-    if (duplicate) nextErrors.push(`KPI no ${form.no} zaten kullanılıyor.`)
-    return nextErrors
-  }
-
-  function saveForm() {
-    const nextErrors = validate()
-    setErrors(nextErrors)
-    if (nextErrors.length > 0) return
-
-    const nowId = selectedId ?? `draft-kpi-${form.no}-${Date.now()}`
-    const nextItem: ManagedKpiDefinition = {
-      id: nowId,
-      ...form,
-      name: form.name.trim(),
-      shortName: form.shortName.trim(),
-      description: form.description.trim(),
-      coverageRule: form.coverageRule.trim(),
-      source: dataSource,
+    const action = selectedId ? 'update' : 'create'
+    const entityId = selectedId ?? `local-kpi-${draft.kpiNo}-${Date.now()}`
+    const nextDraft: AdminKpiDefinition = {
+      ...draft,
+      id: entityId,
+      source: source === 'supabase' ? 'supabase' : 'fallback',
     }
 
-    setKpis(prev => {
-      const exists = prev.some(kpi => kpi.id === nowId)
-      const next = exists ? prev.map(kpi => kpi.id === nowId ? nextItem : kpi) : [...prev, nextItem]
-      return next.sort((a, b) => a.no - b.no)
+    setKpis(current => {
+      if (selectedId) return current.map(item => item.id === selectedId ? nextDraft : item).sort((a, b) => a.kpiNo - b.kpiNo)
+      return [...current, nextDraft].sort((a, b) => a.kpiNo - b.kpiNo)
     })
-    setSelectedId(nowId)
-    buildAuditDraft({
-      action: selectedId ? 'update' : 'create',
-      entity: 'kpi_definition',
-      entityId: nowId,
-      summary: `KPI ${form.no} ${selectedId ? 'güncellendi' : 'oluşturuldu'}: ${form.name.trim()}`,
+
+    const auditDraft = buildAuditDraft('kpi_definition', entityId, action, {
+      kpiNo: nextDraft.kpiNo,
+      name: nextDraft.name,
+      categoryKey: nextDraft.categoryKey,
+      isActive: nextDraft.isActive,
     })
-    setMessage('KPI ekran durumunda kaydedildi. Kalıcı Supabase yazımı ve audit_logs kaydı migration aktif olduğunda bağlanacak.')
+    setAuditNote(`${auditDraft.action} audit taslağı hazırlandı · ${auditDraft.note}`)
+    setSelectedId(entityId)
   }
 
-  function deactivate(kpi: ManagedKpiDefinition) {
-    setKpis(prev => prev.map(item => item.id === kpi.id ? { ...item, isActive: false } : item))
-    if (selectedId === kpi.id) setForm(prev => ({ ...prev, isActive: false }))
-    buildAuditDraft({ action: 'deactivate', entity: 'kpi_definition', entityId: kpi.id, summary: `KPI ${kpi.no} pasifleştirildi.` })
-    setMessage(`KPI ${kpi.no} pasifleştirildi. Kalıcı silme yapılmadı.`)
+  function toggleActive(kpi: AdminKpiDefinition) {
+    const next = { ...kpi, isActive: !kpi.isActive }
+    setKpis(current => current.map(item => item.id === kpi.id ? next : item))
+    setDraft(current => current.id === kpi.id ? next : current)
+    const auditDraft = buildAuditDraft('kpi_definition', kpi.id, next.isActive ? 'reactivate' : 'deactivate', {
+      kpiNo: kpi.kpiNo,
+      isActive: next.isActive,
+    })
+    setAuditNote(`${auditDraft.action} audit taslağı hazırlandı · ${auditDraft.note}`)
   }
 
-  if (loading) return <div className={styles.body}>Yetki kontrol ediliyor...</div>
-  if (!isSuperAdmin) return <div className={styles.body}>Bu ekrana sadece Super Admin erişebilir.</div>
+  const activeCount = kpis.filter(kpi => kpi.isActive).length
+  const lowerBetterCount = kpis.filter(kpi => kpi.direction === 'lower_is_better').length
 
   return (
     <div className={styles.shell}>
       <Topbar
         title="KPI Ayarları"
-        subtitle="KPI tanımları, kategori bağlantısı, aktif/pasif durumu ve coverage kuralları"
-        pills={[{ label: dataSource === 'supabase' ? 'Supabase kaynaklı' : 'Config fallback', variant: dataSource === 'supabase' ? 'green' : 'amber' }]}
-        actions={<button className={`${styles.button} ${styles.buttonPrimary}`} onClick={startCreate} type="button">Yeni KPI</button>}
+        subtitle="Super Admin KPI tanımı, kategori bağlantısı, aktif/pasif ve coverage yönetimi"
+        pills={[{ label: source === 'supabase' ? 'Supabase' : 'Fallback config', variant: source === 'supabase' ? 'green' : 'amber' }]}
       />
-      <main className={styles.body}>
+      <div className={styles.content}>
         <div className={styles.inner}>
-          <div className={styles.notice}>
-            <strong>Metodoloji uyarısı:</strong> Bu ayarlar skor metodolojisini etkiler. Prompt 4 kapsamında dinamik skor motoru değiştirilmedi; ekran Supabase tablosu varsa okur, yoksa mevcut config verisini fallback gösterir.
-          </div>
-
-          <section className={styles.metricGrid}>
-            <Metric label="Toplam KPI" value={kpis.length} hint="Aktif ve pasif tanımlar" />
-            <Metric label="Aktif KPI" value={activeCount} hint="Dashboard motoru şu an fallback yapıdadır" />
-            <Metric label="Düşük daha iyi" value={lowerBetterCount} hint="Ters yönlü normalize edilen KPI" />
-            <Metric label="Kategori" value={KAT_YAPILAR.length} hint="Mevcut kategori matrisi" />
+          <section className={styles.notice}>
+            <div className={styles.noticeTitle}>Metodoloji uyarısı</div>
+            <div className={styles.noticeText}>
+              Bu ayarlar skor metodolojisini etkiler. Prompt 4 kapsamında ekran state’i ve fallback okuma hazırlanır; dinamik skor motoru ve dashboard hesapları henüz değiştirilmez.
+            </div>
+            {warning && <div className={styles.noticeText}>{warning}</div>}
           </section>
 
-          <section className={styles.grid}>
-            <div className={styles.card}>
-              <div className={styles.cardHeader}>
+          <div className={styles.grid}>
+            <section className={styles.card}>
+              <div className={styles.toolbar}>
                 <div>
-                  <h2 className={styles.cardTitle}>KPI listesi</h2>
-                  <p className={styles.cardSub}>Silme yerine pasifleştirme kullanılır. KPI no çakışması formda engellenir.</p>
+                  <h2 className={styles.toolbarTitle}>KPI Listesi</h2>
+                  <div className={styles.toolbarHint}>{kpis.length} KPI · {activeCount} aktif · {lowerBetterCount} düşük daha iyi</div>
+                </div>
+                <div className={styles.actions}>
+                  <button type="button" className={styles.secondaryButton} onClick={resetForm}>Yeni KPI</button>
                 </div>
               </div>
               <div className={styles.tableWrap}>
                 <table className={styles.table}>
                   <thead>
-                    <tr><th>No</th><th>KPI</th><th>Kategori</th><th>Yön / Tip</th><th>Durum</th><th>İşlem</th></tr>
+                    <tr>
+                      <th>No</th>
+                      <th>KPI</th>
+                      <th>Kategori</th>
+                      <th>Yön</th>
+                      <th>Coverage</th>
+                      <th>Durum</th>
+                      <th>İşlem</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {kpis.map(kpi => (
                       <tr key={kpi.id}>
-                        <td><span className={styles.primaryText}>KPI {kpi.no}</span></td>
+                        <td><strong>KPI {kpi.kpiNo}</strong></td>
                         <td>
-                          <div className={styles.primaryText}>{kpi.name}</div>
-                          <div className={styles.muted}>{kpi.shortName} · {kpi.description}</div>
+                          <div>{kpi.name}</div>
+                          <div className={`${styles.muted} ${styles.small}`}>{kpi.shortName} · <span className={styles.sourceBadge}>{kpi.source}</span></div>
                         </td>
-                        <td>{CATEGORY_SHORT_NAMES[kpi.categoryKey]}</td>
+                        <td>{categoryNameByKey.get(kpi.categoryKey) ?? kpi.categoryKey}</td>
+                        <td>{kpi.direction === 'lower_is_better' ? 'Düşük daha iyi' : 'Yüksek daha iyi'}</td>
+                        <td>{kpi.coverageRule}</td>
                         <td>
-                          <div>{kpi.direction === 'lower_is_better' ? 'Düşük daha iyi' : 'Yüksek daha iyi'}</div>
-                          <div className={styles.muted}>{KPI_DATA_TYPE_OPTIONS.find(option => option.value === kpi.dataType)?.label}</div>
-                        </td>
-                        <td>
-                          <span className={`${styles.badge} ${kpi.isActive ? styles.active : styles.passive}`}>{kpi.isActive ? 'Aktif' : 'Pasif'}</span>{' '}
-                          <span className={`${styles.badge} ${kpi.source === 'supabase' ? styles.supabase : styles.fallback}`}>{kpi.source}</span>
+                          <span className={`${styles.status} ${kpi.isActive ? styles.statusActive : styles.statusPassive}`}>
+                            {kpi.isActive ? 'Aktif' : 'Pasif'}
+                          </span>
                         </td>
                         <td>
                           <div className={styles.actions}>
-                            <button className={styles.button} onClick={() => startEdit(kpi)} type="button">Düzenle</button>
-                            <button className={`${styles.button} ${styles.buttonDanger}`} onClick={() => deactivate(kpi)} type="button" disabled={!kpi.isActive}>Pasifleştir</button>
+                            <button type="button" className={styles.secondaryButton} onClick={() => editKpi(kpi)}>Düzenle</button>
+                            <button type="button" className={styles.dangerButton} onClick={() => toggleActive(kpi)}>{kpi.isActive ? 'Pasifleştir' : 'Aktifleştir'}</button>
                           </div>
                         </td>
                       </tr>
@@ -226,82 +182,95 @@ export default function KpiSettingsAdminPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </section>
 
             <aside className={styles.card}>
-              <div className={styles.cardHeader}>
+              <form className={styles.form} onSubmit={event => { event.preventDefault(); saveDraft() }}>
                 <div>
-                  <h2 className={styles.cardTitle}>{selected ? `KPI ${selected.no} düzenle` : 'KPI formu'}</h2>
-                  <p className={styles.cardSub}>KPI no, kategori, hesap yönü, veri tipi ve coverage kuralı.</p>
-                </div>
-              </div>
-              <form className={styles.form} onSubmit={event => { event.preventDefault(); saveForm() }}>
-                {errors.length > 0 && <div className={styles.errorBox}>{errors.map(error => <div key={error}>• {error}</div>)}</div>}
-                {message && <div className={styles.successBox}>{message}</div>}
-
-                <div className={styles.twoFields}>
-                  <label className={styles.field}>
-                    <span className={styles.label}>KPI no</span>
-                    <input className={styles.input} type="number" min={1} value={form.no} onChange={e => setForm(prev => ({ ...prev, no: Number(e.target.value) }))} />
-                  </label>
-                  <label className={styles.field}>
-                    <span className={styles.label}>Kısa ad</span>
-                    <input className={styles.input} value={form.shortName} onChange={e => setForm(prev => ({ ...prev, shortName: e.target.value }))} placeholder="KPI 13" />
-                  </label>
+                  <h2 className={styles.formTitle}>{selectedId ? 'KPI Düzenle' : 'Yeni KPI Ekle'}</h2>
+                  <div className={styles.formHint}>Kalıcı DB yazımı migration ve audit log aktif olduğunda bağlanacak. Şimdilik güvenli admin UI davranışı hazırlanır.</div>
                 </div>
 
-                <label className={styles.field}>
-                  <span className={styles.label}>Ad</span>
-                  <input className={styles.input} value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} placeholder="KPI adı" />
-                </label>
+                {validationErrors.length > 0 && (
+                  <div className={styles.errors}>{validationErrors.map(error => <div key={error}>{error}</div>)}</div>
+                )}
 
-                <label className={styles.field}>
-                  <span className={styles.label}>Açıklama</span>
-                  <textarea className={styles.textarea} value={form.description} onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))} />
-                </label>
+                <div className={styles.twoCols}>
+                  <div className={styles.field}>
+                    <label>KPI no</label>
+                    <input className={styles.input} type="number" min={1} value={draft.kpiNo} onChange={event => setDraft({ ...draft, kpiNo: Number(event.target.value) })} />
+                  </div>
+                  <div className={styles.field}>
+                    <label>Kısa ad</label>
+                    <input className={styles.input} value={draft.shortName} onChange={event => setDraft({ ...draft, shortName: event.target.value })} placeholder="KPI 13" />
+                  </div>
+                </div>
 
-                <label className={styles.field}>
-                  <span className={styles.label}>Kategori</span>
-                  <select className={styles.select} value={form.categoryKey} onChange={e => setForm(prev => ({ ...prev, categoryKey: e.target.value as KpiFormState['categoryKey'] }))}>
-                    {KAT_YAPILAR.map(category => <option key={category.key} value={category.key}>{category.ad}</option>)}
+                <div className={styles.field}>
+                  <label>Ad</label>
+                  <input className={styles.input} value={draft.name} onChange={event => setDraft({ ...draft, name: event.target.value })} placeholder="KPI adı" />
+                </div>
+
+                <div className={styles.field}>
+                  <label>Açıklama</label>
+                  <textarea className={styles.textarea} value={draft.description} onChange={event => setDraft({ ...draft, description: event.target.value })} placeholder="KPI metodoloji açıklaması" />
+                </div>
+
+                <div className={styles.field}>
+                  <label>Kategori</label>
+                  <select className={styles.select} value={draft.categoryKey} onChange={event => setDraft({ ...draft, categoryKey: event.target.value })}>
+                    <option value="">Kategori seç</option>
+                    {categories.filter(category => category.isActive).map(category => <option key={category.key} value={category.key}>{category.name}</option>)}
                   </select>
-                </label>
+                </div>
 
-                <div className={styles.twoFields}>
-                  <label className={styles.field}>
-                    <span className={styles.label}>Hesap yönü</span>
-                    <select className={styles.select} value={form.direction} onChange={e => setForm(prev => ({ ...prev, direction: e.target.value as KpiDirection }))}>
+                <div className={styles.twoCols}>
+                  <div className={styles.field}>
+                    <label>Hesap yönü</label>
+                    <select className={styles.select} value={draft.direction} onChange={event => setDraft({ ...draft, direction: event.target.value === 'lower_is_better' ? 'lower_is_better' : 'higher_is_better' })}>
                       <option value="higher_is_better">Yüksek daha iyi</option>
                       <option value="lower_is_better">Düşük daha iyi</option>
                     </select>
-                  </label>
-                  <label className={styles.field}>
-                    <span className={styles.label}>Veri tipi</span>
-                    <select className={styles.select} value={form.dataType} onChange={e => setForm(prev => ({ ...prev, dataType: e.target.value as KpiDataType }))}>
-                      {KPI_DATA_TYPE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </div>
+                  <div className={styles.field}>
+                    <label>Veri tipi</label>
+                    <select className={styles.select} value={draft.dataType} onChange={event => setDraft({ ...draft, dataType: event.target.value as AdminKpiDefinition['dataType'] })}>
+                      <option value="index">Endeks</option>
+                      <option value="ratio">Rasyo</option>
+                      <option value="percentage">Yüzde</option>
+                      <option value="currency">Tutar</option>
+                      <option value="duration">Süre</option>
+                      <option value="count">Adet</option>
                     </select>
-                  </label>
+                  </div>
                 </div>
 
-                <label className={styles.field}>
-                  <span className={styles.label}>Coverage kuralı</span>
-                  <textarea className={styles.textarea} value={form.coverageRule} onChange={e => setForm(prev => ({ ...prev, coverageRule: e.target.value }))} />
+                <div className={styles.field}>
+                  <label>Coverage kuralı</label>
+                  <select className={styles.select} value={draft.coverageRule} onChange={event => setDraft({ ...draft, coverageRule: event.target.value as AdminKpiDefinition['coverageRule'] })}>
+                    <option value="included">Coverage dahil</option>
+                    <option value="excluded_zero_variance">Zero-variance nedeniyle coverage dışı</option>
+                    <option value="optional">Opsiyonel</option>
+                    <option value="required">Zorunlu</option>
+                  </select>
+                </div>
+
+                <label className={styles.checkboxRow}>
+                  <input type="checkbox" checked={draft.isActive} onChange={event => setDraft({ ...draft, isActive: event.target.checked })} />
+                  Aktif KPI
                 </label>
 
-                <label className={styles.checkRow}>
-                  <input type="checkbox" checked={form.isActive} onChange={e => setForm(prev => ({ ...prev, isActive: e.target.checked }))} /> Aktif KPI
-                </label>
+                <div className={styles.actions}>
+                  <button type="submit" className={styles.button} disabled={validationErrors.length > 0}>{selectedId ? 'Güncelle' : 'Ekle'}</button>
+                  <button type="button" className={styles.secondaryButton} onClick={resetForm}>Temizle</button>
+                </div>
 
-                <button className={`${styles.button} ${styles.buttonPrimary}`} type="submit">Kaydet</button>
+                {auditNote && <div className={styles.formHint}>{auditNote}</div>}
               </form>
             </aside>
-          </section>
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   )
-}
-
-function Metric({ label, value, hint }: { label: string; value: string | number; hint: string }) {
-  return <div className={styles.metric}><div className={styles.metricLabel}>{label}</div><div className={styles.metricValue}>{value}</div><div className={styles.metricHint}>{hint}</div></div>
 }

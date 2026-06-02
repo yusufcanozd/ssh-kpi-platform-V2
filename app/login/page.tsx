@@ -66,7 +66,7 @@ export default function LoginPage() {
       establishBrowserSession()
       // setLoading(false) router.push'tan ÖNCE — unmount öncesi state temizlenir
       setLoading(false)
-      router.push(['superadmin','admin'].includes(profile.role || '') ? '/admin' : '/dashboard')
+      router.push(profile.role === 'superadmin' ? '/admin' : profile.role === 'admin' ? '/admin/users' : '/dashboard')
     } catch {
       setError('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.')
     } finally {

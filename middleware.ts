@@ -1,10 +1,20 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { isAdminRole } from '@/lib/roles'
+import { isAdminRole, isSuperAdminRole } from '@/lib/roles'
 
 type ProfileAccessRow = {
   role?: string | null
   is_active?: boolean | null
+}
+
+function isAdminUsersPath(path: string) {
+  return path === '/admin/users' || path.startsWith('/admin/users/')
+}
+
+function getPostLoginPath(role?: string | null) {
+  if (role === 'superadmin') return '/admin'
+  if (role === 'admin') return '/admin/users'
+  return '/dashboard'
 }
 
 export async function middleware(request: NextRequest) {
@@ -53,11 +63,17 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && path === '/login') {
-    return NextResponse.redirect(new URL(isAdminRole(profile?.role) ? '/admin/users' : '/dashboard', request.url))
+    return NextResponse.redirect(new URL(getPostLoginPath(profile?.role), request.url))
   }
 
-  if (user && path.startsWith('/admin') && !isAdminRole(profile?.role)) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+  if (user && path.startsWith('/admin')) {
+    if (!isAdminRole(profile?.role)) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+
+    if (!isSuperAdminRole(profile?.role) && !isAdminUsersPath(path)) {
+      return NextResponse.redirect(new URL('/admin/users', request.url))
+    }
   }
 
   return supabaseResponse

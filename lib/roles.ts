@@ -10,3 +10,7 @@ export function isUserRole(value: unknown): value is UserRole {
 export function isAdminRole(value: unknown): boolean {
   return typeof value === 'string' && (ADMIN_ROLES as readonly string[]).includes(value)
 }
+
+export function isSuperAdminRole(value: unknown): boolean {
+  return value === 'superadmin'
+}
