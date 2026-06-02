@@ -140,3 +140,27 @@ Korunan davranış:
 
 - Skor hesaplama formülleri, kategori ağırlıkları ve KPI sıraları değiştirilmedi.
 - Data import, admin kaydetme ve dinamik KPI motoru bu promptta aktif edilmedi.
+
+## Prompt 4 — Trend Kategori-KPI Filtresi Kalite Notu
+
+Bu aşamada dönemsel trend sayfasındaki KPI seçim alanı merkezi kategori-KPI matrisine bağlandı.
+
+Yapılanlar:
+
+- `lib/kpi/config.ts` içine `getKpiIndexesForCategory` ve `getKpisForCategory` yardımcıları eklendi.
+- `/dashboard/trend` KPI paneli, tek kategori seçildiğinde yalnızca o kategoriye bağlı KPI'ları gösterecek hale getirildi.
+- Stratejik kapsam kategorisi, KPI 11 `Garanti Kapsam Endeksi` ve KPI 12 `Periyodik Bakım Endeksi` ile sınırlandırıldı.
+- Kategori değiştiğinde önceki kategoriye ait seçili KPI'lar temizlenir; böylece yanlış kategori-KPI kombinasyonu grafiğe eklenmez.
+- Birden fazla kategori seçildiğinde KPI seçimi bilinçli olarak kapanır; kategori skor karşılaştırma davranışı korunur.
+- `tests/kpi-naming.test.ts` içine kategoriye göre KPI filtreleme regresyon testi eklendi.
+
+Korunan davranış:
+
+- KPI hesaplama formülleri ve skor değerleri değiştirilmedi.
+- Mevcut trend grafik serileri ve sürükle-bırak akışı korunur.
+- Admin kaydetme, data import ve dinamik KPI motoru bu promptta aktif edilmedi.
+
+Risk değerlendirmesi:
+
+- Düşük/orta risk: Değişiklik yalnızca trend sayfası KPI seçim UX'i ve merkezi kategori helper'ları ile sınırlıdır.
+- Manuel testte özellikle kategori seçimi, KPI listesi ve mevcut grafik serilerinin korunması kontrol edilmelidir.

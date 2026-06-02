@@ -7,7 +7,7 @@ import {
   KPI_META, SEGMENTLER, CATEGORY_OPTIONS, CAT_COLORS,
   fmtKpi, getKpisFromCube, getScore, getKpiScores, DONEMLER,
   isLowerBetter, getSegmentColor,
-  getAvailableDonemler, getKpiScoresDetailed,
+  getAvailableDonemler, getKpiScoresDetailed, getKpisForCategory,
 } from '@/lib/kpi'
 import { Line } from 'react-chartjs-2'
 import {
@@ -470,12 +470,17 @@ export default function TrendPage() {
   const [seriler1, setSeriler1] = useState<Seri[]>([])
   const [seriler2, setSeriler2] = useState<Seri[]>([])
 
+  const selectedCategory = bSnap.kategoriler.length === 1
+    ? KATEGORILER.find(k => k.key === bSnap.kategoriler[0])
+    : null
+
   const filteredKpis = useMemo(() => {
-    if (bSnap.kategoriler.length===1) {
-      const katLabel = KATEGORILER.find(k=>k.key===bSnap.kategoriler[0])?.label
-      return KPI_META.map((k,i)=>({...k,i})).filter(k=>k.kat===katLabel)
+    if (bSnap.kategoriler.length === 0) {
+      return KPI_META.map((k, i) => ({ ...k, i }))
     }
-    if (bSnap.kategoriler.length===0) return KPI_META.map((k,i)=>({...k,i}))
+    if (bSnap.kategoriler.length === 1) {
+      return getKpisForCategory(bSnap.kategoriler[0])
+    }
     return []
   }, [bSnap.kategoriler])
 
@@ -507,6 +512,9 @@ export default function TrendPage() {
     const yeni = bRef.current.kategoriler.includes(katKey)
       ? bRef.current.kategoriler.filter(k=>k!==katKey)
       : [...bRef.current.kategoriler, katKey]
+
+    // Kategori değiştiğinde önceki kategoriye ait seçili KPI'lar temizlenir.
+    // Böylece KPI paneli her zaman seçili kategoriyle uyumlu kalır.
     updateB({ kategoriler: yeni, pendingKpis: [] })
   }
   function toggleKpi(kpiIdx: number, label: string) {
@@ -568,10 +576,16 @@ export default function TrendPage() {
             </PanelGrup>
 
             <PanelGrup title="KPI" icon="📊"
-              hint={bSnap.kategoriler.length>1?'⛔':bSnap.kategoriler.length===1?KATEGORILER.find(k=>k.key===bSnap.kategoriler[0])?.label:'Tümü'}>
+              hint={bSnap.kategoriler.length>1?'Tek kategori seç':selectedCategory ? `${selectedCategory.shortLabel} · ${filteredKpis.length} KPI`:'Tümü'}>
               <div style={{ maxHeight:160, overflowY:'auto', display:'flex', flexDirection:'column', gap:3 }}>
                 {bSnap.kategoriler.length>1 ? (
-                  <div style={{ fontSize:8, color:'var(--tx3)', fontStyle:'italic', padding:'2px 0' }}>Birden fazla kategori — KPI eklenemez</div>
+                  <div style={{ fontSize:8, color:'var(--tx3)', fontStyle:'italic', padding:'2px 0' }}>
+                    KPI listesi için tek kategori seçin. Kategori skorlarını karşılaştırmak için birden fazla kategori seçili kalabilir.
+                  </div>
+                ) : filteredKpis.length === 0 ? (
+                  <div style={{ fontSize:8, color:'var(--tx3)', fontStyle:'italic', padding:'2px 0' }}>
+                    Bu kategoriye bağlı KPI bulunamadı.
+                  </div>
                 ) : filteredKpis.map(k => (
                   <SelectChip key={k.i} label={k.ad} color={CAT_COLORS[k.kat]||'#8496b0'}
                     active={bSnap.pendingKpis.some(p=>p.kpiIdx===k.i)}

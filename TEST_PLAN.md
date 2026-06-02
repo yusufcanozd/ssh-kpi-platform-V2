@@ -120,3 +120,23 @@ Kabul kriteri:
 4. `/dashboard/ozet-rapor` PDF ön izlemesinde kategori başlıkları dashboard ile aynı olmalıdır.
 5. `/admin/kpi-settings` ve `/admin/categories` ekranlarında KPI/kategori isimleri aynı standardı göstermelidir.
 6. Stratejik kapsam kategorisinin KPI listesinde `Garanti Kapsam Endeksi` ve `Periyodik Bakım Endeksi` görünmelidir.
+
+## Prompt 4 — Dönemsel Trend Kategori-KPI Filtresi Manuel Testleri
+
+1. `/dashboard/trend` ekranını açın.
+2. Sol panelde hiçbir kategori seçili değilken KPI listesinde tüm KPI'lar görünmelidir.
+3. `Stratejik Kapsam Dağılımı` kategorisini seçin.
+4. KPI panelinde yalnızca şu iki KPI kalmalıdır:
+   - Garanti Kapsam Endeksi
+   - Periyodik Bakım Endeksi
+5. `Müşteri Sadakati ve Deneyimi` kategorisini seçin; KPI paneli müşteri kategorisindeki üç KPI'yı göstermelidir.
+6. Kategori değiştiğinde önceki kategoriye ait seçilmiş KPI'lar temizlenmelidir.
+7. Birden fazla kategori seçilirse KPI paneli yeni KPI seçimine kapanmalı, kullanıcıya tek kategori seçmesi gerektiği açıklanmalıdır.
+8. Kategori skorlarını sürükle-bırak ile grafiğe ekleme davranışı korunmalıdır.
+9. Mevcut grafik serileri kategori seçimi değiştiğinde kendiliğinden silinmemelidir.
+
+Kabul kriteri:
+
+- Trend sayfasında kategori seçimi KPI listesini merkezi kategori-KPI matrisine göre filtreler.
+- Stratejik kapsam seçildiğinde KPI alanında yalnızca Garanti Kapsam Endeksi ve Periyodik Bakım Endeksi görünür.
+- KPI hesaplama ve dashboard skorları bu promptta değişmez.

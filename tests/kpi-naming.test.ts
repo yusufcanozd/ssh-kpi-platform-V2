@@ -4,6 +4,8 @@ import {
   getCategoryDisplayName,
   getCategoryShortName,
   getKpiDisplayName,
+  getKpiIndexesForCategory,
+  getKpisForCategory,
   KPI_META,
 } from '../lib/kpi/config'
 
@@ -32,4 +34,18 @@ describe('KPI ve kategori isim standardı', () => {
     expect(KPI_META[3].ad).toBe('İş Emri Başına İşçilik Saati')
     expect(KPI_META[10].kat).toBe('Stratejik Kapsam Dağılımı')
   })
+
+  it('kategori seçimine göre KPI listesini doğru filtreler', () => {
+    expect(getKpiIndexesForCategory('Stratejik Kapsam Dağılımı')).toEqual([10, 11])
+    expect(getKpisForCategory('kapsam').map(kpi => kpi.ad)).toEqual([
+      'Garanti Kapsam Endeksi',
+      'Periyodik Bakım Endeksi',
+    ])
+    expect(getKpisForCategory('Müşteri').map(kpi => kpi.ad)).toEqual([
+      'Aktif Müşteri Bazı Endeksi',
+      'Müşteri Tutundurma Endeksi',
+      'Servis Kullanım Endeksi',
+    ])
+  })
+
 })

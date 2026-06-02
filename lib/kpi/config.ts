@@ -166,6 +166,17 @@ export function getKpiDisplayName(kpiNoOrIndex: number): string {
   const no = kpiNoOrIndex >= 1 && KPI_DISPLAY_NAMES[kpiNoOrIndex] ? kpiNoOrIndex : kpiNoOrIndex + 1
   return KPI_DISPLAY_NAMES[no] ?? KPI_META[no - 1]?.ad ?? `KPI ${no}`
 }
+
+export function getKpiIndexesForCategory(categoryKeyOrName: CategoryKey | string): number[] {
+  const key = RAW_CATEGORY_TO_KEY[categoryKeyOrName] ?? (categoryKeyOrName as CategoryKey)
+  const category = KAT_YAPILAR.find(cat => cat.key === key)
+  return category ? [...category.kpis] : []
+}
+
+export function getKpisForCategory(categoryKeyOrName: CategoryKey | string): Array<KpiMeta & { i: number }> {
+  const indexes = new Set(getKpiIndexesForCategory(categoryKeyOrName))
+  return KPI_META.map((kpi, i) => ({ ...kpi, i })).filter(kpi => indexes.has(kpi.i))
+}
 export const BOLGELER: string[] = rawData.bolgeler ?? []
 export const SEGMENTLER: string[] = rawData.segmentler ?? []
 export const YAS_GRUPLARI: string[] = rawData.yas_gruplari ?? []
