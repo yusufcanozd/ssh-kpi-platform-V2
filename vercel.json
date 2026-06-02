@@ -2,5 +2,5 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
-  "installCommand": "corepack enable && corepack prepare pnpm@9.12.3 --activate && pnpm install --frozen-lockfile=false"
+  "installCommand": "rm -rf node_modules .next ~/.npm ~/.pnpm-store && npm install -g npm@10.8.2 && npm ci --no-audit --no-fund --cache /tmp/npm-cache"
 }
