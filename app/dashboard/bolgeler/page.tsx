@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
-  KPI_META, BOLGELER,
+  KPI_META, BOLGELER, CATEGORY_OPTIONS,
   fmtKpi, getKpisFromCube, heatColor, isLowerBetter,
   getScore, getRegionalScorePrecise, getRegionalKpiScoresPrecise, scoreColor, scoreBg, kpiUnit, chgColor,
   getKpiScores, kpiScoreColor, kpiScoreBg, scoreBarWidth, fmtSkor1, fmtSkor0
@@ -16,13 +16,9 @@ import styles from './page.module.css'
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 const KATS = [
-  {key:'genel',       label:'Genel'},
-  {key:'musteri',     label:'Müşteri Sadakati ve Deneyimi'},
-  {key:'ticari',      label:'Finansal Verimlilik ve Rasyo Analizi'},
-  {key:'operasyonel', label:'Süreç ve Operasyonel Akış'},
-  {key:'bayi',        label:'Bayi Ağı Kapasite Yönetimi'},
-  {key:'kapsam',      label:'Stratejik Kapsam Dağılımı'},
-]
+  { key: 'genel', label: 'Genel' },
+  ...CATEGORY_OPTIONS.map(cat => ({ key: cat.key, label: cat.label })),
+] as const
 
 function pct(a: number, b: number | null): number | null {
   if (!b) return null

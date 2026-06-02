@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { KPI_META, fmtKpi, type KpiScoreDetailFull } from '@/lib/kpi'
+import { CATEGORY_OPTIONS, KPI_META, fmtKpi, type KpiScoreDetailFull } from '@/lib/kpi'
 
 type Align = 'left' | 'right'
 
@@ -92,7 +92,7 @@ export default function MethodologyTooltip({
 export function GeneralScoreMethodology({ align = 'right' }: { align?: Align }) {
   return (
     <MethodologyTooltip title="Genel skor hesaplama" align={align}>
-      <span>Genel skor = Müşteri × 0.25 + Ticari × 0.25 + Operasyonel × 0.25 + Bayi × 0.15 + Kapsam × 0.10.</span>
+      <span>Genel skor = {CATEGORY_OPTIONS.map(cat => `${cat.shortLabel} × %${Math.round(cat.agirlik * 100)}`).join(' + ')}.</span>
       <br />
       <span>Kategori skorları, ilgili KPI skorlarının ortalamasıdır. Eksik KPI varsa kategori ortalamasına dahil edilmez; kategori tamamen eksikse nötr 100 kullanılır ve coverage düşer.</span>
     </MethodologyTooltip>
@@ -104,7 +104,7 @@ export function CategoryScoreMethodology({ align = 'right' }: { align?: Align })
     <MethodologyTooltip title="Kategori skoru hesaplama" align={align}>
       <span>Her kategori skoru, o kategoriye bağlı KPI skorlarının aritmetik ortalamasıdır.</span>
       <br />
-      <span>Müşteri: KPI 1-3, Ticari: KPI 4-6, Operasyonel: KPI 7-8, Bayi: KPI 9-10, Kapsam: KPI 11-12.</span>
+      <span>{CATEGORY_OPTIONS.map(cat => `${cat.shortLabel}: ${cat.kpis.map(idx => `KPI ${idx + 1}`).join(', ')}`).join(' · ')}.</span>
     </MethodologyTooltip>
   )
 }

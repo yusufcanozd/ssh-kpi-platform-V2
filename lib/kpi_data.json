@@ -43,84 +43,84 @@
     {
       "no": 1,
       "ad": "Aktif Müşteri Bazı Endeksi",
-      "kat": "Müşteri",
+      "kat": "Müşteri Sadakati ve Deneyimi",
       "fmt": "pct4",
       "is_lower_better": false
     },
     {
       "no": 2,
       "ad": "Müşteri Tutundurma Endeksi",
-      "kat": "Müşteri",
+      "kat": "Müşteri Sadakati ve Deneyimi",
       "fmt": "ratio2",
       "is_lower_better": false
     },
     {
       "no": 3,
       "ad": "Servis Kullanım Endeksi",
-      "kat": "Müşteri",
+      "kat": "Müşteri Sadakati ve Deneyimi",
       "fmt": "ratio2",
       "is_lower_better": false
     },
     {
       "no": 4,
-      "ad": "İE Başına İşçilik Saati",
-      "kat": "Ticari",
+      "ad": "İş Emri Başına İşçilik Saati",
+      "kat": "Finansal Verimlilik ve Rasyo Analizi",
       "fmt": "saat1",
       "is_lower_better": true
     },
     {
       "no": 5,
-      "ad": "İE Başına İşçilik Tutarı",
-      "kat": "Ticari",
+      "ad": "İş Emri Başına İşçilik Tutarı",
+      "kat": "Finansal Verimlilik ve Rasyo Analizi",
       "fmt": "tl0",
       "is_lower_better": false
     },
     {
       "no": 6,
-      "ad": "İE Başına Parça Tutarı",
-      "kat": "Ticari",
+      "ad": "İş Emri Başına Parça Tutarı",
+      "kat": "Finansal Verimlilik ve Rasyo Analizi",
       "fmt": "tl0",
       "is_lower_better": false
     },
     {
       "no": 7,
       "ad": "İş Emri Süresi Endeksi",
-      "kat": "Operasyonel",
+      "kat": "Süreç ve Operasyonel Akış",
       "fmt": "gun1",
       "is_lower_better": true
     },
     {
       "no": 8,
       "ad": "İş Emri Hacim Endeksi",
-      "kat": "Operasyonel",
+      "kat": "Süreç ve Operasyonel Akış",
       "fmt": "int",
       "is_lower_better": false
     },
     {
       "no": 9,
       "ad": "Servis Başına İş Emri",
-      "kat": "Bayi Ağı",
+      "kat": "Bayi Ağı Kapasite Yönetimi",
       "fmt": "ratio1",
       "is_lower_better": false
     },
     {
       "no": 10,
       "ad": "Servis Başına Aktif Müşteri",
-      "kat": "Bayi Ağı",
+      "kat": "Bayi Ağı Kapasite Yönetimi",
       "fmt": "ratio1",
       "is_lower_better": false
     },
     {
       "no": 11,
       "ad": "Garanti Kapsam Endeksi",
-      "kat": "Kapsam",
+      "kat": "Stratejik Kapsam Dağılımı",
       "fmt": "pct2",
       "is_lower_better": false
     },
     {
       "no": 12,
       "ad": "Periyodik Bakım Endeksi",
-      "kat": "Kapsam",
+      "kat": "Stratejik Kapsam Dağılımı",
       "fmt": "pct2",
       "is_lower_better": false
     }
@@ -47977,11 +47977,11 @@
     ]
   ],
   "kategoriler": [
-    "Müşteri",
-    "Ticari",
-    "Operasyonel",
-    "Bayi Ağı",
-    "Kapsam"
+    "Müşteri Sadakati ve Deneyimi",
+    "Finansal Verimlilik ve Rasyo Analizi",
+    "Süreç ve Operasyonel Akış",
+    "Bayi Ağı Kapasite Yönetimi",
+    "Stratejik Kapsam Dağılımı"
   ],
   "score_keys": [
     "seg",

@@ -5,7 +5,7 @@ import { useDashboardCtx } from './DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, BOLGELER, SEGMENTLER, YAS_STATS, TOTAL_IO, TOTAL_SERVIS,
-  SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG, CAT_COLORS,
+  SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG, CATEGORY_OPTIONS,
   fmtKpi, getKpisFromCube, getN, getMarkaList, getMarkaRanking,
   heatColor, isLowerBetter,
   getScore, scoreColor, scoreBg, scoreBarWidth, changePct, SegmentScore
@@ -19,11 +19,6 @@ import RegionScoreGrid from '@/components/dashboard/RegionScoreGrid'
 import styles from './page.module.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend, Filler)
-
-const KAT_LIST = ['musteri','ticari','operasyonel','bayi','kapsam'] as const
-const KAT_LABELS: Record<string,string> = {
-  musteri:'Müşteri Sadakati ve Deneyimi',ticari:'Finansal Verimlilik ve Rasyo Analizi',operasyonel:'Süreç ve Operasyonel Akış',bayi:'Bayi Ağı Kapasite Yönetimi',kapsam:'Stratejik Kapsam Dağılımı'
-}
 
 export default function DashboardPage() {
   const { selSeg, selBolge, selYas, selDonem, selCmpDonem } = useDashboardCtx()
@@ -260,7 +255,7 @@ export default function DashboardPage() {
 }
 
 // ── Kategori Skor Karşılaştırması ────────────────────────────
-// Her kategori (Müşteri Sadakati ve Deneyimi, Finansal Verimlilik, Süreç ve Operasyonel Akış, Bayi Ağı Kapasite Yönetimi, Stratejik Kapsam Dağılımı) için
+// Her kategori için merkezi CATEGORY_OPTIONS metadata'sı kullanılır
 // segment + TR skorları — baz ve cmp dönem ortalama çizgileriyle
 function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, selBolge, selYas }:{
   visibleSegs: {seg:string; baz:SegmentScore|null; cmp:SegmentScore|null}[]
@@ -268,13 +263,7 @@ function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, s
   selDonem: string; selCmpDonem: string
   selBolge: string; selYas: string
 }) {
-  const KATS = [
-    {key:'musteri',    label:'Müşteri Sadakati ve Deneyimi'},
-    {key:'ticari',     label:'Finansal Verimlilik ve Rasyo Analizi'},
-    {key:'operasyonel',label:'Süreç ve Operasyonel Akış'},
-    {key:'bayi',       label:'Bayi Ağı Kapasite Yönetimi'},
-    {key:'kapsam',     label:'Stratejik Kapsam Dağılımı'},
-  ]
+  const KATS = CATEGORY_OPTIONS
 
   // Segment renkleri hex (Chart.js canvas)
   const segHexMap: Record<string,string> = {Mass:'#60a5fa',Premium:'#c084fc',EV:'#34d399'}

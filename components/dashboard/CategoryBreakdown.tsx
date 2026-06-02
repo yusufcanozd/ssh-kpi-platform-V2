@@ -1,7 +1,7 @@
 'use client'
 
 import { CategoryScoreMethodology } from '@/components/dashboard/MethodologyTooltip'
-import { scoreColor, scoreBarWidth, type SegmentScore } from '@/lib/kpi'
+import { CATEGORY_OPTIONS, scoreColor, scoreBarWidth, type SegmentScore } from '@/lib/kpi'
 
 export type CategoryBreakdownItem = {
   key: string
@@ -11,13 +11,7 @@ export type CategoryBreakdownItem = {
   bg?: string
 }
 
-const CATEGORIES = [
-  { key: 'musteri', label: 'Müşteri Sadakati ve Deneyimi' },
-  { key: 'ticari', label: 'Finansal Verimlilik ve Rasyo Analizi' },
-  { key: 'operasyonel', label: 'Süreç ve Operasyonel Akış' },
-  { key: 'bayi', label: 'Bayi Ağı Kapasite Yönetimi' },
-  { key: 'kapsam', label: 'Stratejik Kapsam Dağılımı' },
-] as const
+const CATEGORIES = CATEGORY_OPTIONS
 
 function CategoryBox({ item }: { item: CategoryBreakdownItem }) {
   if (!item.score) {

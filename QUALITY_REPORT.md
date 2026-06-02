@@ -122,3 +122,21 @@ Risk değerlendirmesi:
 
 - Düşük risk: Yeni sayfalar çoğunlukla statik/salt okunur içerik gösterir.
 - Orta risk: Admin sidebar navigasyon değiştiği için `/admin` ve `/admin/users` geçişleri manuel test edilmelidir.
+
+## Prompt 3 — KPI ve Kategori İsim Standardizasyonu
+
+Bu aşamada KPI hesaplama değerleri değiştirilmeden isim ve kategori gösterim standardı merkezi hale getirildi.
+
+Yapılanlar:
+
+- `CATEGORY_DISPLAY_NAMES`, `CATEGORY_SHORT_NAMES`, `KPI_DISPLAY_NAMES`, `CATEGORY_OPTIONS` ve yardımcı display fonksiyonları `lib/kpi/config.ts` içine eklendi.
+- Dashboard, bölge, trend, kategori kırılımı ve özet rapor ekranlarında kategori listeleri mümkün olduğunca merkezi `CATEGORY_OPTIONS` kaynağına bağlandı.
+- `lib/kpi_data.json` içindeki `kpi_meta` adları ve kategori adları executive isim standardıyla uyumlu hale getirildi.
+- `İE Başına ...` kısaltmaları UI standardında `İş Emri Başına ...` biçimine taşındı.
+- Stratejik kapsam altında KPI 11 `Garanti Kapsam Endeksi`, KPI 12 `Periyodik Bakım Endeksi` olarak korunur.
+- Yeni `tests/kpi-naming.test.ts` ile kategori ve KPI isim standardı için regresyon testi eklendi.
+
+Korunan davranış:
+
+- Skor hesaplama formülleri, kategori ağırlıkları ve KPI sıraları değiştirilmedi.
+- Data import, admin kaydetme ve dinamik KPI motoru bu promptta aktif edilmedi.

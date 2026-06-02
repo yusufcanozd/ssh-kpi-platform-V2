@@ -94,7 +94,78 @@ const rawData = RAW as unknown as KpiRawData
 // ─────────────────────────────────────────────────────────────
 // KPI ve Boyut Metadata
 // ─────────────────────────────────────────────────────────────
-export const KPI_META: KpiMeta[] = rawData.kpi_meta ?? []
+
+export const KPI_DISPLAY_NAMES: Record<number, string> = {
+  1: 'Aktif Müşteri Bazı Endeksi',
+  2: 'Müşteri Tutundurma Endeksi',
+  3: 'Servis Kullanım Endeksi',
+  4: 'İş Emri Başına İşçilik Saati',
+  5: 'İş Emri Başına İşçilik Tutarı',
+  6: 'İş Emri Başına Parça Tutarı',
+  7: 'İş Emri Süresi Endeksi',
+  8: 'İş Emri Hacim Endeksi',
+  9: 'Servis Başına İş Emri',
+  10: 'Servis Başına Aktif Müşteri',
+  11: 'Garanti Kapsam Endeksi',
+  12: 'Periyodik Bakım Endeksi',
+}
+
+export const CATEGORY_DISPLAY_NAMES: Record<CategoryKey, string> = {
+  musteri: 'Müşteri Sadakati ve Deneyimi',
+  ticari: 'Finansal Verimlilik ve Rasyo Analizi',
+  operasyonel: 'Süreç ve Operasyonel Akış',
+  bayi: 'Bayi Ağı Kapasite Yönetimi',
+  kapsam: 'Stratejik Kapsam Dağılımı',
+}
+
+export const CATEGORY_SHORT_NAMES: Record<CategoryKey, string> = {
+  musteri: 'Müşteri',
+  ticari: 'Ticari',
+  operasyonel: 'Operasyonel',
+  bayi: 'Bayi Ağı',
+  kapsam: 'Stratejik Kapsam',
+}
+
+export const RAW_CATEGORY_TO_KEY: Record<string, CategoryKey> = {
+  'Müşteri': 'musteri',
+  'Müşteri Sadakati ve Deneyimi': 'musteri',
+  'Ticari': 'ticari',
+  'Finansal Verimlilik ve Rasyo Analizi': 'ticari',
+  'Operasyonel': 'operasyonel',
+  'Süreç ve Operasyonel Akış': 'operasyonel',
+  'Bayi': 'bayi',
+  'Bayi Ağı': 'bayi',
+  'Bayi Ağı Kapasite Yönetimi': 'bayi',
+  'Kapsam': 'kapsam',
+  'Stratejik Kapsam': 'kapsam',
+  'Stratejik Kapsam Dağılımı': 'kapsam',
+}
+
+function standardizeKpiMeta(meta: KpiMeta): KpiMeta {
+  const categoryKey = RAW_CATEGORY_TO_KEY[meta.kat]
+  return {
+    ...meta,
+    ad: KPI_DISPLAY_NAMES[meta.no] ?? meta.ad,
+    kat: categoryKey ? CATEGORY_DISPLAY_NAMES[categoryKey] : meta.kat,
+  }
+}
+
+export const KPI_META: KpiMeta[] = (rawData.kpi_meta ?? []).map(standardizeKpiMeta)
+
+export function getCategoryDisplayName(keyOrName: CategoryKey | string): string {
+  const key = RAW_CATEGORY_TO_KEY[keyOrName] ?? (keyOrName as CategoryKey)
+  return CATEGORY_DISPLAY_NAMES[key as CategoryKey] ?? keyOrName
+}
+
+export function getCategoryShortName(keyOrName: CategoryKey | string): string {
+  const key = RAW_CATEGORY_TO_KEY[keyOrName] ?? (keyOrName as CategoryKey)
+  return CATEGORY_SHORT_NAMES[key as CategoryKey] ?? keyOrName
+}
+
+export function getKpiDisplayName(kpiNoOrIndex: number): string {
+  const no = kpiNoOrIndex >= 1 && KPI_DISPLAY_NAMES[kpiNoOrIndex] ? kpiNoOrIndex : kpiNoOrIndex + 1
+  return KPI_DISPLAY_NAMES[no] ?? KPI_META[no - 1]?.ad ?? `KPI ${no}`
+}
 export const BOLGELER: string[] = rawData.bolgeler ?? []
 export const SEGMENTLER: string[] = rawData.segmentler ?? []
 export const YAS_GRUPLARI: string[] = rawData.yas_gruplari ?? []
@@ -107,11 +178,11 @@ export const TOTAL_SERVIS: number = rawData.total_servis ?? 0
 // Kategori Yapısı — V5 Matrisi (indeksler 0-bazlı)
 // ─────────────────────────────────────────────────────────────
 export const KAT_YAPILAR = [
-  { key: 'musteri', ad: 'Müşteri Sadakati ve Deneyimi', agirlik: 0.25, kpis: [0, 1, 2] },
-  { key: 'ticari', ad: 'Finansal Verimlilik ve Rasyo Analizi', agirlik: 0.25, kpis: [3, 4, 5] },
-  { key: 'operasyonel', ad: 'Süreç ve Operasyonel Akış', agirlik: 0.25, kpis: [6, 7] },
-  { key: 'bayi', ad: 'Bayi Ağı Kapasite Yönetimi', agirlik: 0.15, kpis: [8, 9] },
-  { key: 'kapsam', ad: 'Stratejik Kapsam Dağılımı', agirlik: 0.10, kpis: [10, 11] },
+  { key: 'musteri', ad: CATEGORY_DISPLAY_NAMES.musteri, agirlik: 0.25, kpis: [0, 1, 2] },
+  { key: 'ticari', ad: CATEGORY_DISPLAY_NAMES.ticari, agirlik: 0.25, kpis: [3, 4, 5] },
+  { key: 'operasyonel', ad: CATEGORY_DISPLAY_NAMES.operasyonel, agirlik: 0.25, kpis: [6, 7] },
+  { key: 'bayi', ad: CATEGORY_DISPLAY_NAMES.bayi, agirlik: 0.15, kpis: [8, 9] },
+  { key: 'kapsam', ad: CATEGORY_DISPLAY_NAMES.kapsam, agirlik: 0.10, kpis: [10, 11] },
 ] as const satisfies readonly CategoryConfig[]
 
 // ─────────────────────────────────────────────────────────────
@@ -138,7 +209,17 @@ export const CAT_COLORS: Record<string, string> = {
   'Operasyonel': '#f59e0b',
   'Bayi Ağı': '#8b5cf6',
   'Kapsam': '#ef4444',
+  'Stratejik Kapsam': '#ef4444',
 }
+
+export const CATEGORY_OPTIONS = KAT_YAPILAR.map(cat => ({
+  key: cat.key,
+  label: cat.ad,
+  shortLabel: CATEGORY_SHORT_NAMES[cat.key],
+  color: CAT_COLORS[cat.ad],
+  agirlik: cat.agirlik,
+  kpis: cat.kpis,
+}))
 
 export const SEGMENT_HEX: Record<string, string> = {
   Mass: '#3b82f6',

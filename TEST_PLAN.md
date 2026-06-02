@@ -106,3 +106,17 @@ Kabul kriteri:
 - Prompt 2, KPI hesaplama sonuçlarını değiştirmez.
 - Prompt 2, Supabase tablolarına yazma işlemi eklemez.
 - Prompt 2, sadece Super Admin menü/iskelet ekranlarını ekler.
+
+## Prompt 3 — KPI ve Kategori İsim Standardı Manuel Testleri
+
+1. `/dashboard` ana sayfasında kategori isimleri şu sırayla görünmelidir:
+   - Müşteri Sadakati ve Deneyimi
+   - Finansal Verimlilik ve Rasyo Analizi
+   - Süreç ve Operasyonel Akış
+   - Bayi Ağı Kapasite Yönetimi
+   - Stratejik Kapsam Dağılımı
+2. `/dashboard/kpiler` ekranında KPI 4, 5 ve 6 adları `İş Emri Başına ...` formatında görünmelidir.
+3. `/dashboard/trend` ekranında kategori etiketleri ve KPI chip adları aynı standartları kullanmalıdır.
+4. `/dashboard/ozet-rapor` PDF ön izlemesinde kategori başlıkları dashboard ile aynı olmalıdır.
+5. `/admin/kpi-settings` ve `/admin/categories` ekranlarında KPI/kategori isimleri aynı standardı göstermelidir.
+6. Stratejik kapsam kategorisinin KPI listesinde `Garanti Kapsam Endeksi` ve `Periyodik Bakım Endeksi` görünmelidir.

@@ -6,7 +6,7 @@ import Topbar from '@/components/layout/Topbar'
 import ReportSectionHeader from '@/components/report/ReportSectionHeader'
 import {
   KPI_META, SEGMENTLER, SEGMENT_HEX, SEGMENT_BG,
-  BOLGELER, YAS_GRUPLARI, DONEMLER, CAT_COLORS,
+  BOLGELER, YAS_GRUPLARI, DONEMLER, CATEGORY_OPTIONS,
   fmtKpi, fmtSkor0, scoreColor, scoreBarWidth, getKpisFromCube, getScore, getRegionalScorePrecise, getKpiScores, getMarkaRanking,
   isLowerBetter, heatColor,
 } from '@/lib/kpi'
@@ -26,13 +26,11 @@ function getAltlar(p: DonemPeriyot): string[] {
   return p === 'FY' ? ['FY'] : ['1','2','3','4']
 }
 
-const KATS = [
-  { key:'musteri',     label:'Müşteri Sadakati ve Deneyimi',    color: CAT_COLORS['Müşteri Sadakati ve Deneyimi']     || '#10b981' },
-  { key:'ticari',      label:'Finansal Verimlilik ve Rasyo Analizi',      color: CAT_COLORS['Finansal Verimlilik ve Rasyo Analizi']      || '#3b82f6' },
-  { key:'operasyonel', label:'Süreç ve Operasyonel Akış', color: CAT_COLORS['Süreç ve Operasyonel Akış'] || '#f59e0b' },
-  { key:'bayi',        label:'Bayi Ağı Kapasite Yönetimi',    color: CAT_COLORS['Bayi Ağı Kapasite Yönetimi']   || '#8b5cf6' },
-  { key:'kapsam',      label:'Stratejik Kapsam Dağılımı',      color: CAT_COLORS['Stratejik Kapsam Dağılımı']      || '#ef4444' },
-]
+const KATS = CATEGORY_OPTIONS.map(cat => ({
+  key: cat.key,
+  label: cat.label,
+  color: cat.color,
+}))
 
 async function callAI(prompt: string): Promise<string> {
   try {
