@@ -92,3 +92,33 @@ npm run build
 - Tarayıcı/sekme kapatıldığında `sessionStorage` kaybolduğu için cookie kalsa bile tekrar açılışta kullanıcı global sign-out ile `/login` ekranına zorlanır.
 - Manuel logout artık Supabase auth storage, session marker ve Supabase cookie temizliğini birlikte yapar.
 - SSR middleware davranışını bozmamak için Supabase SSR cookie akışı korunmuştur; yeniden giriş zorunluluğu client-side session marker ile uygulanır.
+
+## Prompt 2 — Super Admin Menü ve Yönetim İskeleti Kalite Notu
+
+Bu aşamada Super Admin paneli, tam yönetim platformuna dönüşmeden önce güvenli iskelet moduna alındı.
+
+Yapılanlar:
+
+- `/admin` yönetim özeti sayfası eklendi.
+- Admin sol menüsüne yeni modüller eklendi:
+  - KPI Ayarları
+  - Kategoriler
+  - Markalar
+  - Data Import
+  - Kullanıcı Kısıtları
+  - Tema / Görsel
+- Yeni ekranlar salt okunur / planlama modundadır.
+- KPI motoru, dashboard skor hesaplama, rapor hesaplama ve Supabase yazma davranışları değiştirilmedi.
+- Mevcut `/admin/users` davranışı korundu.
+
+Bilinçli olarak yapılmayanlar:
+
+- KPI/kategori/marka kaydetme aktif edilmedi.
+- Data import gerçek dosya yükleme moduna alınmadı.
+- Kullanıcı marka/segment/bölge kısıtları dashboard sorgularına uygulanmadı.
+- Executive grafik standardı henüz canlı grafiklere uygulanmadı.
+
+Risk değerlendirmesi:
+
+- Düşük risk: Yeni sayfalar çoğunlukla statik/salt okunur içerik gösterir.
+- Orta risk: Admin sidebar navigasyon değiştiği için `/admin` ve `/admin/users` geçişleri manuel test edilmelidir.

@@ -17,7 +17,14 @@ const DASHBOARD_NAV = [
   { href:'/dashboard/ozet-rapor', label:'Özet Rapor',       icon:<ReportIcon/> },
 ]
 const ADMIN_NAV = [
-  { href:'/admin/users', label:'Kullanıcılar', icon:<UsersIcon/> },
+  { href:'/admin',              label:'Yönetim Özeti',      icon:<ShieldIcon/> },
+  { href:'/admin/users',        label:'Kullanıcılar',       icon:<UsersIcon/> },
+  { href:'/admin/kpi-settings', label:'KPI Ayarları',      icon:<ActivityIcon/> },
+  { href:'/admin/categories',   label:'Kategoriler',       icon:<GridIcon/> },
+  { href:'/admin/brands',       label:'Markalar',          icon:<BarIcon/> },
+  { href:'/admin/data-import',  label:'Data Import',       icon:<ReportIcon/> },
+  { href:'/admin/permissions',  label:'Kullanıcı Kısıtları', icon:<UsersIcon/> },
+  { href:'/admin/theme',        label:'Tema / Görsel',     icon:<SunIcon/> },
 ]
 
 interface SidebarProps {
@@ -99,7 +106,7 @@ export default function Sidebar({ variant, filters, collapsed: collapsedProp, on
                 <GridIcon/>{!collapsed && 'KPI Dashboard'}
               </Link>
             ) : isAdmin ? (
-              <Link href="/admin/users" className={styles.navBtn} title={collapsed?'Admin Paneli':undefined}>
+              <Link href="/admin" className={styles.navBtn} title={collapsed?'Admin Paneli':undefined}>
                 <ShieldIcon/>{!collapsed && 'Admin Paneli'}
               </Link>
             ) : null}

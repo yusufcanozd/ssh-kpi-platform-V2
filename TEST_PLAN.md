@@ -75,3 +75,34 @@
 4. `Çıkış Yap` butonuna basın; `/login` sayfasına yönlenmeli, geri tuşu ile dashboard/admin ekranına dönülememelidir.
 5. Deaktif kullanıcıyla giriş denenirse oturum temizlenmeli ve hata mesajı gösterilmelidir.
 6. Admin olmayan kullanıcı `/admin/users` adresine gitmeye çalışırsa `/dashboard` sayfasına yönlendirilmelidir.
+
+## Prompt 2 — Super Admin Menü ve Yönetim Ekranı İskeleti
+
+Amaç: KPI motorunu ve dashboard hesaplarını değiştirmeden Super Admin yönetim merkezi sayfa iskeletlerini görünür hale getirmek.
+
+Manuel kontrol listesi:
+
+1. `/admin` açılmalı ve yönetim özeti kartları görünmeli.
+2. Sol admin menüsünde şu bağlantılar görünmeli:
+   - Yönetim Özeti
+   - Kullanıcılar
+   - KPI Ayarları
+   - Kategoriler
+   - Markalar
+   - Data Import
+   - Kullanıcı Kısıtları
+   - Tema / Görsel
+3. `/admin/users` mevcut kullanıcı yönetimi davranışını korumalı.
+4. `/admin/kpi-settings` salt okunur KPI bilgilerini göstermeli; veri kaydetmemeli.
+5. `/admin/categories` kategori ağırlıklarını ve bağlı KPI listesini göstermeli; veri kaydetmemeli.
+6. `/admin/brands` marka/gizlilik planını göstermeli; marka silme/ekleme yapmamalı.
+7. `/admin/data-import` import akışını plan olarak göstermeli; gerçek dosya yüklememeli.
+8. `/admin/permissions` kullanıcı kısıtları planını göstermeli; dashboard filtrelerini değiştirmemeli.
+9. `/admin/theme` executive görsel prensipleri göstermeli; dashboard grafiklerini değiştirmemeli.
+10. Normal dashboard ekranları Prompt 1 sonrası davranışını aynen korumalı.
+
+Kabul kriteri:
+
+- Prompt 2, KPI hesaplama sonuçlarını değiştirmez.
+- Prompt 2, Supabase tablolarına yazma işlemi eklemez.
+- Prompt 2, sadece Super Admin menü/iskelet ekranlarını ekler.
