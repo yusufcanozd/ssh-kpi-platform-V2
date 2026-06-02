@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "buildCommand": "next build",
+  "buildCommand": "npm run build",
   "outputDirectory": ".next",
-  "installCommand": "npm install -g npm@10.8.2 && npm ci --no-audit --no-fund --prefer-online"
+  "installCommand": "corepack enable && corepack prepare pnpm@9.12.3 --activate && pnpm install --frozen-lockfile=false"
 }
