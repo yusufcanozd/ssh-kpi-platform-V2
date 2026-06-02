@@ -21,10 +21,10 @@ const ADMIN_NAV = [
   { href:'/admin/users',        label:'Kullanıcılar',       icon:<UsersIcon/> },
   { href:'/admin/kpi-settings', label:'KPI Ayarları',      icon:<ActivityIcon/> },
   { href:'/admin/categories',   label:'Kategoriler',       icon:<GridIcon/> },
-  { href:'/admin/weights',      label:'Ağırlıklar',        icon:<TrendIcon/> },
+  { href:'/admin/weights',      label:'Kategori Ağırlıkları', icon:<BarIcon/> },
   { href:'/admin/brands',       label:'Markalar',          icon:<BarIcon/> },
   { href:'/admin/data-import',  label:'Data Import',       icon:<ReportIcon/> },
-  { href:'/admin/user-permissions', label:'Kullanıcı Kısıtları', icon:<UsersIcon/> },
+  { href:'/admin/permissions',  label:'Kullanıcı Kısıtları', icon:<UsersIcon/> },
   { href:'/admin/theme',        label:'Tema / Görsel',     icon:<SunIcon/> },
 ]
 

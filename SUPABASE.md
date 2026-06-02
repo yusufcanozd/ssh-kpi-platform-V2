@@ -94,44 +94,32 @@ lib/marka_scores.json
 
 Bu nedenle KPI ham veri tabloları için RLS migration bu adımda eklenmemiştir. Eğer ileride KPI verileri Supabase tablolarına taşınırsa, ayrıca tablo bazlı RLS politikaları eklenmelidir.
 
-## Prompt 1–4 Super Admin yönetim şeması
+## Dinamik yönetim şeması (Prompt 2 — migration 0002)
 
-Role set tek kaynak olarak şu şekilde kabul edilir:
+`supabase/migrations/0002_dynamic_admin_schema.sql` additive olarak şu tabloları ekler:
 
-- `viewer`
-- `analyst`
-- `admin`
-- `superadmin`
+| Tablo | Amaç |
+|---|---|
+| `kpi_categories` | Kategori tanımları (ad, renk, sıralama, aktif/pasif) |
+| `kpi_definitions` | KPI tanımları (no, ad, kategori, yön, veri tipi, coverage) |
+| `kpi_methodology_versions` | Skor metodolojisi versiyonları (aktif tek versiyon) |
+| `kpi_category_weights` | Versiyon başına kategori ağırlıkları (yüzde) |
+| `brands` | Marka kayıtları (+ `is_hidden`, `data_source` kolonları additive eklenir) |
+| `user_data_permissions` | Kullanıcı bazlı segment/marka/bölge görünürlük kısıtları |
+| `data_import_batches` | Import işlem kayıtları; `is_active` batch dashboard'u besler |
+| `kpi_fact_rows` | Import edilen satır bazlı KPI verisi (dinamik motorun kaynağı) |
+| `audit_logs` | Super Admin işlemlerinin denetim kaydı |
 
-Erişim ayrımı:
+RLS özeti:
 
-- `/admin/users`: `admin` ve `superadmin` erişebilir.
-- Diğer Super Admin yönetim modülleri: sadece `superadmin` erişebilir.
-- `viewer` ve `analyst`: admin paneline giremez, dashboard görünümüne yönlendirilir.
+- Aktif tüm kullanıcılar referans tablolarını (`kpi_categories`, `kpi_definitions`, `brands`, ağırlık/versiyon, fact rows) **okuyabilir** — dashboard'un isimleri ve skorları gösterebilmesi için.
+- Yönetim yazma işlemleri (`for all`) yalnızca **aktif superadmin**'e açıktır.
+- `user_data_permissions`: kullanıcı kendi kaydını okur, superadmin tümünü yönetir.
+- `audit_logs`: superadmin okur; aktif admin/superadmin insert edebilir.
 
-Prompt 2/4 için additive migration dosyası:
+Önkoşullar / uyarılar:
 
-- `supabase/migrations/0002_super_admin_management_schema.sql`
-
-Bu migration mevcut production tablolarını bozmaz; KPI/kategori/marka/import/kullanıcı veri kısıtı ve audit log altyapısını yeni tablolarla hazırlar.
-
-Yeni yönetim tabloları:
-
-- `kpi_categories`
-- `kpi_definitions`
-- `kpi_methodology_versions`
-- `kpi_category_weights`
-- `brands`
-- `user_data_permissions`
-- `data_import_batches`
-- `kpi_fact_rows`
-- `audit_logs`
-
-Prompt 4 ekranları önce Supabase tablolarını okumayı dener. Tablolar yoksa veya boşsa mevcut `config.ts` / `kpi_data.json` fallback verisi gösterilir. Dashboard skor motoru bu aşamada yeni tablolardan okumaya zorlanmaz.
-
-RLS yaklaşımı:
-
-- Superadmin yönetim tablolarında tam yetkili olmalıdır.
-- Admin kullanıcı yönetimiyle sınırlı tutulmalıdır.
-- Analyst/viewer, ileride `user_data_permissions` üzerinden izin verilen segment/marka/bölge verilerini okuyacaktır.
-- App-level permission helper ve Supabase RLS politikaları Prompt 7’de birlikte netleştirilmelidir.
+- `gen_random_uuid()` kullanılır (Supabase'de `pgcrypto` varsayılan açıktır; yoksa `create extension if not exists pgcrypto;`).
+- 0001'deki yardımcı fonksiyonlara (`current_user_is_superadmin` vb.) bağımlıdır; önce 0001 uygulanmış olmalıdır.
+- Migration sonunda **idempotent seed** vardır: kategoriler, 12 KPI ve "v1 — Baseline" versiyonu + ağırlıkları (25/25/25/15/10) eklenir. Böylece yönetim ekranları "Config fallback" yerine "Supabase kaynaklı" çalışır.
+- `brands` tablosu zaten varsa kırılmaz; sadece eksik kolonlar `add column if not exists` ile eklenir.
