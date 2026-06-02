@@ -3,7 +3,6 @@ import { AuthProvider } from '@/context/AuthContext'
 import { ThemeProvider } from '@/context/ThemeContext'
 import './globals.css'
 
-
 export const metadata: Metadata = {
   title: 'SSH KPI Platform | Türkiye Otomotiv Sektörü',
   description: 'Satış Sonrası Hizmetler Rekabet Analizi Platformu',

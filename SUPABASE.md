@@ -13,7 +13,7 @@ Beklenen alanlar:
 | `id` | `uuid` | `auth.users.id` ile ilişkili kullanıcı ID'si |
 | `email` | `text` | Kullanıcı e-posta adresi |
 | `full_name` | `text` | Kullanıcı adı / görünen ad |
-| `role` | `text` | `viewer`, `admin`, `superadmin` |
+| `role` | `text` | `viewer`, `analyst`, `admin`, `superadmin` |
 | `is_active` | `boolean` | Pasif kullanıcıların uygulama işlemleri engellenir |
 | `created_at` | `timestamptz` | Oluşturulma zamanı |
 | `updated_at` | `timestamptz` | Son güncelleme zamanı |
@@ -22,8 +22,9 @@ Beklenen alanlar:
 
 Önerilen roller:
 
-- `viewer`: Standart kullanıcı.
-- `admin`: Kullanıcıları görüntüleyebilir; kritik yönetim işlemleri yapamaz.
+- `viewer`: Dashboard'u görüntüleyebilir.
+- `analyst`: Dashboard ve analiz ekranlarını kullanabilir; yönetim işlemi yapamaz.
+- `admin`: Admin panelini görüntüleyebilir; kritik kullanıcı yönetimi sadece `superadmin` tarafından yapılır.
 - `superadmin`: Kullanıcı rolü ve aktiflik durumu gibi kritik alanları yönetebilir.
 
 ## RLS politikaları

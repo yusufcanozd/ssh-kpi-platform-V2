@@ -73,7 +73,7 @@ export async function PATCH(
       .eq('is_active', true)
 
     if (countError) {
-      console.error('[admin/users] superadmin count failed', countError)
+      console.error('Admin users count error:', countError.message)
       return NextResponse.json({ error: 'Kullanıcı güvenlik kontrolü tamamlanamadı.' }, { status: 500 })
     }
 
@@ -90,7 +90,7 @@ export async function PATCH(
     .single()
 
   if (error) {
-    console.error('[admin/users] update failed', error)
+    console.error('Admin user update error:', error.message)
     return NextResponse.json({ error: 'Kullanıcı güncellenemedi.' }, { status: 500 })
   }
 

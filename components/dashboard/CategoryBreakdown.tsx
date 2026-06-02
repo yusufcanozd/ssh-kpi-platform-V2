@@ -1,7 +1,7 @@
 'use client'
 
 import { CategoryScoreMethodology } from '@/components/dashboard/MethodologyTooltip'
-import { scoreColor, scoreBarWidth, fmtSkor0, type SegmentScore } from '@/lib/kpi'
+import { scoreColor, scoreBarWidth, type SegmentScore } from '@/lib/kpi'
 
 export type CategoryBreakdownItem = {
   key: string
@@ -42,15 +42,15 @@ function CategoryBox({ item }: { item: CategoryBreakdownItem }) {
           <div key={cat.key} style={{ marginBottom: 7 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
               <span style={{ fontSize: 9, color: 'var(--tx3)' }}>{cat.label}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-dm-mono)', color: scoreColor(val) }}>{fmtSkor0(val)}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-dm-mono)', color: scoreColor(val) }}>{val}</span>
             </div>
             <div style={{ background: 'var(--surf3)', borderRadius: 4, height: 5, overflow: 'hidden' }}>
               <div
                 style={{
-                  width: `${scoreBarWidth(val)}%`,
+                  width: scoreBarWidth(val),
                   height: 5,
                   borderRadius: 4,
-                  background: scoreColor(val) + '88',
+                  background: scoreColor(val) + '99',
                   transition: 'width .3s',
                 }}
               />

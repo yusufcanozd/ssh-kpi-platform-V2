@@ -8,21 +8,13 @@ import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, SEGMENT_HEX, SEGMENT_BG, KAT_YAPILAR,
   getKpiScores, getKpiScoresFullDetail, getScore, getMarkaRanking,
-  kpiScoreColor, kpiScoreBg, scoreColor, scoreBg,
-  changePct, chgColor, isLowerBetter, scoreBarWidth, type SegmentScore, type CategoryKey,
+  kpiScoreColor, kpiScoreBg, scoreColor, scoreBarWidth, scoreBg,
+  changePct, chgColor, isLowerBetter,
 } from '@/lib/kpi'
 import { GeneralScoreMethodology, CategoryScoreMethodology, KpiMethodologyTooltip } from '@/components/dashboard/MethodologyTooltip'
 import styles from './page.module.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
-
-type ScoreKey = 'genel' | CategoryKey
-
-function getScoreField(score: SegmentScore | null | undefined, key: string): number {
-  if (!score) return 0
-  if (key === 'genel') return score.genel
-  return score[key as CategoryKey] ?? 0
-}
 
 const barValuePlugin = {
   id: 'barValueLabels',
@@ -41,7 +33,7 @@ const barValuePlugin = {
         if (!val && val !== 0) return
         const rounded = Math.round(val)
         // Bar rengiyle ayni renk
-        const color = isPrev ? 'rgba(100,116,139,.85)' : kpiScoreColor(rounded)
+        const color = isPrev ? 'rgba(100,116,139,.85)' : scoreColor(rounded)
         ctx.save()
         ctx.font = 'bold ' + String(fontSize) + 'px monospace'
         ctx.textAlign = 'center'
@@ -84,7 +76,7 @@ export default function KpiDetayPage() {
   const { selSeg, selBolge, selYas, selDonem, selCmpDonem } = useDashboardCtx()
   const [tab, setTab]             = useState('kpi')
   const [sortKpi, setSortKpi]     = useState(-1)
-  const [katSortKey, setKatSortKey] = useState<ScoreKey>('genel')
+  const [katSortKey, setKatSortKey] = useState('genel')
 
   const filterLabel = [
     selBolge || 'Tum TR',
@@ -120,19 +112,19 @@ export default function KpiDetayPage() {
       }
     }).sort(function(a, b) {
       if (katSortKey === 'genel') return b.score - a.score
-      const av = getScoreField(a.katSkor, katSortKey)
-      const bv = getScoreField(b.katSkor, katSortKey)
+      const av = a.katSkor ? (a.katSkor as any)[katSortKey] ?? 0 : 0
+      const bv = b.katSkor ? (b.katSkor as any)[katSortKey] ?? 0 : 0
       return bv - av
     })
   }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, katSortKey])
 
   const katBarData = useMemo(function() {
     const vals = katMarkalar.map(function(m) {
-      return katSortKey === 'genel' ? m.score : getScoreField(m.katSkor, katSortKey)
+      return katSortKey === 'genel' ? m.score : (m.katSkor ? (m.katSkor as any)[katSortKey] ?? 0 : 0)
     })
     const colors = vals.map(function(v) { return kpiScoreColor(v) })
     const cmpVals = selCmpDonem ? katMarkalar.map(function(m) {
-      return katSortKey === 'genel' ? (m.cmpScore ?? 0) : getScoreField(m.katSkorCmp, katSortKey)
+      return katSortKey === 'genel' ? (m.cmpScore ?? 0) : (m.katSkorCmp ? (m.katSkorCmp as any)[katSortKey] ?? 0 : 0)
     }) : null
     const katAd = katSortKey === 'genel' ? 'Genel Skor' : (KAT_YAPILAR.find(function(k) { return k.key === katSortKey })?.ad ?? katSortKey)
     return {
@@ -272,8 +264,8 @@ export default function KpiDetayPage() {
                       </span>
                     </div>
                     {KAT_YAPILAR.map(function(kat) {
-                      const skor    = getScoreField(sd.katSkor, kat.key)
-                      const cmpSkor = sd.katSkorCmp ? getScoreField(sd.katSkorCmp, kat.key) : null
+                      const skor    = sd.katSkor    ? (sd.katSkor    as any)[kat.key] ?? 0 : 0
+                      const cmpSkor = sd.katSkorCmp ? (sd.katSkorCmp as any)[kat.key] ?? null : null
                       const delta   = changePct(skor, cmpSkor)
                       const aktif   = katSortKey === kat.key
                       return (
@@ -289,7 +281,7 @@ export default function KpiDetayPage() {
                             </div>
                           </div>
                           <div style={{ background: 'var(--surf3)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
-                            <div style={{ width: scoreBarWidth(skor) + '%', height: '100%', background: scoreColor(skor), borderRadius: 4 }} />
+                            <div style={{ width: scoreBarWidth(skor), height: '100%', background: scoreColor(skor), borderRadius: 4 }} />
                           </div>
                         </div>
                       )
@@ -323,7 +315,7 @@ export default function KpiDetayPage() {
 
         <div style={{ display: 'flex', gap: 16, marginTop: 16, fontSize: 10, color: 'var(--tx3)' }}>
           {['#10b981', '#3b82f6', '#ef4444'].map(function(c, i) {
-            const lbl = i === 0 ? '≥110: Güçlü' : i === 1 ? '95-110: Referansa yakın' : '<95: Dikkat/Kritik'
+            const lbl = i === 0 ? '>= 77: TR Ust' : i === 1 ? '66-77: TR Yakin' : '< 66: TR Alt'
             return (
               <div key={c} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: c, display: 'inline-block' }} />

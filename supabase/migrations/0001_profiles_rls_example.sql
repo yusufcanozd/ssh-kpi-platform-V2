@@ -171,7 +171,7 @@ begin
     new.id,
     coalesce(new.email, ''),
     coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name'),
-    'viewer',
+    'user',
     true
   )
   on conflict (id) do nothing;

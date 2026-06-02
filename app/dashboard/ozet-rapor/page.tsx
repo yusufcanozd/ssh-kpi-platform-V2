@@ -6,7 +6,7 @@ import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, SEGMENTLER, SEGMENT_HEX, SEGMENT_BG,
   BOLGELER, YAS_GRUPLARI, DONEMLER, CAT_COLORS,
-  fmtKpi, getKpisFromCube, getScore, getKpiScores, getMarkaRanking,
+  fmtKpi, getKpisFromCube, getScore, getRegionalScorePrecise, getKpiScores, getMarkaRanking,
   isLowerBetter, heatColor,
 } from '@/lib/kpi'
 import styles from './page.module.css'
@@ -148,8 +148,8 @@ export default function OzetRaporPage() {
 
     const bolgeData = BOLGELER.slice(0, 8).map(b => ({
       bolge: b,
-      score: getScore('', b, selYas, bazStr),
-      scoreCmp: cmpStr ? getScore('', b, selYas, cmpStr) : null,
+      score: getRegionalScorePrecise('', b, selYas, bazStr),
+      scoreCmp: cmpStr ? getRegionalScorePrecise('', b, selYas, cmpStr) : null,
     }))
 
     const yasData = YAS_GRUPLARI.filter(y => y !== 'Tümü').map(y => ({

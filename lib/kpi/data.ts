@@ -52,48 +52,41 @@ export interface MarkaScoreWithPrivacy extends MarkaScore {
   isMasked?: boolean
 }
 
-export interface MarkaMethodologyInfo {
-  source: 'marka_scores.json' | 'marka_score_cube'
-  hasCategoryBreakdown: boolean
-  hasKpiBreakdown: boolean
-  explanation: string
-}
-
-export function getMarkaMethodologyInfo(): MarkaMethodologyInfo {
-  return {
-    source: 'marka_scores.json',
-    hasCategoryBreakdown: false,
-    hasKpiBreakdown: false,
-    explanation: 'Marka sıralaması hazır genel marka skorunu kullanır; mevcut veri kaynağında marka bazlı kategori/KPI kırılımı yoktur.',
-  }
-}
-
 // ─────────────────────────────────────────────────────────────
 // Ham veri yükleme
 // ─────────────────────────────────────────────────────────────
 export const CUBE: CubeRow[] = (rawData.cube ?? []) as CubeRow[]
-
-const zeroVarianceKpiCache = new Map<number, boolean>()
-
-export function isZeroVarianceKpi(kpiIdx: number): boolean {
-  if (zeroVarianceKpiCache.has(kpiIdx)) return zeroVarianceKpiCache.get(kpiIdx) ?? false
-  const values = CUBE
-    .map(row => row[4]?.[kpiIdx])
-    .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
-  const result = values.length > 0 && values.every(v => v === 0)
-  zeroVarianceKpiCache.set(kpiIdx, result)
-  return result
-}
-
-export function getZeroVarianceKpiIndexes(): number[] {
-  return KPI_META.map((_, idx) => idx).filter(isZeroVarianceKpi)
-}
 
 // score_cube legacy veri alanıdır, runtime skor hesaplamasında kullanılmaz.
 // JSON içinde geriye dönük izlenebilirlik / eski backend çıktısı olarak kalabilir;
 // ancak getScore(), getScoreDetailed(), getKpiScores() ve UI skorları artık yalnızca
 // CUBE ham KPI değerleri üzerinden normalizeKpi → hesaplaKatveGenelSkor motoruyla üretilir.
 // Bu dosyada bilinçli olarak rawData.score_cube okunmaz ve herhangi bir scoreMap oluşturulmaz.
+
+
+
+// ─────────────────────────────────────────────────────────────
+// Veri kalitesi / coverage yardımcıları
+// ─────────────────────────────────────────────────────────────
+const ZERO_VARIANCE_KPI_IDXS = new Set<number>()
+
+for (let i = 0; i < KPI_META.length; i++) {
+  const vals = CUBE.map(r => r[4]?.[i]).filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+  const uniqueVals = new Set(vals.map(v => Number(v)))
+  if (vals.length > 0 && uniqueVals.size <= 1) ZERO_VARIANCE_KPI_IDXS.add(i)
+}
+
+/**
+ * Veri setinde hiç varyans üretmeyen KPI'lar skoru ayrıştıramaz.
+ * Örneğin mevcut veri setinde KPI 2 tüm satırlarda 0 olduğu için coverage dışında tutulur.
+ */
+export function isZeroVarianceKpi(kpiIdx: number): boolean {
+  return ZERO_VARIANCE_KPI_IDXS.has(kpiIdx)
+}
+
+export function getExcludedKpiIdxs(): number[] {
+  return Array.from(ZERO_VARIANCE_KPI_IDXS).sort((a, b) => a - b)
+}
 
 const MARKA_CUBE: MarkaRow[] = Array.isArray(rawMarkaData)
   ? rawMarkaData as MarkaRow[]
@@ -142,7 +135,7 @@ export function getCube(seg = '', bolge = '', yas = 'Tümü', donem = ''): CubeR
 // Marka skorları şu an yalnızca genel skor içerir; kategori/KPI kırılımı yoktur.
 // Segment/kategori/genel dashboard skorları ise score_cube kullanmaz, dinamik KPI motorundan gelir.
 // ─────────────────────────────────────────────────────────────
-export function applyBrandPrivacyRule<T extends { marka: string }>(rows: T[]): Array<T & { originalMarka?: string; isMasked: boolean }> {
+export function applyBrandPrivacyRule<T extends { marka: string }>(rows: T[]): T[] {
   // Rekabet hassasiyeti / Rule of 3:
   // Filtre sonucunda 1, 2 veya 3 marka varsa marka adları deterministik şekilde maskelenir.
   if (rows.length > 0 && rows.length <= 3) {

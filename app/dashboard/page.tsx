@@ -7,7 +7,7 @@ import {
   KPI_META, BOLGELER, SEGMENTLER, YAS_STATS, TOTAL_IO, TOTAL_SERVIS,
   SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG, CAT_COLORS,
   fmtKpi, getKpisFromCube, getN, getMarkaList, getMarkaRanking,
-  overallScoreFromKpis, heatColor, isLowerBetter,
+  heatColor, isLowerBetter,
   getScore, scoreColor, scoreBg, scoreBarWidth, changePct, SegmentScore
 } from '@/lib/kpi'
 import { Bar, Line } from 'react-chartjs-2'
@@ -143,7 +143,7 @@ export default function DashboardPage() {
                 plugins:{legend:{display:!!selCmpDonem,position:'top',labels:{color:'#8496b0',font:{size:10},boxWidth:10}},
                   tooltip:{callbacks:{label:(ctx)=>`${ctx.dataset.label}: ${ctx.parsed.y} puan`}}},
                 scales:{
-                  y:{min:0,max:105,grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8496b0',font:{size:9}}},
+                  y:{min:0,max:200,grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8496b0',font:{size:9}}},
                   x:{grid:{display:false},ticks:{color:'#8496b0',font:{size:11}}}}}}/>
             </div>
 
@@ -218,12 +218,12 @@ export default function DashboardPage() {
                     <div className={styles.hbarTrack} style={{position:'relative'}}>
                       {/* Baz dönem — içi boş */}
                       <div style={{position:'absolute',top:0,left:0,height:'100%',
-                        width:`${m.score}%`,border:`2px solid ${SEGMENT_HEX[m.segment]}`,
+                        width:scoreBarWidth(m.score),border:`2px solid ${SEGMENT_HEX[m.segment]}`,
                         borderRadius:4,boxSizing:'border-box'}}/>
                       {/* Karşılaştırma — içi dolu */}
                       {selCmpDonem && cmpM && (
                         <div style={{position:'absolute',top:'25%',left:0,height:'50%',
-                          width:`${cmpM.score}%`,background:`${SEGMENT_HEX[m.segment]}55`,
+                          width:scoreBarWidth(cmpM.score),background:`${SEGMENT_HEX[m.segment]}55`,
                           borderRadius:3}}/>
                       )}
                     </div>
@@ -348,7 +348,7 @@ function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, s
                   {/* Baz bar */}
                   <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:cmpV?3:0}}>
                     <div style={{flex:1,background:'rgba(255,255,255,.08)',borderRadius:3,height:6,overflow:'hidden'}}>
-                      <div style={{width:`${scoreBarWidth(bazV)}%`,height:6,borderRadius:3,
+                      <div style={{width:scoreBarWidth(bazV),height:6,borderRadius:3,
                         background:color+'55',borderRight:`2px solid ${color}`}}/>
                     </div>
                     <span style={{fontSize:10,fontFamily:'var(--font-dm-mono)',fontWeight:700,
@@ -358,7 +358,7 @@ function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, s
                   {cmpV!==null && (
                     <div style={{display:'flex',alignItems:'center',gap:5}}>
                       <div style={{flex:1,background:'rgba(255,255,255,.05)',borderRadius:3,height:5,overflow:'hidden'}}>
-                        <div style={{width:`${scoreBarWidth(cmpV)}%`,height:5,borderRadius:3,
+                        <div style={{width:scoreBarWidth(cmpV),height:5,borderRadius:3,
                           background:color+'88'}}/>
                       </div>
                       <span style={{fontSize:9,fontFamily:'var(--font-dm-mono)',color:'var(--tx3)',minWidth:26,textAlign:'right'}}>{cmpV}</span>

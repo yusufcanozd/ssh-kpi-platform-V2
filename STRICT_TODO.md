@@ -56,8 +56,9 @@ npm run test
 npm run build
 ```
 
-## Son iyileştirme sonrası kalan strict-mode borçları
 
-- Dashboard sayfalarında bazı Chart.js callback tipleri hâlâ `any` kullanıyor; Chart.js tipleri projede tam kurulu ortamda aşamalı daraltılmalı.
-- Büyük sayfalar (`trend`, `ozet-rapor`, `markalar`) tamamen yeniden yazılmadan küçük component'lere ayrılmaya devam edilmeli.
-- Supabase response tipleri role/profile tarafında daha dar generic tiplerle güçlendirilmeli.
+## Son durum
+
+- KPI ve API tarafında en riskli `any` kullanımları azaltıldı.
+- Dashboard sayfalarında chart callback ve rapor veri yapılarında kademeli tip iyileştirme ihtiyacı devam ediyor.
+- `strict: true` geçişinden önce `ozet-rapor` ve `trend` sayfalarının component'lere bölünmesi önerilir.

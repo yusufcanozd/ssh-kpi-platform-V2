@@ -238,35 +238,20 @@ Yuvarlanmış genel skor:
 Genel skor = 103
 ```
 
----
 
-## 14. Kalan iyileştirmeler sonrası metodoloji notları
+## Bölge karşılaştırma referansı
 
-### Bölge skor referansı
-Bölge karşılaştırma ekranlarında skorlar `same-filter` referans yerine `national` referansla hesaplanır. Segment seçili değilse referans `Tüm segmentler / Tüm Türkiye`; segment seçiliyse referans `aynı segment / Tüm Türkiye` satırıdır. Bu sayede Akdeniz, Ege, Marmara gibi bölgeler aynı ulusal benchmark ile karşılaştırılır.
+Standart `getScore` fonksiyonu mevcut same-filter davranışını korur. Bölge karşılaştırma ekranlarında ise `getRegionalScore` / `getRegionalScorePrecise` kullanılır. Segment seçili değilse referans tüm Türkiye; segment seçiliyse aynı segmentin Türkiye geneli satırıdır. Bu sayede Akdeniz, Ege, Marmara gibi bölgeler kendi iç referanslarıyla değil, ulusal benchmark ile karşılaştırılır.
 
-### KPI 2 veri kalitesi ve coverage kararı
-KPI 2 veri setinde sıfır-varyans / tüm değerleri 0 olan KPI olarak tespit edilirse skor hesaplamasında coverage dışına alınır. Bu karar, veri üretimi düzeltilene kadar KPI 2'nin kategori ortalamasını yapay şekilde 100'e çekmesini engeller. Eksik/coverage dışı KPI'lar `getScoreDetailed` ve kategori detaylarında görünür.
+## Veri kalitesi ve zero-variance KPI
 
-### 0-200 skor ölçeği ve görsel eşikler
-Normalize skor ölçeği 0-200'dür ve 100 referans seviyesidir. Güncel görsel eşikler:
+Veri setinde tüm satırlarda aynı değeri alan KPI'lar ayrıştırıcı performans sinyali üretmez. Bu KPI'lar coverage dışında bırakılır ve kategori ortalamasına dahil edilmez. Mevcut veri setinde KPI 2 tüm satırlarda 0 olduğu için bu kurala girer.
 
-- 110 ve üzeri: güçlü / referans üstü
-- 95-110: referansa yakın
-- 85-95: dikkat
-- 85 altı: kritik
+## 0–200 skor renkleri
 
-Progress bar genişlikleri 0-200 ölçeğini dikkate alarak hesaplanır; 200 puan %100 bar genişliğine karşılık gelir.
+- 110 ve üzeri: güçlü performans
+- 95–110: referansa yakın performans
+- 85–95: dikkat gerektiren performans
+- 85 altı: kritik performans
 
-### Marka skorları
-Marka sıralaması `marka_scores.json` içindeki hazır genel marka skorunu kullanır. Bu kaynakta marka bazlı kategori/KPI kırılımı olmadığı için UI bunu açıkça belirtir. Kategori/KPI sütunları, markanın segment referans skorları üzerinden açıklama amaçlı gösterilir; marka skorunun birebir alt kırılımı olarak yorumlanmamalıdır.
-
-### Roller
-Uygulamanın canonical rol seti:
-
-- `superadmin`
-- `admin`
-- `analyst`
-- `viewer`
-
-Supabase migration ve uygulama kodu bu rol setine göre uyumlu hale getirilmiştir.
+Progress bar genişlikleri 200 tavanına göre normalize edilir; 100 referans çizgisidir.

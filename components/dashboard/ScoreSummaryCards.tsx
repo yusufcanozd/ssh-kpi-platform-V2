@@ -1,7 +1,7 @@
 'use client'
 
 import { GeneralScoreMethodology } from '@/components/dashboard/MethodologyTooltip'
-import { scoreColor, scoreBarWidth, fmtSkor0, type SegmentScore } from '@/lib/kpi'
+import { scoreColor, scoreBarWidth, type SegmentScore } from '@/lib/kpi'
 
 export type SegmentScoreCardItem = {
   key: string
@@ -30,7 +30,7 @@ function ScoreCard({ item, bazDonem, cmpDonem }: { item: SegmentScoreCardItem; b
         <div>
           <div style={{ fontSize: 9, color: 'var(--tx3)', marginBottom: 3, fontWeight: 500 }}>{bazDonem}</div>
           <div style={{ fontSize: 32, fontWeight: 800, fontFamily: 'var(--font-dm-mono)', color: scoreColor(bazG), lineHeight: 1 }}>
-            {item.baz ? fmtSkor0(bazG) : '—'}
+            {bazG || '—'}
           </div>
           <div style={{ fontSize: 9, color: 'var(--tx3)', marginTop: 2 }}>puan</div>
         </div>
@@ -39,7 +39,7 @@ function ScoreCard({ item, bazDonem, cmpDonem }: { item: SegmentScoreCardItem; b
           <div style={{ paddingBottom: 4 }}>
             <div style={{ fontSize: 9, color: 'var(--tx3)', marginBottom: 3, fontWeight: 500 }}>{cmpDonem}</div>
             <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-dm-mono)', color: 'var(--tx2)', lineHeight: 1 }}>
-              {fmtSkor0(cmpG)}
+              {cmpG}
             </div>
           </div>
         )}
@@ -56,10 +56,10 @@ function ScoreCard({ item, bazDonem, cmpDonem }: { item: SegmentScoreCardItem; b
       <div style={{ background: 'rgba(0,0,0,.12)', borderRadius: 6, height: 4, overflow: 'hidden' }}>
         <div
           style={{
-            width: `${scoreBarWidth(bazG)}%`,
+            width: scoreBarWidth(bazG),
             height: 4,
             borderRadius: 6,
-            background: scoreColor(bazG) + '88',
+            background: scoreColor(bazG) + '99',
             transition: 'width .4s',
           }}
         />

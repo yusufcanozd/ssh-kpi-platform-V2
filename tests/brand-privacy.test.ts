@@ -9,7 +9,7 @@ describe('applyBrandPrivacyRule', () => {
       { marka: 'C', segment: 'Mass', score: 70 },
     ]
 
-    const masked = applyBrandPrivacyRule(rows)
+    const masked = applyBrandPrivacyRule(rows) as Array<{ marka: string; isMasked?: boolean }>
 
     expect(masked.map(r => r.marka)).toEqual([
       'Gizli Teşebbüs 1',
@@ -27,7 +27,7 @@ describe('applyBrandPrivacyRule', () => {
       { marka: 'D' },
     ]
 
-    const result = applyBrandPrivacyRule(rows)
+    const result = applyBrandPrivacyRule(rows) as Array<{ marka: string; isMasked?: boolean }>
 
     expect(result.map(r => r.marka)).toEqual(['A', 'B', 'C', 'D'])
     expect(result.every(r => r.isMasked === false)).toBe(true)
