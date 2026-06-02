@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTheme } from '@/context/ThemeContext'
+import { establishBrowserSession, clearSupabaseBrowserSession, clearSupabaseAuthCookies } from '@/lib/auth/session'
 import styles from './page.module.css'
 
 type Mode = 'login' | 'signup' | 'forgot' | 'otp' | 'reset'
@@ -36,6 +37,8 @@ export default function LoginPage() {
   // ── Giriş ──────────────────────────────────────────────────
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault(); reset(); setLoading(true)
+    clearSupabaseBrowserSession()
+    clearSupabaseAuthCookies()
     try {
       const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
       if (err) {
@@ -54,10 +57,13 @@ export default function LoginPage() {
         return
       }
       if (!profile.is_active) {
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'global' })
+        clearSupabaseBrowserSession()
+        clearSupabaseAuthCookies()
         setError('Hesabınız deaktif. Yöneticinizle iletişime geçin.')
         return
       }
+      establishBrowserSession()
       // setLoading(false) router.push'tan ÖNCE — unmount öncesi state temizlenir
       setLoading(false)
       router.push(['superadmin','admin'].includes(profile.role || '') ? '/admin' : '/dashboard')

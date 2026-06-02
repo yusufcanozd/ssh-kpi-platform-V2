@@ -66,3 +66,12 @@
 - Çıkış Yap düğmesine basıldığında kullanıcının `/login` sayfasına yönlendiğini ve geri tuşuyla dashboard'a dönmediğini doğrula.
 - GitHub Actions üzerinde test, lint ve build işlerinin main/cursor-local-snapshot push sonrası çalıştığını kontrol et.
 - Kök dizinde `kpi_data.json` bulunmadığını, yalnızca `lib/kpi_data.json` kullanıldığını doğrula.
+
+## Prompt 1 - Auth ve session güvenliği manuel testleri
+
+1. Normal giriş yapın; rolünüze göre `/admin` veya `/dashboard` sayfasına yönlendirilmelisiniz.
+2. Aynı sekmede sayfayı yenileyin; oturum devam etmelidir.
+3. Tarayıcı sekmesini veya pencereyi tamamen kapatıp siteyi yeniden açın; tekrar `/login` ekranına düşmeli ve kullanıcı adı/şifre istemelidir.
+4. `Çıkış Yap` butonuna basın; `/login` sayfasına yönlenmeli, geri tuşu ile dashboard/admin ekranına dönülememelidir.
+5. Deaktif kullanıcıyla giriş denenirse oturum temizlenmeli ve hata mesajı gösterilmelidir.
+6. Admin olmayan kullanıcı `/admin/users` adresine gitmeye çalışırsa `/dashboard` sayfasına yönlendirilmelidir.

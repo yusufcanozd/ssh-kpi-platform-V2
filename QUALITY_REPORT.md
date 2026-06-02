@@ -85,3 +85,10 @@ npm run build
 - Çıkış yap akışı güçlendirildi: Supabase global sign-out, istemci auth storage temizliği, router yenileme ve `/login` fallback yönlendirmesi birlikte uygulanır.
 - GitHub Actions CI eklendi: `npm run test`, `npm run lint`, `npm run build` main ve preview branch push'larında çalışacak şekilde yapılandırıldı.
 - Özet rapor başlıkları `components/report/ReportSectionHeader.tsx` bileşenine ayrılarak rapor refactor süreci başlatıldı.
+
+## Prompt 1 - Auth ve session güvenliği notları
+
+- Giriş sonrası `sessionStorage` üzerinde kısa ömürlü browser-session marker oluşturuldu.
+- Tarayıcı/sekme kapatıldığında `sessionStorage` kaybolduğu için cookie kalsa bile tekrar açılışta kullanıcı global sign-out ile `/login` ekranına zorlanır.
+- Manuel logout artık Supabase auth storage, session marker ve Supabase cookie temizliğini birlikte yapar.
+- SSR middleware davranışını bozmamak için Supabase SSR cookie akışı korunmuştur; yeniden giriş zorunluluğu client-side session marker ile uygulanır.

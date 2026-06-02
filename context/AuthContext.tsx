@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Profile } from '@/types'
+import { clearSupabaseBrowserSession, clearSupabaseAuthCookies, hasActiveBrowserSession } from '@/lib/auth/session'
 
 interface AuthContextType {
   profile: Profile | null
@@ -17,23 +18,6 @@ const AuthContext = createContext<AuthContextType>({
   profile: null, loading: true,
   logout: async () => {}, isAdmin: false, isSuperAdmin: false,
 })
-
-function clearSupabaseBrowserSession() {
-  if (typeof window === 'undefined') return
-
-  const clear = (storage: Storage) => {
-    for (let i = storage.length - 1; i >= 0; i -= 1) {
-      const key = storage.key(i)
-      if (!key) continue
-      if (key.startsWith('sb-') || key.includes('supabase.auth')) {
-        storage.removeItem(key)
-      }
-    }
-  }
-
-  try { clear(window.localStorage) } catch {}
-  try { clear(window.sessionStorage) } catch {}
-}
 
 function goLoginFallback() {
   if (typeof window !== 'undefined') {
@@ -50,7 +34,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Oturum kontrolü
+    // Güvenlik kuralı: tarayıcı/sekme kapatılıp tekrar açıldıysa
+    // sessionStorage marker kaybolur. Supabase cookie kalsa bile kullanıcı
+    // tekrar kullanıcı adı/şifre ile girişe zorlanır.
     supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (user && !hasActiveBrowserSession()) {
+        setProfile(null)
+        try { await supabase.auth.signOut({ scope: 'global' }) } catch {}
+        clearSupabaseBrowserSession()
+        clearSupabaseAuthCookies()
+        router.replace('/login')
+        setTimeout(goLoginFallback, 150)
+        return
+      }
+
       if (user) {
         const { data } = await supabase
           .from('profiles')
@@ -67,6 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (event === 'SIGNED_OUT') {
           setProfile(null)
+          clearSupabaseBrowserSession()
+          clearSupabaseAuthCookies()
           router.replace('/login')
         } else if (event === 'SIGNED_IN' && session?.user) {
           const { data } = await supabase
@@ -119,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Ağ/Supabase kaynaklı hata olsa bile istemci oturumu temizlenir.
     } finally {
       clearSupabaseBrowserSession()
+      clearSupabaseAuthCookies()
       router.replace('/login')
       router.refresh()
       setTimeout(goLoginFallback, 150)
