@@ -51,7 +51,7 @@ export function validateFileBeforeRead(file: File): string | null {
   const type = detectImportFileType(file.name)
 
   if (type === 'unknown') {
-    return 'Desteklenmeyen dosya tipi. Geçici olarak CSV ve JSON import desteklenir. Excel desteği sonraki adımda eklenecek.'
+    return 'Desteklenmeyen dosya tipi. CSV, JSON ve Excel (.xlsx/.xls) yükleyebilirsiniz.'
   }
 
 
@@ -83,7 +83,8 @@ export function buildInitialMapping(columns: string[]): ImportColumnMapping[] {
 export async function parseImportFile(file: File): Promise<ImportPreviewResult> {
   const fileType = detectImportFileType(file.name)
   if (fileType === 'xlsx') {
-    throw new Error('Excel import geçici olarak kapalı. Lütfen veriyi CSV veya JSON olarak yükleyin.')
+    const arrayBuffer = await file.arrayBuffer()
+    return parseXlsxFile(file.name, arrayBuffer)
   }
 
   const text = await file.text()
@@ -149,8 +150,36 @@ export function parseJsonText(fileName: string, text: string): ImportPreviewResu
 }
 
 
-export async function parseXlsxFile(fileName: string, _arrayBuffer: ArrayBuffer): Promise<ImportPreviewResult> {
-  throw new Error(`${fileName} için Excel import geçici olarak kapalı. Lütfen veriyi CSV veya JSON olarak yükleyin.`)
+export async function parseXlsxFile(fileName: string, arrayBuffer: ArrayBuffer): Promise<ImportPreviewResult> {
+  // SheetJS yalnızca xlsx seçilince yüklenir (dynamic import → bundle/SSR şişmesini önler).
+  const XLSX = await import('xlsx')
+  const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' })
+  const firstSheetName = workbook.SheetNames[0]
+  if (!firstSheetName) throw new Error('Excel dosyasında okunabilir sayfa bulunamadı.')
+
+  const sheet = workbook.Sheets[firstSheetName]
+  const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' }) as unknown as unknown[][]
+  if (!matrix.length) throw new Error('Excel sayfası boş görünüyor.')
+
+  const header = (matrix[0] ?? []) as unknown[]
+  const columns = header.map((cell, index) => cleanColumnName(String(cell ?? ''), index)).filter(Boolean)
+
+  const rows: ImportRawRow[] = matrix.slice(1).map((cells, rowIndex) => {
+    const values: Record<string, string> = {}
+    columns.forEach((column, columnIndex) => {
+      const raw = (cells as unknown[])[columnIndex]
+      values[column] = (raw === null || raw === undefined ? '' : String(raw)).trim()
+    })
+    return { rowNumber: rowIndex + 2, values }
+  }).filter(row => Object.values(row.values).some(value => value.length > 0))
+
+  return {
+    fileName,
+    fileType: 'xlsx',
+    columns,
+    rows,
+    previewRows: rows.slice(0, MAX_PREVIEW_ROWS),
+  }
 }
 
 export function validateImportRows(
