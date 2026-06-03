@@ -56,3 +56,21 @@ export async function loadCurrentUserPermissions(supabase: SupabaseClient): Prom
     return { ...EMPTY_PERMISSIONS, loaded: true } // fail-open
   }
 }
+
+/**
+ * Geçerli kullanıcının izin verilen marka ADLARINI döndürür (marka kırılımı filtresi için).
+ * Boş dizi = kısıt yok / superadmin / hata (fail-open).
+ */
+export async function resolveAllowedBrandNames(supabase: SupabaseClient): Promise<string[]> {
+  try {
+    const perm = await loadCurrentUserPermissions(supabase)
+    if (perm.isSuperadmin || perm.allowedBrandIds.length === 0) return []
+    const { data } = await supabase.from('brands').select('name').in('id', perm.allowedBrandIds)
+    if (!Array.isArray(data)) return []
+    return data
+      .map(row => (row && typeof (row as { name?: unknown }).name === 'string' ? (row as { name: string }).name : ''))
+      .filter(Boolean)
+  } catch {
+    return []
+  }
+}

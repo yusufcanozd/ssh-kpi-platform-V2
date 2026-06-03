@@ -1,9 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
+import { createClient } from '@/lib/supabase/client'
+import { resolveAllowedBrandNames } from '@/lib/auth/permissions'
 import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, SEGMENT_HEX, SEGMENT_BG, KAT_YAPILAR,
@@ -83,14 +85,22 @@ export default function MarkalarsPage() {
 
   const filterLabel = (selBolge || 'Tum TR') + ' - ' + (selYas === 'Tümü' ? 'Tum Yas' : selYas) + ' - ' + (selDonem || 'Tum Donem')
 
+  const [allowedBrandNames, setAllowedBrandNames] = useState<string[]>([])
+  useEffect(function() {
+    let cancelled = false
+    const supabase = createClient()
+    resolveAllowedBrandNames(supabase).then(function(names) { if (!cancelled) setAllowedBrandNames(names) })
+    return function() { cancelled = true }
+  }, [])
+
   const brandPrivacy = useMemo(function() {
     const rawCount = getRawMarkaRanking(selSeg, selBolge, selYas, selDonem).length
     return getBrandPrivacyInfo(rawCount)
   }, [selSeg, selBolge, selYas, selDonem])
 
   const markalar = useMemo(function() {
-    const ranked    = getMarkaRanking(selSeg, selBolge, selYas, selDonem)
-    const cmpRanked = selCmpDonem ? getMarkaRanking(selSeg, selBolge, selYas, selCmpDonem) : []
+    const ranked    = getMarkaRanking(selSeg, selBolge, selYas, selDonem).filter(function(m) { return allowedBrandNames.length === 0 || allowedBrandNames.indexOf(m.marka) !== -1 })
+    const cmpRanked = (selCmpDonem ? getMarkaRanking(selSeg, selBolge, selYas, selCmpDonem) : []).filter(function(m) { return allowedBrandNames.length === 0 || allowedBrandNames.indexOf(m.marka) !== -1 })
     const result = ranked.map(function(m, bazIdx) {
       const cmpIdx = cmpRanked.findIndex(function(x) { return x.marka === m.marka })
       return {
@@ -110,11 +120,11 @@ export default function MarkalarsPage() {
       const bv = b.bazSkorlar[sortKpi] ?? 0
       return isLowerBetter(sortKpi) ? av - bv : bv - av
     })
-  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, sortKpi])
+  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, sortKpi, allowedBrandNames])
 
   const katMarkalar = useMemo(function() {
-    const ranked    = getMarkaRanking(selSeg, selBolge, selYas, selDonem)
-    const cmpRanked = selCmpDonem ? getMarkaRanking(selSeg, selBolge, selYas, selCmpDonem) : []
+    const ranked    = getMarkaRanking(selSeg, selBolge, selYas, selDonem).filter(function(m) { return allowedBrandNames.length === 0 || allowedBrandNames.indexOf(m.marka) !== -1 })
+    const cmpRanked = (selCmpDonem ? getMarkaRanking(selSeg, selBolge, selYas, selCmpDonem) : []).filter(function(m) { return allowedBrandNames.length === 0 || allowedBrandNames.indexOf(m.marka) !== -1 })
     const result = ranked.map(function(m, bazIdx) {
       const cmpIdx = cmpRanked.findIndex(function(x) { return x.marka === m.marka })
       return {
@@ -134,7 +144,7 @@ export default function MarkalarsPage() {
       const bv = b.katSkor ? (b.katSkor as any)[katSortKey] ?? 0 : 0
       return bv - av
     })
-  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, katSortKey])
+  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, katSortKey, allowedBrandNames])
 
   function makeBarData(labels: string[], vals: number[], cmpVals: number[] | null, label: string) {
     const colors = vals.map(function(v) { return kpiScoreColor(v) })
