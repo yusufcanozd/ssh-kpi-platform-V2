@@ -8,7 +8,7 @@ import { filterAllowedBrandNames } from '@/lib/auth/permissions'
 import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, SEGMENT_HEX, SEGMENT_BG, KAT_YAPILAR,
-  getKpiScores, getScore, getRawMarkaRanking, getBrandPrivacyInfo, applyBrandPrivacyRule,
+  createRuntimeCalculator, getRawMarkaRanking, getBrandPrivacyInfo, applyBrandPrivacyRule,
   kpiScoreColor, kpiScoreBg, scoreColor, scoreBg,
   changePct, chgColor, isLowerBetter,
 } from '@/lib/kpi'
@@ -77,10 +77,11 @@ function SkorHucre(props: { skor: number; cmpSkor?: number | null; size?: string
 }
 
 export default function MarkalarsPage() {
-  const { selSeg, selBolge, selYas, selDonem, selCmpDonem, hasDataRestriction, allowedBrandNames } = useDashboardCtx()
+  const { selSeg, selBolge, selYas, selDonem, selCmpDonem, hasDataRestriction, allowedBrandNames, runtimeData } = useDashboardCtx()
   const [tab, setTab]             = useState('kpi')
   const [sortKpi, setSortKpi]     = useState(-1)
   const [katSortKey, setKatSortKey] = useState('genel')
+  const runtimeCalc = useMemo(() => createRuntimeCalculator(runtimeData), [runtimeData])
 
   const filterLabel = (selBolge || 'Tum TR') + ' - ' + (selYas === 'Tümü' ? 'Tum Yas' : selYas) + ' - ' + (selDonem || 'Tum Donem')
 
@@ -113,8 +114,8 @@ export default function MarkalarsPage() {
         marka:      m.marka,
         segment:    m.segment,
         score:      m.score,
-        bazSkorlar: getKpiScores(m.segment, selBolge, selYas, selDonem),
-        cmpSkorlar: selCmpDonem ? getKpiScores(m.segment, selBolge, selYas, selCmpDonem) : null,
+        bazSkorlar: runtimeCalc.getKpiScores(m.segment, selBolge, selYas, selDonem),
+        cmpSkorlar: selCmpDonem ? runtimeCalc.getKpiScores(m.segment, selBolge, selYas, selCmpDonem) : null,
         cmpScore:   cmpIdx >= 0 ? cmpRanked[cmpIdx].score : null,
         bazRank:    bazIdx + 1,
         cmpRank:    cmpIdx >= 0 ? cmpIdx + 1 : 0,
@@ -126,7 +127,7 @@ export default function MarkalarsPage() {
       const bv = b.bazSkorlar[sortKpi] ?? 0
       return isLowerBetter(sortKpi) ? av - bv : bv - av
     })
-  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, sortKpi, allowedBrandNames, brandRestricted])
+  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, sortKpi, allowedBrandNames, brandRestricted, runtimeCalc])
 
   const katMarkalar = useMemo(function() {
     const ranked    = getPermissionFilteredRanking(selDonem)
@@ -137,8 +138,8 @@ export default function MarkalarsPage() {
         marka:      m.marka,
         segment:    m.segment,
         score:      m.score,
-        katSkor:    getScore(m.segment, selBolge, selYas, selDonem),
-        katSkorCmp: selCmpDonem ? getScore(m.segment, selBolge, selYas, selCmpDonem) : null,
+        katSkor:    runtimeCalc.getScore(m.segment, selBolge, selYas, selDonem),
+        katSkorCmp: selCmpDonem ? runtimeCalc.getScore(m.segment, selBolge, selYas, selCmpDonem) : null,
         cmpScore:   cmpIdx >= 0 ? cmpRanked[cmpIdx].score : null,
         bazRank:    bazIdx + 1,
         cmpRank:    cmpIdx >= 0 ? cmpIdx + 1 : 0,
@@ -150,7 +151,7 @@ export default function MarkalarsPage() {
       const bv = b.katSkor ? (b.katSkor as any)[katSortKey] ?? 0 : 0
       return bv - av
     })
-  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, katSortKey, allowedBrandNames, brandRestricted])
+  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, katSortKey, allowedBrandNames, brandRestricted, runtimeCalc])
 
   function makeBarData(labels: string[], vals: number[], cmpVals: number[] | null, label: string) {
     const colors = vals.map(function(v) { return kpiScoreColor(v) })
