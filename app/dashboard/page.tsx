@@ -4,11 +4,10 @@ import { useMemo } from 'react'
 import { useDashboardCtx } from './DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
-  KPI_META, BOLGELER, SEGMENTLER, YAS_STATS, TOTAL_IO, TOTAL_SERVIS,
+  SEGMENTLER,
   SEGMENT_COLORS, SEGMENT_BG, SEGMENT_HEX, SEGMENT_HEX_BG, CATEGORY_OPTIONS,
-  fmtKpi, getKpisFromCube, getN, getMarkaList, getMarkaRanking,
-  heatColor, isLowerBetter,
-  getScore, scoreColor, scoreBg, scoreBarWidth, changePct, SegmentScore
+  getMarkaRanking,
+  scoreBarWidth, SegmentScore, createRuntimeCalculator
 } from '@/lib/kpi'
 import { Bar, Line } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend, Filler } from 'chart.js'
@@ -21,20 +20,23 @@ import styles from './page.module.css'
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend, Filler)
 
 export default function DashboardPage() {
-  const { selSeg, selBolge, selYas, selDonem, selCmpDonem } = useDashboardCtx()
+  const {
+    selSeg, selBolge, selYas, selDonem, selCmpDonem,
+    runtimeData, runtimeLoading, dataSourceLabel, isDynamicDataSource,
+    allowedSegments, allowedRegions,
+  } = useDashboardCtx()
+
+  const runtimeCalculator = useMemo(() => createRuntimeCalculator(runtimeData), [runtimeData])
+  const dashboardSegments = allowedSegments.length > 0 ? allowedSegments : SEGMENTLER
 
   // Baz dönem skorları — her segment için
   const segScores = useMemo(() =>
-    SEGMENTLER.map(s => ({
-      seg: s,
-      baz: getScore(s, selBolge, selYas, selDonem),
-      cmp: selCmpDonem ? getScore(s, selBolge, selYas, selCmpDonem) : null,
-    })),
-    [selBolge, selYas, selDonem, selCmpDonem])
+    runtimeCalculator.getSegmentScores(dashboardSegments, selBolge, selYas, selDonem, selCmpDonem),
+    [runtimeCalculator, dashboardSegments, selBolge, selYas, selDonem, selCmpDonem])
 
   // Tüm Türkiye skoru
-  const trBaz = useMemo(() => getScore('', selBolge, selYas, selDonem), [selBolge, selYas, selDonem])
-  const trCmp = useMemo(() => selCmpDonem ? getScore('', selBolge, selYas, selCmpDonem) : null, [selBolge, selYas, selCmpDonem])
+  const trBaz = useMemo(() => runtimeCalculator.getScore('', selBolge, selYas, selDonem), [runtimeCalculator, selBolge, selYas, selDonem])
+  const trCmp = useMemo(() => selCmpDonem ? runtimeCalculator.getScore('', selBolge, selYas, selCmpDonem) : null, [runtimeCalculator, selBolge, selYas, selCmpDonem])
 
   // Seçili segmente göre filtre
   const visibleSegs = selSeg ? segScores.filter(s=>s.seg===selSeg) : segScores
@@ -42,18 +44,13 @@ export default function DashboardPage() {
   // Marka sıralaması — gerçek marka×dönem×yaş verisi
   const markalar = useMemo(() =>
     getMarkaRanking(selSeg, selBolge, selYas, selDonem),
-    [selSeg, selYas, selDonem])
+    [selSeg, selBolge, selYas, selDonem])
 
   // Karşılaştırma dönem sıralaması
   const marklarCmp = useMemo(() =>
     selCmpDonem ? getMarkaRanking(selSeg, selBolge, selYas, selCmpDonem) : [],
-    [selSeg, selYas, selCmpDonem])
+    [selSeg, selBolge, selYas, selCmpDonem])
 
-  // Bölge dağılımı
-  const bolgeData = useMemo(() =>
-    BOLGELER.map(b => ({ bolge:b, n:getN(selSeg, b, selYas, selDonem) })),
-    [selSeg, selYas, selDonem])
-  const maxBolgeN = Math.max(...bolgeData.map(b=>b.n), 1)
 
   // Segment bar grafik (skor bazlı)
   const segBarData = visibleSegs.map(s=>s.baz?.genel??0)
@@ -91,8 +88,28 @@ export default function DashboardPage() {
   return (
     <div className={styles.wrap}>
       <Topbar title="SSH KPI Rekabet Skorkartı" subtitle={filterLabel}
-        pills={[{label:'● Canlı',variant:'green'},{label:selDonem||'Tüm Dönem',variant:'amber'}]}/>
+        pills={[
+          {label: runtimeLoading ? '● Veri yükleniyor' : isDynamicDataSource ? '● Dinamik data' : '● Fallback data', variant: isDynamicDataSource ? 'green' : 'amber'},
+          {label: selDonem||'Tüm Dönem',variant:'amber'},
+        ]}/>
       <div className={styles.content}>
+        <div style={{
+          marginBottom: 10,
+          padding: '8px 10px',
+          borderRadius: 10,
+          border: `1px solid ${isDynamicDataSource ? 'rgba(16,185,129,.25)' : 'rgba(245,158,11,.24)'}`,
+          background: isDynamicDataSource ? 'rgba(16,185,129,.07)' : 'rgba(245,158,11,.06)',
+          color: 'var(--tx2)',
+          fontSize: 11,
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 12,
+          alignItems: 'center',
+          flexWrap: 'wrap',
+        }}>
+          <span>Veri kaynağı: <strong>{dataSourceLabel}</strong></span>
+          <span>{runtimeData.source.rowCount.toLocaleString('tr-TR')} skor satırı · {allowedRegions.length} bölge · {dashboardSegments.length} segment</span>
+        </div>
 
         {/* ── Üst 4 kutu: Segment Skor Kartları ── */}
         <ScoreSummaryCards

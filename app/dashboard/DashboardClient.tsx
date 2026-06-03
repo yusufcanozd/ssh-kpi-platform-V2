@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, createContext, useContext, useCallback, useEffect, useMemo } from 'react'
+import { useState, createContext, useContext, useEffect, useMemo } from 'react'
 import Sidebar from '@/components/layout/Sidebar'
-import { BOLGELER, SEGMENTLER, YAS_GRUPLARI, DONEMLER, YAS_COLORS, YAS_STATS } from '@/lib/kpi'
+import { BOLGELER, SEGMENTLER, YAS_GRUPLARI, DONEMLER, YAS_COLORS, YAS_STATS, getActiveKpiDataSource, getStaticRuntimeData } from '@/lib/kpi'
+import type { KpiRuntimeData } from '@/lib/kpi'
 import { useAuth } from '@/context/AuthContext'
 import { createDefaultPermissionDraft } from '@/types/permissions'
 import type { UserPermissionDraft } from '@/types/permissions'
@@ -28,6 +29,11 @@ export interface DashboardCtx {
   allowedBrandNames: string[]
   canDownloadReports: boolean
   canImportData: boolean
+  runtimeData: KpiRuntimeData
+  runtimeLoading: boolean
+  runtimeError: string
+  dataSourceLabel: string
+  isDynamicDataSource: boolean
 }
 
 export const DashboardContext = createContext<DashboardCtx>({
@@ -42,6 +48,11 @@ export const DashboardContext = createContext<DashboardCtx>({
   allowedBrandNames: [],
   canDownloadReports: true,
   canImportData: false,
+  runtimeData: getStaticRuntimeData(),
+  runtimeLoading: false,
+  runtimeError: '',
+  dataSourceLabel: 'Statik JSON fallback',
+  isDynamicDataSource: false,
 })
 export const useDashboardCtx = () => useContext(DashboardContext)
 
@@ -57,6 +68,39 @@ export default function DashboardClient({ children }: { children: React.ReactNod
   const [permissionLoading, setPermissionLoading] = useState(false)
   const [permissionError, setPermissionError] = useState('')
   const [allowedBrandNames, setAllowedBrandNames] = useState<string[]>([])
+  const [runtimeData, setRuntimeData] = useState<KpiRuntimeData>(() => getStaticRuntimeData())
+  const [runtimeLoading, setRuntimeLoading] = useState(false)
+  const [runtimeError, setRuntimeError] = useState('')
+
+
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadRuntimeData() {
+      setRuntimeLoading(true)
+      setRuntimeError('')
+
+      try {
+        const runtime = await getActiveKpiDataSource({ preferDynamic: true, allowFallback: true })
+        if (!mounted) return
+        setRuntimeData(runtime)
+        setRuntimeError(runtime.source.warning ?? '')
+      } catch (error) {
+        if (!mounted) return
+        setRuntimeData(getStaticRuntimeData())
+        setRuntimeError(error instanceof Error ? error.message : 'Dinamik KPI veri kaynağı okunamadı.')
+      } finally {
+        if (mounted) setRuntimeLoading(false)
+      }
+    }
+
+    loadRuntimeData()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -105,14 +149,18 @@ export default function DashboardClient({ children }: { children: React.ReactNod
   const regionRestricted = applyRestriction && permission.allowed_regions.length > 0
   const brandRestricted = applyRestriction && permission.allowed_brand_ids.length > 0
 
+  const runtimeSegments = runtimeData.dimensions.segments.length > 0 ? runtimeData.dimensions.segments : SEGMENTLER
+  const runtimeRegions = runtimeData.dimensions.regions.length > 0 ? runtimeData.dimensions.regions : BOLGELER
+  const runtimePeriods = runtimeData.dimensions.periods.length > 0 ? runtimeData.dimensions.periods : DONEMLER
+
   const allowedSegments = useMemo(
-    () => filterAllowedValues(SEGMENTLER, permission.allowed_segments, segmentRestricted),
-    [permission.allowed_segments, segmentRestricted]
+    () => filterAllowedValues(runtimeSegments, permission.allowed_segments, segmentRestricted),
+    [runtimeSegments, permission.allowed_segments, segmentRestricted]
   )
 
   const allowedRegions = useMemo(
-    () => filterAllowedValues(BOLGELER, permission.allowed_regions, regionRestricted),
-    [permission.allowed_regions, regionRestricted]
+    () => filterAllowedValues(runtimeRegions, permission.allowed_regions, regionRestricted),
+    [runtimeRegions, permission.allowed_regions, regionRestricted]
   )
 
   const allowedSegmentKey = allowedSegments.join('|')
@@ -142,6 +190,36 @@ export default function DashboardClient({ children }: { children: React.ReactNod
       lineHeight: 1.45,
     }}>
       Kısıtlı görünüm aktif. Kullanıcı sadece izin verilen segment, bölge ve marka kırılımlarını görür.
+    </div>
+  ) : null
+
+
+
+  const dataSourceNotice = runtimeData.source.isDynamic ? (
+    <div style={{
+      marginTop: 8,
+      padding: '7px 8px',
+      borderRadius: 8,
+      border: '1px solid rgba(16,185,129,.28)',
+      background: 'rgba(16,185,129,.08)',
+      color: 'var(--tx2)',
+      fontSize: 9,
+      lineHeight: 1.45,
+    }}>
+      Dinamik veri aktif: {runtimeData.source.batch?.filename ?? 'aktif import batch'}.
+    </div>
+  ) : runtimeError ? (
+    <div style={{
+      marginTop: 8,
+      padding: '7px 8px',
+      borderRadius: 8,
+      border: '1px solid rgba(245,158,11,.3)',
+      background: 'rgba(245,158,11,.08)',
+      color: 'var(--tx2)',
+      fontSize: 9,
+      lineHeight: 1.45,
+    }}>
+      Dinamik veri okunamadı; statik JSON fallback kullanılıyor.
     </div>
   ) : null
 
@@ -176,11 +254,11 @@ export default function DashboardClient({ children }: { children: React.ReactNod
       </select>
       <select value={selDonem} onChange={e=>setDonem(e.target.value)} style={compactSelect}>
         <option value="">Tüm Dönem</option>
-        {DONEMLER.map(d=><option key={d} value={d}>{d}</option>)}
+        {runtimePeriods.map(d=><option key={d} value={d}>{d}</option>)}
       </select>
       <select value={selCmpDonem} onChange={e=>setCmpDonem(e.target.value)} style={compactSelect}>
         <option value="">Karş. Dönem</option>
-        {DONEMLER.map(d=><option key={d} value={d}>{d}</option>)}
+        {runtimePeriods.map(d=><option key={d} value={d}>{d}</option>)}
       </select>
     </div>
   ) : null
@@ -212,18 +290,19 @@ export default function DashboardClient({ children }: { children: React.ReactNod
         <label>Baz Dönem</label>
         <select value={selDonem} onChange={e=>setDonem(e.target.value)}>
           <option value="">Tüm Dönem</option>
-          {DONEMLER.map(d=><option key={d} value={d}>{d}</option>)}
+          {runtimePeriods.map(d=><option key={d} value={d}>{d}</option>)}
         </select>
       </div>
       <div className={styles.filterRow}>
         <label>Karşılaştırma Dönemi</label>
         <select value={selCmpDonem} onChange={e=>setCmpDonem(e.target.value)}>
           <option value="">Seçiniz</option>
-          {DONEMLER.map(d=><option key={d} value={d}>{d}</option>)}
+          {runtimePeriods.map(d=><option key={d} value={d}>{d}</option>)}
         </select>
       </div>
       {permissionNotice}
       {permissionErrorNotice}
+      {dataSourceNotice}
       {brandRestricted && allowedBrandNames.length > 0 && (
         <div style={{ marginTop: 8, color: 'var(--tx3)', fontSize: 9, lineHeight: 1.45 }}>
           Marka kısıtı: {allowedBrandNames.length} marka.
@@ -256,6 +335,11 @@ export default function DashboardClient({ children }: { children: React.ReactNod
       allowedBrandNames,
       canDownloadReports: permission.can_download_reports,
       canImportData: permission.can_import_data,
+      runtimeData,
+      runtimeLoading,
+      runtimeError,
+      dataSourceLabel: runtimeData.source.label,
+      isDynamicDataSource: runtimeData.source.isDynamic,
     }}>
       <div className={styles.shell}>
         <Sidebar variant="dashboard" filters={sidebarFilters} collapsed={collapsed} onToggle={()=>setCollapsed(v=>!v)}/>
@@ -277,6 +361,9 @@ export default function DashboardClient({ children }: { children: React.ReactNod
               {applyRestriction && (
                 <span style={{fontSize:9,fontWeight:700,color:'var(--blue)',whiteSpace:'nowrap'}}>Kısıtlı görünüm</span>
               )}
+              <span style={{fontSize:9,fontWeight:700,color:runtimeData.source.isDynamic?'#10b981':'var(--tx3)',whiteSpace:'nowrap'}}>
+                {runtimeLoading ? 'Veri yükleniyor' : runtimeData.source.isDynamic ? 'Dinamik data' : 'Fallback data'}
+              </span>
             </div>
           )}
           {children}
