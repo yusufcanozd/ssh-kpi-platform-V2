@@ -30,36 +30,6 @@ export function filterAllowedBrands<T extends { id: string }>(brands: readonly T
   return brands.filter(brand => allowedSet.has(brand.id))
 }
 
-export function filterAllowedBrandNames<T extends { marka: string; originalMarka?: string }>(rows: readonly T[], allowedBrandNames: readonly string[], applyRestriction: boolean): T[] {
-  if (!applyRestriction || allowedBrandNames.length === 0) return [...rows]
-  const allowedSet = new Set(allowedBrandNames.map(name => name.trim()).filter(Boolean))
-  return rows.filter(row => allowedSet.has(row.originalMarka ?? row.marka))
-}
-
-export async function fetchAllowedBrandNamesByIds(allowedBrandIds: readonly string[]): Promise<string[]> {
-  const ids = Array.from(new Set(allowedBrandIds.filter(id => typeof id === 'string' && id.trim().length > 0)))
-  if (ids.length === 0) return []
-
-  try {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('brands')
-      .select('id, name')
-      .in('id', ids)
-
-    if (error) return []
-
-    const nameById = new Map<string, string>()
-    ;((data ?? []) as Array<{ id?: string | null; name?: string | null }>).forEach(row => {
-      if (row.id && row.name) nameById.set(row.id, row.name)
-    })
-
-    return ids.map(id => nameById.get(id)).filter((name): name is string => Boolean(name))
-  } catch {
-    return []
-  }
-}
-
 export async function fetchUserDataPermission(userId: string): Promise<PermissionLoadResult> {
   if (!userId) {
     return {
