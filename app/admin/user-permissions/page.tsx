@@ -104,7 +104,7 @@ export default function UserPermissionsAdminPage() {
     const [userResult, brandResult, permissionResult] = await Promise.all([
       supabase
         .from('profiles')
-        .select('id, email, full_name, role, is_active, brand_id, created_at')
+        .select('id, full_name, role, is_active, brand_id, created_at')
         .order('full_name', { ascending: true }),
       supabase
         .from('brands')
@@ -129,7 +129,7 @@ export default function UserPermissionsAdminPage() {
 
     const nextUsers = ((userResult.data ?? []) as Array<Partial<UserRow>>).map((user): UserRow => ({
       id: String(user.id ?? ''),
-      email: typeof user.email === 'string' ? user.email : null,
+      email: null,
       full_name: typeof user.full_name === 'string' ? user.full_name : null,
       role: safeRole(user.role),
       is_active: typeof user.is_active === 'boolean' ? user.is_active : true,
