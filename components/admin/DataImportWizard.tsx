@@ -1,7 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { activateImportBatch, fetchImportBatches, persistImportBatch } from '@/lib/admin/data-import'
 import {
+  buildFactRowsForImport,
   buildInitialMapping,
   parseImportFile,
   roleLabel,
@@ -9,6 +11,7 @@ import {
   validateImportRows,
 } from '@/lib/admin/import-validation'
 import type {
+  DataImportBatchListItem,
   ImportColumnMapping,
   ImportColumnRole,
   ImportPreviewResult,
@@ -38,6 +41,13 @@ const buttonStyle = {
   cursor: 'pointer',
 } as const
 
+const dangerButtonStyle = {
+  ...buttonStyle,
+  border: '1px solid rgba(248,113,113,.35)',
+  background: 'rgba(248,113,113,.10)',
+  color: '#fecaca',
+} as const
+
 const disabledButtonStyle = {
   ...buttonStyle,
   opacity: 0.55,
@@ -49,12 +59,26 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
   const [mappings, setMappings] = useState<ImportColumnMapping[]>([])
   const [summary, setSummary] = useState<ImportValidationSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [isReading, setIsReading] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const [activateAfterImport, setActivateAfterImport] = useState(true)
+  const [batches, setBatches] = useState<DataImportBatchListItem[]>([])
+  const [isLoadingBatches, setIsLoadingBatches] = useState(false)
 
   const roleOptions = useMemo(() => buildRoleOptions(context.kpiNumbers), [context.kpiNumbers])
+  const factRows = useMemo(() => (
+    preview && summary && summary.errorCount === 0 ? buildFactRowsForImport(preview.rows, mappings) : []
+  ), [mappings, preview, summary])
+  const canImport = Boolean(preview && summary && summary.errorCount === 0 && factRows.length > 0 && !isImporting)
+
+  useEffect(() => {
+    void loadBatches()
+  }, [])
 
   const handleFile = async (file: File | null) => {
     setError(null)
+    setSuccess(null)
     setSummary(null)
     setPreview(null)
     setMappings([])
@@ -88,6 +112,7 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
     ))
     setMappings(nextMappings)
     setSummary(validateImportRows(preview.rows, nextMappings, context))
+    setSuccess(null)
   }
 
   const reset = () => {
@@ -95,6 +120,54 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
     setMappings([])
     setSummary(null)
     setError(null)
+    setSuccess(null)
+  }
+
+  const loadBatches = async () => {
+    setIsLoadingBatches(true)
+    try {
+      setBatches(await fetchImportBatches())
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Import batch geçmişi okunamadı.')
+    } finally {
+      setIsLoadingBatches(false)
+    }
+  }
+
+  const handleImport = async () => {
+    if (!preview || !summary || !canImport) return
+    setError(null)
+    setSuccess(null)
+    setIsImporting(true)
+
+    try {
+      const result = await persistImportBatch({
+        fileName: preview.fileName,
+        fileType: preview.fileType === 'json' ? 'json' : 'csv',
+        summary,
+        mappings,
+        factRows,
+        activateBatch: activateAfterImport,
+      })
+      setSuccess(`${result.batch.filename} import edildi. ${result.insertedFactRows} KPI fact satırı yazıldı.`)
+      await loadBatches()
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Import kaydı oluşturulamadı.')
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
+  const handleActivateBatch = async (batchId: string) => {
+    setError(null)
+    setSuccess(null)
+    try {
+      await activateImportBatch(batchId)
+      setSuccess('Aktif import batch güncellendi.')
+      await loadBatches()
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Batch aktif edilemedi.')
+    }
   }
 
   return (
@@ -103,14 +176,14 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 900, color: '#60a5fa', letterSpacing: '.08em', textTransform: 'uppercase' }}>
-              Prompt 5 · Güvenli önizleme
+              Prompt 6 · Import batch persistence
             </div>
             <h2 style={{ margin: '7px 0 6px', color: 'var(--tx)', fontSize: 20 }}>
-              Dosya seç, kolonları eşleştir, validasyonu gör
+              Dosya seç, valide et, Supabase import batch kaydı oluştur
             </h2>
-            <p style={{ margin: 0, color: 'var(--tx3)', fontSize: 13, lineHeight: 1.6, maxWidth: 780 }}>
-              Bu adım dashboard verisini değiştirmez ve Supabase kaydı oluşturmaz. Amaç import öncesi dosyanın okunabilir,
-              eşleştirilebilir ve kalite açısından güvenli olup olmadığını göstermektir.
+            <p style={{ margin: 0, color: 'var(--tx3)', fontSize: 13, lineHeight: 1.6, maxWidth: 820 }}>
+              Bu adım CSV/JSON dosyasını data_import_batches ve kpi_fact_rows tablolarına yazar. Dashboard henüz bu batch verisini kullanmaz;
+              dinamik KPI motoru bir sonraki promptta bağlanacak.
             </p>
           </div>
 
@@ -121,24 +194,28 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
               accept=".csv,.json,.xlsx,.xls"
               onChange={event => void handleFile(event.target.files?.[0] ?? null)}
               style={{ display: 'none' }}
-              disabled={isReading}
+              disabled={isReading || isImporting}
             />
           </label>
         </div>
 
-        {error && (
-          <div style={{ marginTop: 14, border: '1px solid rgba(248,113,113,.35)', background: 'rgba(248,113,113,.10)', color: '#fecaca', padding: 12, borderRadius: 12, fontSize: 13, lineHeight: 1.5 }}>
-            {error}
-          </div>
-        )}
+        {error && <Alert tone="error" text={error} />}
+        {success && <Alert tone="success" text={success} />}
 
         <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
-          <Metric label="Desteklenen format" value="CSV / JSON" hint="XLSX sonraki adımda persistence ile ele alınacak" />
-          <Metric label="Preview limiti" value="20 satır" hint="Tüm satırlar validation özetine dahil edilir" />
-          <Metric label="KPI kolonu" value={context.kpiNumbers.length} hint="Dinamik KPI eşleştirme seçenekleri" />
-          <Metric label="Veri yazma" value="Kapalı" hint="Bu prompt sadece kontrol akışı kurar" />
+          <Metric label="Desteklenen format" value="CSV / JSON" hint="XLSX sonraki adımda eklenecek" />
+          <Metric label="Preview limiti" value="20 satır" hint="Tüm satırlar validation ve import kapsamına girer" />
+          <Metric label="KPI fact satırı" value={factRows.length} hint="Her KPI kolonu ayrı fact row olur" />
+          <Metric label="Aktif batch" value={batches.find(batch => batch.is_active)?.filename ?? 'Yok'} hint="Dashboard bağlantısı Prompt 7/8’de yapılacak" />
         </div>
       </section>
+
+      <BatchHistoryCard
+        batches={batches}
+        isLoading={isLoadingBatches}
+        onRefresh={() => void loadBatches()}
+        onActivate={batchId => void handleActivateBatch(batchId)}
+      />
 
       {preview && (
         <>
@@ -190,7 +267,7 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
           <section style={{ ...cardStyle, padding: 18 }}>
             <h2 style={{ margin: 0, color: 'var(--tx)', fontSize: 18 }}>İlk 20 satır önizleme</h2>
             <p style={{ margin: '6px 0 14px', color: 'var(--tx3)', fontSize: 12 }}>
-              Bu tablo sadece kontrol amaçlıdır; bu promptta import kaydı oluşturulmaz.
+              Import onaylandığında tüm satırlar validation sonucuna göre Supabase’e yazılır.
             </p>
 
             <div style={{ overflowX: 'auto', border: '1px solid var(--bd)', borderRadius: 12 }}>
@@ -217,11 +294,19 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
             <div>
               <h2 style={{ margin: 0, color: 'var(--tx)', fontSize: 18 }}>Import onayı</h2>
               <p style={{ margin: '6px 0 0', color: 'var(--tx3)', fontSize: 12, lineHeight: 1.55 }}>
-                Kayıt işlemi Prompt 6’da Supabase batch persistence ile eklenecek. Bu buton şimdilik bilinçli olarak pasif bırakıldı.
+                Validation hatası yoksa batch ve KPI fact satırları Supabase’e yazılır. Aktif batch seçeneği açıksa mevcut aktif batch pasif olur.
               </p>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--tx2)', fontSize: 13, marginTop: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={activateAfterImport}
+                  onChange={event => setActivateAfterImport(event.target.checked)}
+                />
+                Import sonrası bu batch aktif veri kaynağı olsun
+              </label>
             </div>
-            <button type="button" style={disabledButtonStyle} disabled>
-              Prompt 6’da aktif olacak
+            <button type="button" style={canImport ? dangerButtonStyle : disabledButtonStyle} disabled={!canImport} onClick={() => void handleImport()}>
+              {isImporting ? 'Import ediliyor...' : 'Importu Onayla'}
             </button>
           </section>
         </>
@@ -230,11 +315,76 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
   )
 }
 
+function BatchHistoryCard({
+  batches,
+  isLoading,
+  onRefresh,
+  onActivate,
+}: {
+  batches: DataImportBatchListItem[]
+  isLoading: boolean
+  onRefresh: () => void
+  onActivate: (batchId: string) => void
+}) {
+  return (
+    <section style={{ ...cardStyle, padding: 18 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div>
+          <h2 style={{ margin: 0, color: 'var(--tx)', fontSize: 18 }}>Import batch geçmişi</h2>
+          <p style={{ margin: '6px 0 0', color: 'var(--tx3)', fontSize: 12 }}>
+            Son importlar ve aktif batch durumu. Dashboard bağlantısı sonraki promptta yapılacak.
+          </p>
+        </div>
+        <button type="button" style={buttonStyle} onClick={onRefresh} disabled={isLoading}>{isLoading ? 'Yükleniyor...' : 'Yenile'}</button>
+      </div>
+
+      <div style={{ marginTop: 14, overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 820 }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Durum</th>
+              <th style={thStyle}>Dosya</th>
+              <th style={thStyle}>Satır</th>
+              <th style={thStyle}>Uyarı</th>
+              <th style={thStyle}>Tarih</th>
+              <th style={thStyle}>İşlem</th>
+            </tr>
+          </thead>
+          <tbody>
+            {batches.length === 0 && (
+              <tr><td colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: 'var(--tx3)', padding: 22 }}>Henüz import batch yok.</td></tr>
+            )}
+            {batches.map(batch => (
+              <tr key={batch.id}>
+                <td style={tdStyle}>{batch.is_active ? <Badge tone="success">Aktif</Badge> : <Badge tone="neutral">Pasif</Badge>}</td>
+                <td style={tdStyle}>{batch.filename}<div style={{ color: 'var(--tx3)', fontSize: 11 }}>{batch.status} · {batch.file_type}</div></td>
+                <td style={tdStyle}>{batch.valid_rows}/{batch.total_rows}</td>
+                <td style={tdStyle}>{batch.warning_count}</td>
+                <td style={tdStyle}>{formatDate(batch.imported_at ?? batch.created_at)}</td>
+                <td style={tdStyle}>
+                  <button
+                    type="button"
+                    style={batch.is_active ? disabledButtonStyle : buttonStyle}
+                    disabled={batch.is_active}
+                    onClick={() => onActivate(batch.id)}
+                  >
+                    Aktif yap
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
 function Metric({ label, value, hint }: { label: string; value: string | number; hint: string }) {
   return (
     <div style={{ border: '1px solid var(--bd)', borderRadius: 14, padding: 14, background: 'rgba(148,163,184,.06)' }}>
       <div style={{ color: 'var(--tx3)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</div>
-      <div style={{ color: 'var(--tx)', fontWeight: 900, fontSize: 24, marginTop: 8 }}>{value}</div>
+      <div style={{ color: 'var(--tx)', fontWeight: 900, fontSize: 20, marginTop: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
       <div style={{ color: 'var(--tx3)', fontSize: 12, marginTop: 6, lineHeight: 1.45 }}>{hint}</div>
     </div>
   )
@@ -249,90 +399,114 @@ function ValidationSummaryCard({ summary }: { summary: ImportValidationSummary }
         <div>
           <h2 style={{ margin: 0, color: 'var(--tx)', fontSize: 18 }}>Validation özeti</h2>
           <p style={{ margin: '6px 0 0', color: 'var(--tx3)', fontSize: 12 }}>
-            {canContinue ? 'Kritik hata görünmüyor. Uyarıları kontrol ederek sonraki promptta import edilebilir.' : 'Kritik hatalar var. Import öncesi düzeltilmeli.'}
+            {canContinue ? 'Import onaylanabilir.' : 'Hatalar düzeltilmeden import yapılamaz.'}
           </p>
         </div>
-        <span style={{ border: `1px solid ${canContinue ? 'rgba(52,211,153,.35)' : 'rgba(248,113,113,.35)'}`, color: canContinue ? '#34d399' : '#fca5a5', background: canContinue ? 'rgba(52,211,153,.10)' : 'rgba(248,113,113,.10)', borderRadius: 999, padding: '8px 12px', fontSize: 12, fontWeight: 900 }}>
-          {canContinue ? 'Ön kontrol uygun' : 'Düzeltme gerekli'}
-        </span>
+        <Badge tone={canContinue ? 'success' : 'error'}>{canContinue ? 'Geçti' : 'Hata var'}</Badge>
       </div>
 
-      <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+      <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 }}>
         <Metric label="Toplam satır" value={summary.totalRows} hint="Dosyada okunan satır" />
-        <Metric label="Geçerli satır" value={summary.validRows} hint="Kritik satır hatası olmayan" />
-        <Metric label="Hatalı satır" value={summary.errorRows} hint="Import öncesi düzeltilmeli" />
-        <Metric label="Uyarı" value={summary.warningCount} hint="Coverage veya mapping etkileyebilir" />
+        <Metric label="Geçerli satır" value={summary.validRows} hint="Satır bazlı kritik hata yok" />
+        <Metric label="Hatalı satır" value={summary.errorRows} hint="Importu engeller" />
+        <Metric label="Uyarı" value={summary.warningCount} hint="Importu engellemez" />
       </div>
 
       {summary.issues.length > 0 && (
-        <div style={{ marginTop: 14, display: 'grid', gap: 8, maxHeight: 280, overflow: 'auto', paddingRight: 4 }}>
-          {summary.issues.slice(0, 60).map((issue, index) => (
-            <div key={`${issue.rowNumber ?? 'global'}-${issue.column ?? 'general'}-${index}`} style={{ border: `1px solid ${issue.severity === 'error' ? 'rgba(248,113,113,.30)' : 'rgba(245,158,11,.30)'}`, background: issue.severity === 'error' ? 'rgba(248,113,113,.08)' : 'rgba(245,158,11,.08)', color: 'var(--tx2)', borderRadius: 12, padding: 10, fontSize: 12, lineHeight: 1.5 }}>
-              <strong style={{ color: issue.severity === 'error' ? '#fca5a5' : '#fbbf24', textTransform: 'uppercase' }}>
-                {issue.severity === 'error' ? 'Hata' : 'Uyarı'}
-              </strong>
-              {issue.rowNumber ? ` · Satır ${issue.rowNumber}` : ''}
-              {issue.column ? ` · ${issue.column}` : ''}: {issue.message}
-            </div>
-          ))}
-          {summary.issues.length > 60 && (
-            <div style={{ color: 'var(--tx3)', fontSize: 12 }}>İlk 60 sorun gösteriliyor. Toplam sorun: {summary.issues.length}</div>
-          )}
+        <div style={{ marginTop: 14, maxHeight: 260, overflow: 'auto', border: '1px solid var(--bd)', borderRadius: 12 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Tip</th>
+                <th style={thStyle}>Satır</th>
+                <th style={thStyle}>Kolon</th>
+                <th style={thStyle}>Mesaj</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summary.issues.slice(0, 80).map((issue, index) => (
+                <tr key={`${issue.rowNumber ?? 'global'}-${issue.column ?? 'none'}-${index}`}>
+                  <td style={tdStyle}>{issue.severity === 'error' ? <Badge tone="error">Hata</Badge> : <Badge tone="warning">Uyarı</Badge>}</td>
+                  <td style={tdStyle}>{issue.rowNumber ?? '—'}</td>
+                  <td style={tdStyle}>{issue.column ?? '—'}</td>
+                  <td style={tdStyle}>{issue.message}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </section>
   )
 }
 
-function buildRoleOptions(kpiNumbers: number[]) {
-  const baseRoles: ImportColumnRole[] = [
-    'ignore',
-    'segment',
-    'region',
-    'age_group',
-    'period',
-    'brand',
-    'work_order_count',
-    'service_count',
-  ]
+function Alert({ tone, text }: { tone: 'error' | 'success'; text: string }) {
+  const style = tone === 'error'
+    ? { border: '1px solid rgba(248,113,113,.35)', background: 'rgba(248,113,113,.10)', color: '#fecaca' }
+    : { border: '1px solid rgba(52,211,153,.35)', background: 'rgba(52,211,153,.10)', color: '#a7f3d0' }
 
-  return [
-    ...baseRoles.map(role => ({ value: role, label: roleLabel(role) })),
-    ...kpiNumbers.map(kpiNo => ({ value: `kpi_${kpiNo}` as ImportColumnRole, label: `KPI ${kpiNo}` })),
-  ]
+  return <div style={{ ...style, marginTop: 14, padding: 12, borderRadius: 12, fontSize: 13, lineHeight: 1.5 }}>{text}</div>
+}
+
+function Badge({ tone, children }: { tone: 'success' | 'error' | 'warning' | 'neutral'; children: React.ReactNode }) {
+  const colors = {
+    success: { color: '#a7f3d0', background: 'rgba(16,185,129,.14)', border: 'rgba(16,185,129,.35)' },
+    error: { color: '#fecaca', background: 'rgba(239,68,68,.14)', border: 'rgba(239,68,68,.35)' },
+    warning: { color: '#fde68a', background: 'rgba(245,158,11,.14)', border: 'rgba(245,158,11,.35)' },
+    neutral: { color: 'var(--tx2)', background: 'rgba(148,163,184,.10)', border: 'var(--bd)' },
+  }[tone]
+
+  return (
+    <span style={{ display: 'inline-flex', border: `1px solid ${colors.border}`, background: colors.background, color: colors.color, borderRadius: 999, padding: '5px 9px', fontSize: 11, fontWeight: 900 }}>
+      {children}
+    </span>
+  )
+}
+
+function buildRoleOptions(kpiNumbers: number[]) {
+  const baseRoles: ImportColumnRole[] = ['ignore', 'segment', 'region', 'age_group', 'period', 'brand', 'work_order_count', 'service_count']
+  const kpiRoles = kpiNumbers.map(number => `kpi_${number}` as ImportColumnRole)
+  return [...baseRoles, ...kpiRoles].map(value => ({ value, label: roleLabel(value) }))
 }
 
 function firstExampleValue(preview: ImportPreviewResult, column: string) {
-  return preview.previewRows.find(row => row.values[column]?.trim())?.values[column] ?? ''
+  const found = preview.previewRows.find(row => row.values[column]?.trim())
+  return found?.values[column] ?? ''
+}
+
+function formatDate(value: string) {
+  try {
+    return new Intl.DateTimeFormat('tr-TR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
+  } catch {
+    return value
+  }
 }
 
 const thStyle = {
   textAlign: 'left',
   color: 'var(--tx3)',
   fontSize: 11,
-  fontWeight: 900,
   textTransform: 'uppercase',
   letterSpacing: '.06em',
-  borderBottom: '1px solid var(--bd)',
   padding: '10px 12px',
+  borderBottom: '1px solid var(--bd)',
   whiteSpace: 'nowrap',
 } as const
 
 const tdStyle = {
-  color: 'var(--tx2)',
-  fontSize: 12,
-  borderBottom: '1px solid var(--bd)',
+  color: 'var(--tx)',
+  fontSize: 13,
   padding: '10px 12px',
-  whiteSpace: 'nowrap',
+  borderBottom: '1px solid var(--bd)',
+  verticalAlign: 'middle',
 } as const
 
 const selectStyle = {
   width: '100%',
   minWidth: 180,
-  background: 'var(--surf2)',
-  color: 'var(--tx)',
-  border: '1px solid var(--bd)',
   borderRadius: 10,
+  border: '1px solid var(--bd)',
+  background: 'var(--bg)',
+  color: 'var(--tx)',
   padding: '8px 10px',
-  fontSize: 12,
 } as const

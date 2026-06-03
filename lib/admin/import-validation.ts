@@ -7,6 +7,7 @@ import type {
   ImportValidationContext,
   ImportValidationIssue,
   ImportValidationSummary,
+  PreparedKpiFactRow,
 } from '@/types/import'
 
 const MAX_PREVIEW_ROWS = 20
@@ -50,7 +51,7 @@ export function validateFileBeforeRead(file: File): string | null {
   const type = detectImportFileType(file.name)
 
   if (type === 'unknown') {
-    return 'Desteklenmeyen dosya tipi. Bu adımda CSV ve JSON önizleme desteklenir; XLSX sonraki persistence adımında ele alınacak.'
+    return 'Desteklenmeyen dosya tipi. Bu adımda CSV ve JSON import desteklenir; XLSX sonraki adımda eklenecek.'
   }
 
   if (type === 'xlsx') {
@@ -58,7 +59,7 @@ export function validateFileBeforeRead(file: File): string | null {
   }
 
   if (file.size > MAX_CLIENT_FILE_SIZE_BYTES) {
-    return 'Dosya boyutu çok büyük. Bu güvenli önizleme adımı için maksimum 8 MB dosya yükleyin.'
+    return 'Dosya boyutu çok büyük. Bu güvenli import adımı için maksimum 8 MB dosya yükleyin.'
   }
 
   return null
@@ -86,13 +87,8 @@ export async function parseImportFile(file: File): Promise<ImportPreviewResult> 
   const fileType = detectImportFileType(file.name)
   const text = await file.text()
 
-  if (fileType === 'csv') {
-    return parseCsvText(file.name, text)
-  }
-
-  if (fileType === 'json') {
-    return parseJsonText(file.name, text)
-  }
+  if (fileType === 'csv') return parseCsvText(file.name, text)
+  if (fileType === 'json') return parseJsonText(file.name, text)
 
   throw new Error('Bu dosya tipi bu promptta parse edilemiyor.')
 }
@@ -158,20 +154,10 @@ export function validateImportRows(
   context: ImportValidationContext,
 ): ImportValidationSummary {
   const issues: ImportValidationIssue[] = []
-  const roleToColumn = new Map<ImportColumnRole, string>()
+  const roleToColumn = buildRoleColumnMap(mappings, issues)
   const mappedKpis = new Set<number>()
 
   mappings.forEach(mapping => {
-    if (mapping.role === 'ignore') return
-    if (roleToColumn.has(mapping.role)) {
-      issues.push({
-        severity: 'error',
-        column: mapping.sourceColumn,
-        message: `${roleLabel(mapping.role)} alanı birden fazla kolona eşleştirildi.`,
-      })
-    }
-    roleToColumn.set(mapping.role, mapping.sourceColumn)
-
     const kpiNo = getKpiNumberFromRole(mapping.role)
     if (kpiNo !== null) mappedKpis.add(kpiNo)
   })
@@ -200,13 +186,8 @@ export function validateImportRows(
   const serviceColumn = roleToColumn.get('service_count')
 
   rows.forEach(row => {
-    if (segmentColumn) {
-      validateKnownValue(row, segmentColumn, context.knownSegments, 'Segment', issues, rowErrorNumbers)
-    }
-
-    if (regionColumn) {
-      validateKnownValue(row, regionColumn, context.knownRegions, 'Bölge', issues, rowErrorNumbers)
-    }
+    if (segmentColumn) validateKnownValue(row, segmentColumn, context.knownSegments, 'Segment', issues, rowErrorNumbers)
+    if (regionColumn) validateKnownValue(row, regionColumn, context.knownRegions, 'Bölge', issues, rowErrorNumbers)
 
     if (periodColumn) {
       const period = readCell(row, periodColumn)
@@ -257,6 +238,82 @@ export function validateImportRows(
     errorCount,
     issues,
   }
+}
+
+export function buildFactRowsForImport(
+  rows: ImportRawRow[],
+  mappings: ImportColumnMapping[],
+): PreparedKpiFactRow[] {
+  const roleToColumn = buildRoleColumnMap(mappings, [])
+  const segmentColumn = roleToColumn.get('segment')
+  const regionColumn = roleToColumn.get('region')
+  const ageGroupColumn = roleToColumn.get('age_group')
+  const periodColumn = roleToColumn.get('period')
+  const brandColumn = roleToColumn.get('brand')
+  const workOrderColumn = roleToColumn.get('work_order_count')
+  const serviceColumn = roleToColumn.get('service_count')
+  const kpiMappings = mappings
+    .map(mapping => ({ ...mapping, kpiNo: getKpiNumberFromRole(mapping.role) }))
+    .filter((mapping): mapping is ImportColumnMapping & { kpiNo: number } => mapping.kpiNo !== null)
+
+  const factRows: PreparedKpiFactRow[] = []
+
+  rows.forEach(row => {
+    kpiMappings.forEach(mapping => {
+      const value = readCell(row, mapping.sourceColumn)
+      if (!value || !isNumeric(value)) return
+
+      factRows.push({
+        source_row_number: row.rowNumber,
+        segment: readOptionalCell(row, segmentColumn),
+        region: readOptionalCell(row, regionColumn),
+        age_group: readOptionalCell(row, ageGroupColumn),
+        period: readOptionalCell(row, periodColumn),
+        brand_name: readOptionalCell(row, brandColumn),
+        kpi_no: mapping.kpiNo,
+        kpi_value: toNumber(value),
+        work_order_count: toNullableNumber(readOptionalCell(row, workOrderColumn)),
+        service_count: toNullableNumber(readOptionalCell(row, serviceColumn)),
+      })
+    })
+  })
+
+  return factRows
+}
+
+export function roleLabel(role: ImportColumnRole) {
+  if (role.startsWith('kpi_')) return `KPI ${role.replace('kpi_', '')}`
+
+  const labels: Record<Exclude<ImportColumnRole, `kpi_${number}`>, string> = {
+    ignore: 'Yok say',
+    segment: 'Segment',
+    region: 'Bölge',
+    age_group: 'Yaş grubu',
+    period: 'Dönem',
+    work_order_count: 'İş emri sayısı',
+    service_count: 'Servis sayısı',
+    brand: 'Marka',
+  }
+
+  return labels[role as Exclude<ImportColumnRole, `kpi_${number}`>]
+}
+
+function buildRoleColumnMap(mappings: ImportColumnMapping[], issues: ImportValidationIssue[]) {
+  const roleToColumn = new Map<ImportColumnRole, string>()
+
+  mappings.forEach(mapping => {
+    if (mapping.role === 'ignore') return
+    if (roleToColumn.has(mapping.role)) {
+      issues.push({
+        severity: 'error',
+        column: mapping.sourceColumn,
+        message: `${roleLabel(mapping.role)} alanı birden fazla kolona eşleştirildi.`,
+      })
+    }
+    roleToColumn.set(mapping.role, mapping.sourceColumn)
+  })
+
+  return roleToColumn
 }
 
 function parseCsvRows(text: string): string[][] {
@@ -313,7 +370,7 @@ function normalizeKey(value: string) {
     .trim()
     .toLocaleLowerCase('tr-TR')
     .replace(/[\s_\-./]+/g, '')
-    .replace(/[()\[\]{}]/g, '')
+    .replace(/[()[\]{}]/g, '')
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -322,6 +379,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function readCell(row: ImportRawRow, column: string) {
   return (row.values[column] ?? '').trim()
+}
+
+function readOptionalCell(row: ImportRawRow, column?: string) {
+  if (!column) return null
+  const value = readCell(row, column)
+  return value || null
 }
 
 function getKpiNumberFromRole(role: ImportColumnRole) {
@@ -333,6 +396,15 @@ function getKpiNumberFromRole(role: ImportColumnRole) {
 function isNumeric(value: string) {
   const normalized = value.replace(',', '.')
   return normalized.trim() !== '' && Number.isFinite(Number(normalized))
+}
+
+function toNumber(value: string) {
+  return Number(value.replace(',', '.'))
+}
+
+function toNullableNumber(value: string | null) {
+  if (!value) return null
+  return isNumeric(value) ? toNumber(value) : null
 }
 
 function isKnownOrValidPeriod(period: string, knownPeriods: string[]) {
@@ -387,21 +459,3 @@ function addRowError(
   rowErrorNumbers.add(row.rowNumber)
   issues.push({ severity: 'error', rowNumber: row.rowNumber, column, message })
 }
-
-export function roleLabel(role: ImportColumnRole) {
-  if (role.startsWith('kpi_')) return `KPI ${role.replace('kpi_', '')}`
-
-  const labels: Record<Exclude<ImportColumnRole, `kpi_${number}`>, string> = {
-    ignore: 'Yok say',
-    segment: 'Segment',
-    region: 'Bölge',
-    age_group: 'Yaş grubu',
-    period: 'Dönem',
-    work_order_count: 'İş emri sayısı',
-    service_count: 'Servis sayısı',
-    brand: 'Marka',
-  }
-
-  return labels[role as Exclude<ImportColumnRole, `kpi_${number}`>]
-}
-

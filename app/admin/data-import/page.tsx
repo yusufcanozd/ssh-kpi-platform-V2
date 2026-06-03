@@ -7,8 +7,8 @@ export default function DataImportAdminPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <Topbar
         title="Data Import"
-        subtitle="CSV/JSON önizleme, kolon eşleştirme ve validation akışı"
-        pills={[{ label: 'Prompt 5 · Preview', variant: 'amber' }]}
+        subtitle="CSV/JSON preview, validation, batch kaydı ve aktif batch seçimi"
+        pills={[{ label: 'Prompt 6 · Persistence', variant: 'green' }]}
       />
 
       <div style={{ flex: 1, overflow: 'auto', padding: '22px 24px 36px' }}>

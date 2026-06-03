@@ -53,3 +53,45 @@ export interface ImportValidationContext {
   knownPeriods: string[]
   kpiNumbers: number[]
 }
+
+export interface PreparedKpiFactRow {
+  source_row_number: number
+  segment: string | null
+  region: string | null
+  age_group: string | null
+  period: string | null
+  brand_name: string | null
+  kpi_no: number
+  kpi_value: number
+  work_order_count: number | null
+  service_count: number | null
+}
+
+export interface DataImportBatchListItem {
+  id: string
+  filename: string
+  file_type: 'csv' | 'json' | 'xlsx'
+  status: 'pending' | 'validated' | 'imported' | 'failed'
+  total_rows: number
+  valid_rows: number
+  error_rows: number
+  warning_count: number
+  is_active: boolean
+  imported_by: string | null
+  created_at: string
+  imported_at: string | null
+}
+
+export interface PersistImportBatchInput {
+  fileName: string
+  fileType: 'csv' | 'json' | 'xlsx'
+  summary: ImportValidationSummary
+  mappings: ImportColumnMapping[]
+  factRows: PreparedKpiFactRow[]
+  activateBatch: boolean
+}
+
+export interface PersistImportBatchResult {
+  batch: DataImportBatchListItem
+  insertedFactRows: number
+}
