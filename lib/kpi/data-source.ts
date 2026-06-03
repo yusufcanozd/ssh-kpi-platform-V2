@@ -23,10 +23,9 @@ type SupabaseKpiDefinitionRow = {
   description: string | null
   category_key: string
   is_active: boolean
-  higher_is_better: boolean | null
+  direction: string | null
   data_type: string | null
   coverage_rule: string | null
-  sort_order: number | null
 }
 
 type SupabaseCategoryRow = {
@@ -49,25 +48,41 @@ export async function getActiveKpiDataSource(
 ): Promise<KpiRuntimeData> {
   const { preferDynamic = true, allowFallback = true } = options
 
+  let base: KpiRuntimeData
+
   if (preferDynamic && canUseBrowserSupabase()) {
     try {
       const imported = await fetchImportedRuntimeData()
-      if (imported && imported.cubeRows.length > 0) return imported
-
-      if (imported?.source.warning && allowFallback) {
-        return getStaticRuntimeData(imported.source.warning)
+      if (imported && imported.cubeRows.length > 0) {
+        base = imported
+      } else if (imported?.source.warning && allowFallback) {
+        base = getStaticRuntimeData(imported.source.warning)
+      } else if (!allowFallback) {
+        throw new Error('Aktif import batch bulunamadı ve fallback veri kaynağı kapalı.')
+      } else {
+        base = getStaticRuntimeData()
       }
     } catch (error) {
       if (!allowFallback) throw error
-      return getStaticRuntimeData(toErrorMessage(error))
+      base = getStaticRuntimeData(toErrorMessage(error))
     }
-  }
-
-  if (!allowFallback) {
+  } else if (!allowFallback) {
     throw new Error('Aktif import batch bulunamadı ve fallback veri kaynağı kapalı.')
+  } else {
+    base = getStaticRuntimeData()
   }
 
-  return getStaticRuntimeData()
+  // Dinamik metodolojiyi (ağırlık + KPI yönü) ekle. Her ikisi de kendi içinde
+  // fallback'li olduğundan hata fırlatmaz; veri kaynağından bağımsız uygulanır.
+  try {
+    const [weights, kpiDefinitions] = await Promise.all([
+      getActiveWeights(),
+      getKpiDefinitions(),
+    ])
+    return { ...base, weights, kpiDefinitions }
+  } catch {
+    return base
+  }
 }
 
 export async function getKpiRows(options?: ActiveKpiDataSourceOptions): Promise<CubeRow[]> {
@@ -82,7 +97,7 @@ export async function getKpiDefinitions(): Promise<KpiDefinitionRow[]> {
     const supabase = createClient()
     const { data, error } = await supabase
       .from('kpi_definitions')
-      .select('kpi_no, name, short_name, description, category_key, is_active, higher_is_better, data_type, coverage_rule, sort_order')
+      .select('kpi_no, name, short_name, description, category_key, is_active, direction, data_type, coverage_rule')
       .eq('is_active', true)
       .order('kpi_no', { ascending: true })
 
@@ -95,7 +110,7 @@ export async function getKpiDefinitions(): Promise<KpiDefinitionRow[]> {
       ad: row.name,
       kat: CATEGORY_DISPLAY_NAMES[row.category_key as keyof typeof CATEGORY_DISPLAY_NAMES] ?? row.category_key,
       fmt: KPI_META.find(kpi => kpi.no === row.kpi_no)?.fmt ?? '{:.1f}',
-      is_lower_better: row.higher_is_better === false,
+      is_lower_better: row.direction === 'lower_is_better',
       source: 'supabase',
       isActive: row.is_active,
     }))

@@ -47,6 +47,10 @@ export interface KpiRuntimeData {
   cubeRows: CubeRow[]
   markaRows: DataSourceMarkaRow[]
   dimensions: KpiRuntimeDimensions
+  /** Dinamik metodoloji (opsiyonel): aktif versiyon ağırlıkları. Yoksa statik fallback. */
+  weights?: ActiveWeightRow[]
+  /** Dinamik KPI tanımları (opsiyonel): yön/aktiflik. Yoksa statik fallback. */
+  kpiDefinitions?: KpiDefinitionRow[]
 }
 
 export interface ActiveKpiDataSourceOptions {
