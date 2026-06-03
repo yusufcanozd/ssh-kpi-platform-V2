@@ -249,7 +249,7 @@ function buildMarkaRows(rows: KpiFactRuntimeRow[], cubeRows: CubeRow[], brandMap
   }
 
   const result: DataSourceMarkaRow[] = []
-  for (const [key, acc] of cells) {
+  for (const [key, acc] of Array.from(cells.entries())) {
     const meta = cellMeta.get(key)!
     const brandKpis = acc.sums.map((sum, i) => (acc.counts[i] > 0 ? sum / acc.counts[i] : null))
     const refKpis = refCube.get(`${meta.segment}|${meta.bolge}|${meta.yas}|${meta.donem}`) ?? null
