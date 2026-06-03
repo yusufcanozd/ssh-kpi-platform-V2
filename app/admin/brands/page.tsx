@@ -251,7 +251,7 @@ export default function BrandsAdminPage() {
               <form className={styles.form} onSubmit={event => { event.preventDefault(); saveDraft() }}>
                 <div>
                   <h2 className={styles.formTitle}>{selectedId ? 'Marka Düzenle' : 'Yeni Marka Ekle'}</h2>
-                  <div className={styles.formHint}>Kaydet işlemi Supabase brands tablosuna yazılır. Gizli markalar dashboard’da maskelenir; Sil işlemi kalıcıdır ve audit_logs'a yazılır.</div>
+                  <div className={styles.formHint}>Kaydet işlemi Supabase brands tablosuna yazılır. Gizli markalar dashboard’da maskelenir; Sil işlemi kalıcıdır ve audit_logs&apos;a yazılır.</div>
                 </div>
 
                 {validationErrors.length > 0 && (
