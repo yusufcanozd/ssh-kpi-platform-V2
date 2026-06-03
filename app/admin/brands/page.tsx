@@ -220,7 +220,7 @@ export default function BrandsAdminPage() {
                         <td><strong>{brand.code}</strong></td>
                         <td>
                           <div>{brand.name}</div>
-                          <div className={`${styles.muted} ${styles.small}`}><span className={styles.sourceBadge}>{brand.source}</span> · {brand.dataSource === 'import' ? 'import' : 'fallback'}</div>
+                          <div className={`${styles.muted} ${styles.small}`}><span className={styles.sourceBadge}>{brand.source === 'supabase' ? 'SUPABASE' : 'FALLBACK'}</span></div>
                         </td>
                         <td>{brand.segment || '—'}</td>
                         <td>
