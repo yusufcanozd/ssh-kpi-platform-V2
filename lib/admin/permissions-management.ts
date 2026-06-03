@@ -56,7 +56,7 @@ function isUuid(id: string): boolean {
 export async function loadUserPermissions(supabase: SupabaseClient): Promise<{ users: AdminUserPermission[]; warning?: string }> {
   const { data: profileRows, error: profileError } = await supabase
     .from('profiles')
-    .select('id, email, full_name, role, is_active')
+    .select('id, full_name, role, is_active')
     .order('full_name', { ascending: true })
 
   if (profileError) {
