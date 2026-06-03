@@ -202,10 +202,18 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
               Bu adım CSV/JSON dosyasını data_import_batches ve kpi_fact_rows tablolarına yazar; import edilmiş batchler CSV/JSON olarak export edilebilir. Aşağıdan örnek import şablonu indirebilirsin. Dashboard henüz bu batch verisini kullanmaz;
               dinamik KPI motoru bir sonraki promptta bağlanacak.
             </p>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
+              <button type="button" style={buttonStyle} onClick={() => downloadTemplate('csv')}>
+                CSV Şablonu İndir
+              </button>
+              <button type="button" style={buttonStyle} onClick={() => downloadTemplate('json')}>
+                JSON Şablonu İndir
+              </button>
+            </div>
           </div>
 
           <label style={buttonStyle}>
-            {isReading ? 'Dosya okunuyor...' : 'CSV / JSON / XLSX seç'}
+            {isReading ? 'Dosya okunuyor...' : 'CSV / JSON seç'}
             <input
               type="file"
               accept=".csv,.json"
