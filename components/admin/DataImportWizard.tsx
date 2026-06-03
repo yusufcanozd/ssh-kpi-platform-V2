@@ -171,14 +171,18 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
     }
   }
 
-  const handleExportBatch = async (batchId: string, format: 'csv' | 'json') => {
+  const handleExportBatch = async (batchId: string, format: 'csv' | 'json' | 'xlsx') => {
     setError(null)
     setSuccess(null)
     setExportingBatchId(`${batchId}:${format}`)
 
     try {
       const exported = await exportImportBatch(batchId, format)
-      downloadTextFile(exported.fileName, exported.mimeType, exported.content)
+      if (exported.encoding === 'base64') {
+        downloadBinaryFile(exported.fileName, exported.mimeType, exported.content)
+      } else {
+        downloadTextFile(exported.fileName, exported.mimeType, exported.content)
+      }
       setSuccess(`${exported.fileName} indirilmeye hazırlandı.`)
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Export dosyası hazırlanamadı.')
@@ -216,7 +220,7 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
             {isReading ? 'Dosya okunuyor...' : 'CSV / JSON seç'}
             <input
               type="file"
-              accept=".csv,.json,.xlsx,.xls"
+              accept=".csv,.json"
               onChange={event => void handleFile(event.target.files?.[0] ?? null)}
               style={{ display: 'none' }}
               disabled={isReading || isImporting}
@@ -354,7 +358,7 @@ function BatchHistoryCard({
   isLoading: boolean
   onRefresh: () => void
   onActivate: (batchId: string) => void
-  onExport: (batchId: string, format: 'csv' | 'json') => void
+  onExport: (batchId: string, format: 'csv' | 'json' | 'xlsx') => void
   exportingBatchId: string | null
 }) {
   return (
@@ -420,6 +424,14 @@ function BatchHistoryCard({
                       onClick={() => onExport(batch.id, 'json')}
                     >
                       {exportingBatchId === `${batch.id}:json` ? 'JSON...' : 'JSON'}
+                    </button>
+                    <button
+                      type="button"
+                      style={exportingBatchId === `${batch.id}:xlsx` ? disabledButtonStyle : buttonStyle}
+                      disabled={Boolean(exportingBatchId)}
+                      onClick={() => onExport(batch.id, 'xlsx')}
+                    >
+                      {exportingBatchId === `${batch.id}:xlsx` ? 'Excel...' : 'Excel'}
                     </button>
                   </div>
                 </td>
@@ -587,6 +599,21 @@ function buildTemplateRows(): Array<Record<string, string | number>> {
 function escapeCsvCell(value: string) {
   if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`
   return value
+}
+
+function downloadBinaryFile(fileName: string, mimeType: string, base64: string) {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  const blob = new Blob([bytes], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
 }
 
 function downloadTextFile(fileName: string, mimeType: string, content: string) {

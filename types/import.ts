@@ -97,7 +97,7 @@ export interface PersistImportBatchResult {
 }
 
 
-export type DataImportExportFormat = 'csv' | 'json'
+export type DataImportExportFormat = 'csv' | 'json' | 'xlsx'
 
 export interface DataImportExportRow {
   id: string
@@ -119,6 +119,8 @@ export interface DataImportExportRow {
 export interface DataImportExportFile {
   fileName: string
   mimeType: string
+  /** encoding 'base64' ise content base64 binary (xlsx); aksi halde düz metin. */
   content: string
+  encoding?: 'utf-8' | 'base64'
   rowCount: number
 }

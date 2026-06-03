@@ -166,12 +166,41 @@ export async function exportImportBatch(
     }
   }
 
+  if (format === 'xlsx') {
+    return {
+      fileName: `${safeBaseName || 'import-batch'}-${batch.id.slice(0, 8)}.xlsx`,
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      content: await toXlsxBase64(rows),
+      encoding: 'base64',
+      rowCount: rows.length,
+    }
+  }
+
   return {
     fileName: `${safeBaseName || 'import-batch'}-${batch.id.slice(0, 8)}.csv`,
     mimeType: 'text/csv;charset=utf-8',
     content: toCsv(rows),
     rowCount: rows.length,
   }
+}
+
+const EXPORT_COLUMNS: Array<keyof DataImportExportRow> = [
+  'batch_id', 'segment', 'region', 'age_group', 'period',
+  'brand_id', 'brand_name', 'brand_code', 'kpi_no', 'kpi_value',
+  'work_order_count', 'service_count', 'created_at',
+]
+
+async function toXlsxBase64(rows: DataImportExportRow[]): Promise<string> {
+  const XLSX = await import('xlsx')
+  const aoa: (string | number | null)[][] = [EXPORT_COLUMNS as string[]]
+  rows.forEach(row => aoa.push(EXPORT_COLUMNS.map(column => {
+    const v = row[column]
+    return v === undefined ? null : v
+  })))
+  const worksheet = XLSX.utils.aoa_to_sheet(aoa)
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'kpi_fact_rows')
+  return XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' }) as string
 }
 
 async function fetchFactRowsForBatch(batchId: string): Promise<DataImportExportRow[]> {
