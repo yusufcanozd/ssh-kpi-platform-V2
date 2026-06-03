@@ -51,7 +51,7 @@ export function validateFileBeforeRead(file: File): string | null {
   const type = detectImportFileType(file.name)
 
   if (type === 'unknown') {
-    return 'Desteklenmeyen dosya tipi. CSV, JSON ve XLSX import desteklenir.'
+    return 'Desteklenmeyen dosya tipi. Geçici olarak CSV ve JSON import desteklenir. Excel desteği sonraki adımda eklenecek.'
   }
 
 
@@ -82,7 +82,9 @@ export function buildInitialMapping(columns: string[]): ImportColumnMapping[] {
 
 export async function parseImportFile(file: File): Promise<ImportPreviewResult> {
   const fileType = detectImportFileType(file.name)
-  if (fileType === 'xlsx') return parseXlsxFile(file.name, await file.arrayBuffer())
+  if (fileType === 'xlsx') {
+    throw new Error('Excel import geçici olarak kapalı. Lütfen veriyi CSV veya JSON olarak yükleyin.')
+  }
 
   const text = await file.text()
   if (fileType === 'csv') return parseCsvText(file.name, text)
@@ -147,53 +149,8 @@ export function parseJsonText(fileName: string, text: string): ImportPreviewResu
 }
 
 
-export async function parseXlsxFile(fileName: string, arrayBuffer: ArrayBuffer): Promise<ImportPreviewResult> {
-  const XLSX = await import('xlsx')
-  const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true })
-  const firstSheetName = workbook.SheetNames[0]
-
-  if (!firstSheetName) {
-    throw new Error('XLSX dosyasında okunabilir çalışma sayfası bulunamadı.')
-  }
-
-  const worksheet = workbook.Sheets[firstSheetName]
-  if (!worksheet) {
-    throw new Error('XLSX çalışma sayfası okunamadı.')
-  }
-
-  const matrix = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
-    header: 1,
-    defval: '',
-    blankrows: false,
-    raw: false,
-  })
-
-  const rowsAsStrings = matrix
-    .map(row => row.map(cell => normalizeXlsxCell(cell)))
-    .filter(row => row.some(cell => cell.trim().length > 0))
-
-  const header = rowsAsStrings[0] ?? []
-  const columns = header.map((cell, index) => cleanColumnName(cell, index)).filter(Boolean)
-
-  if (columns.length === 0) {
-    throw new Error('XLSX dosyasının ilk satırında kolon başlıkları bulunamadı.')
-  }
-
-  const rows: ImportRawRow[] = rowsAsStrings.slice(1).map((cells, rowIndex) => {
-    const values: Record<string, string> = {}
-    columns.forEach((column, columnIndex) => {
-      values[column] = (cells[columnIndex] ?? '').trim()
-    })
-    return { rowNumber: rowIndex + 2, values }
-  }).filter(row => Object.values(row.values).some(value => value.length > 0))
-
-  return {
-    fileName,
-    fileType: 'xlsx',
-    columns,
-    rows,
-    previewRows: rows.slice(0, MAX_PREVIEW_ROWS),
-  }
+export async function parseXlsxFile(fileName: string, _arrayBuffer: ArrayBuffer): Promise<ImportPreviewResult> {
+  throw new Error(`${fileName} için Excel import geçici olarak kapalı. Lütfen veriyi CSV veya JSON olarak yükleyin.`)
 }
 
 export function validateImportRows(
