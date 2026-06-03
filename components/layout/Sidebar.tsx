@@ -23,6 +23,7 @@ const ADMIN_NAV = [
   { href:'/admin/categories',   label:'Kategoriler',       icon:<GridIcon/> },
   { href:'/admin/weights',      label:'Kategori Ağırlıkları', icon:<BarIcon/> },
   { href:'/admin/brands',       label:'Markalar',          icon:<BarIcon/> },
+  { href:'/admin/segments',     label:'Segmentler',        icon:<GridIcon/> },
   { href:'/admin/data-import',  label:'Data Import',       icon:<ReportIcon/> },
   { href:'/admin/permissions',  label:'Kullanıcı Kısıtları', icon:<UsersIcon/> },
   { href:'/admin/theme',        label:'Tema / Görsel',     icon:<SunIcon/> },
