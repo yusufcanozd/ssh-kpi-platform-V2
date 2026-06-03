@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/client'
 import type {
   DataImportBatchListItem,
+  DataImportExportFile,
+  DataImportExportFormat,
+  DataImportExportRow,
   PersistImportBatchInput,
   PersistImportBatchResult,
   PreparedKpiFactRow,
@@ -10,6 +13,11 @@ type BrandLookupRow = {
   id: string
   code: string | null
   name: string | null
+}
+
+type ProfileRoleRow = {
+  role: string | null
+  is_active: boolean | null
 }
 
 type KpiFactInsertRow = {
@@ -25,7 +33,27 @@ type KpiFactInsertRow = {
   service_count: number | null
 }
 
+type KpiFactExportDatabaseRow = {
+  id: string
+  batch_id: string
+  segment: string | null
+  region: string | null
+  age_group: string | null
+  period: string | null
+  brand_id: string | null
+  kpi_no: number | null
+  kpi_value: number | null
+  work_order_count: number | null
+  service_count: number | null
+  created_at: string
+  brands?: {
+    name: string | null
+    code: string | null
+  } | null
+}
+
 const FACT_INSERT_CHUNK_SIZE = 500
+const FACT_EXPORT_PAGE_SIZE = 1000
 
 export async function fetchImportBatches(limit = 20): Promise<DataImportBatchListItem[]> {
   const supabase = createClient()
@@ -40,6 +68,8 @@ export async function fetchImportBatches(limit = 20): Promise<DataImportBatchLis
 }
 
 export async function persistImportBatch(input: PersistImportBatchInput): Promise<PersistImportBatchResult> {
+  await assertCurrentUserIsSuperadmin()
+
   if (input.summary.errorCount > 0) {
     throw new Error('Validation hataları varken import kaydı oluşturulamaz.')
   }
@@ -103,7 +133,83 @@ export async function persistImportBatch(input: PersistImportBatchInput): Promis
 }
 
 export async function activateImportBatch(batchId: string): Promise<void> {
+  await assertCurrentUserIsSuperadmin()
   await setActiveImportBatch(batchId)
+}
+
+export async function exportImportBatch(
+  batchId: string,
+  format: DataImportExportFormat,
+): Promise<DataImportExportFile> {
+  await assertCurrentUserIsSuperadmin()
+
+  const supabase = createClient()
+  const { data: batchData, error: batchError } = await supabase
+    .from('data_import_batches')
+    .select('id, filename, file_type, status, total_rows, valid_rows, error_rows, warning_count, is_active, imported_by, created_at, imported_at')
+    .eq('id', batchId)
+    .single()
+
+  if (batchError) throw new Error(batchError.message)
+
+  const batch = batchData as unknown as DataImportBatchListItem
+  const rows = await fetchFactRowsForBatch(batchId)
+  const safeBaseName = sanitizeFileName(batch.filename.replace(/\.(csv|json|xlsx|xls)$/i, ''))
+  const exportedAt = new Date().toISOString()
+
+  if (format === 'json') {
+    return {
+      fileName: `${safeBaseName || 'import-batch'}-${batch.id.slice(0, 8)}.json`,
+      mimeType: 'application/json;charset=utf-8',
+      content: JSON.stringify({ exported_at: exportedAt, batch, rows }, null, 2),
+      rowCount: rows.length,
+    }
+  }
+
+  return {
+    fileName: `${safeBaseName || 'import-batch'}-${batch.id.slice(0, 8)}.csv`,
+    mimeType: 'text/csv;charset=utf-8',
+    content: toCsv(rows),
+    rowCount: rows.length,
+  }
+}
+
+async function fetchFactRowsForBatch(batchId: string): Promise<DataImportExportRow[]> {
+  const supabase = createClient()
+  const allRows: KpiFactExportDatabaseRow[] = []
+
+  for (let from = 0; ; from += FACT_EXPORT_PAGE_SIZE) {
+    const to = from + FACT_EXPORT_PAGE_SIZE - 1
+    const { data, error } = await supabase
+      .from('kpi_fact_rows')
+      .select('id, batch_id, segment, region, age_group, period, brand_id, kpi_no, kpi_value, work_order_count, service_count, created_at, brands:brand_id(name, code)')
+      .eq('batch_id', batchId)
+      .order('created_at', { ascending: true })
+      .range(from, to)
+
+    if (error) throw new Error(error.message)
+
+    const pageRows = (data ?? []) as unknown as KpiFactExportDatabaseRow[]
+    allRows.push(...pageRows)
+    if (pageRows.length < FACT_EXPORT_PAGE_SIZE) break
+  }
+
+  return allRows.map(row => ({
+    id: row.id,
+    batch_id: row.batch_id,
+    segment: row.segment,
+    region: row.region,
+    age_group: row.age_group,
+    period: row.period,
+    brand_id: row.brand_id,
+    brand_name: row.brands?.name ?? null,
+    brand_code: row.brands?.code ?? null,
+    kpi_no: row.kpi_no,
+    kpi_value: row.kpi_value,
+    work_order_count: row.work_order_count,
+    service_count: row.service_count,
+    created_at: row.created_at,
+  }))
 }
 
 async function setActiveImportBatch(batchId: string) {
@@ -122,6 +228,28 @@ async function setActiveImportBatch(batchId: string) {
     .eq('id', batchId)
 
   if (activateError) throw new Error(activateError.message)
+}
+
+async function assertCurrentUserIsSuperadmin() {
+  const supabase = createClient()
+  const { data: userResponse, error: userError } = await supabase.auth.getUser()
+  if (userError) throw new Error(userError.message)
+
+  const userId = userResponse.user?.id
+  if (!userId) throw new Error('Bu işlem için giriş yapılmış kullanıcı bulunamadı.')
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('role, is_active')
+    .eq('id', userId)
+    .single()
+
+  if (error) throw new Error(error.message)
+
+  const profile = data as unknown as ProfileRoleRow
+  if (profile.role !== 'superadmin' || profile.is_active === false) {
+    throw new Error('Bu işlem sadece aktif superadmin kullanıcılar tarafından yapılabilir.')
+  }
 }
 
 async function fetchBrandLookup() {
@@ -182,6 +310,43 @@ async function writeImportAuditLog(input: {
       mapped_columns: input.mappedColumns,
     },
   })
+}
+
+function toCsv(rows: DataImportExportRow[]) {
+  const columns: Array<keyof DataImportExportRow> = [
+    'batch_id',
+    'segment',
+    'region',
+    'age_group',
+    'period',
+    'brand_id',
+    'brand_name',
+    'brand_code',
+    'kpi_no',
+    'kpi_value',
+    'work_order_count',
+    'service_count',
+    'created_at',
+  ]
+
+  const header = columns.join(',')
+  const body = rows.map(row => columns.map(column => csvEscape(row[column])).join(',')).join('\n')
+  return `\ufeff${header}${body ? `\n${body}` : ''}`
+}
+
+function csvEscape(value: string | number | null | undefined) {
+  const normalized = value === null || value === undefined ? '' : String(value)
+  if (/[",\n\r;]/.test(normalized)) return `"${normalized.replace(/"/g, '""')}"`
+  return normalized
+}
+
+function sanitizeFileName(value: string) {
+  return value
+    .trim()
+    .replace(/[^a-zA-Z0-9ğüşöçıİĞÜŞÖÇ._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80)
 }
 
 function normalizeLookupKey(value: string) {

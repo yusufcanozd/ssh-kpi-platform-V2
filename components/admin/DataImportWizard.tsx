@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { activateImportBatch, fetchImportBatches, persistImportBatch } from '@/lib/admin/data-import'
+import { activateImportBatch, exportImportBatch, fetchImportBatches, persistImportBatch } from '@/lib/admin/data-import'
 import {
   buildFactRowsForImport,
   buildInitialMapping,
@@ -65,6 +65,7 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
   const [activateAfterImport, setActivateAfterImport] = useState(true)
   const [batches, setBatches] = useState<DataImportBatchListItem[]>([])
   const [isLoadingBatches, setIsLoadingBatches] = useState(false)
+  const [exportingBatchId, setExportingBatchId] = useState<string | null>(null)
 
   const roleOptions = useMemo(() => buildRoleOptions(context.kpiNumbers), [context.kpiNumbers])
   const factRows = useMemo(() => (
@@ -143,7 +144,7 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
     try {
       const result = await persistImportBatch({
         fileName: preview.fileName,
-        fileType: preview.fileType === 'json' ? 'json' : 'csv',
+        fileType: preview.fileType === 'json' ? 'json' : preview.fileType === 'xlsx' ? 'xlsx' : 'csv',
         summary,
         mappings,
         factRows,
@@ -170,25 +171,41 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
     }
   }
 
+  const handleExportBatch = async (batchId: string, format: 'csv' | 'json') => {
+    setError(null)
+    setSuccess(null)
+    setExportingBatchId(`${batchId}:${format}`)
+
+    try {
+      const exported = await exportImportBatch(batchId, format)
+      downloadTextFile(exported.fileName, exported.mimeType, exported.content)
+      setSuccess(`${exported.fileName} indirilmeye hazırlandı.`)
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Export dosyası hazırlanamadı.')
+    } finally {
+      setExportingBatchId(null)
+    }
+  }
+
   return (
     <div style={{ display: 'grid', gap: 18 }}>
       <section style={{ ...cardStyle, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 900, color: '#60a5fa', letterSpacing: '.08em', textTransform: 'uppercase' }}>
-              Prompt 6 · Import batch persistence
+              Prompt 6-B · Super Admin export
             </div>
             <h2 style={{ margin: '7px 0 6px', color: 'var(--tx)', fontSize: 20 }}>
               Dosya seç, valide et, Supabase import batch kaydı oluştur
             </h2>
             <p style={{ margin: 0, color: 'var(--tx3)', fontSize: 13, lineHeight: 1.6, maxWidth: 820 }}>
-              Bu adım CSV/JSON dosyasını data_import_batches ve kpi_fact_rows tablolarına yazar. Dashboard henüz bu batch verisini kullanmaz;
+              Bu adım CSV/JSON/XLSX dosyasını data_import_batches ve kpi_fact_rows tablolarına yazar; import edilmiş batchler CSV/JSON olarak export edilebilir. Dashboard henüz bu batch verisini kullanmaz;
               dinamik KPI motoru bir sonraki promptta bağlanacak.
             </p>
           </div>
 
           <label style={buttonStyle}>
-            {isReading ? 'Dosya okunuyor...' : 'CSV / JSON seç'}
+            {isReading ? 'Dosya okunuyor...' : 'CSV / JSON / XLSX seç'}
             <input
               type="file"
               accept=".csv,.json,.xlsx,.xls"
@@ -203,7 +220,7 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
         {success && <Alert tone="success" text={success} />}
 
         <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
-          <Metric label="Desteklenen format" value="CSV / JSON" hint="XLSX sonraki adımda eklenecek" />
+          <Metric label="Desteklenen format" value="CSV / JSON / XLSX" hint="İlk çalışma sayfası okunur" />
           <Metric label="Preview limiti" value="20 satır" hint="Tüm satırlar validation ve import kapsamına girer" />
           <Metric label="KPI fact satırı" value={factRows.length} hint="Her KPI kolonu ayrı fact row olur" />
           <Metric label="Aktif batch" value={batches.find(batch => batch.is_active)?.filename ?? 'Yok'} hint="Dashboard bağlantısı Prompt 7/8’de yapılacak" />
@@ -215,6 +232,8 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
         isLoading={isLoadingBatches}
         onRefresh={() => void loadBatches()}
         onActivate={batchId => void handleActivateBatch(batchId)}
+        onExport={(batchId, format) => void handleExportBatch(batchId, format)}
+        exportingBatchId={exportingBatchId}
       />
 
       {preview && (
@@ -320,11 +339,15 @@ function BatchHistoryCard({
   isLoading,
   onRefresh,
   onActivate,
+  onExport,
+  exportingBatchId,
 }: {
   batches: DataImportBatchListItem[]
   isLoading: boolean
   onRefresh: () => void
   onActivate: (batchId: string) => void
+  onExport: (batchId: string, format: 'csv' | 'json') => void
+  exportingBatchId: string | null
 }) {
   return (
     <section style={{ ...cardStyle, padding: 18 }}>
@@ -348,11 +371,12 @@ function BatchHistoryCard({
               <th style={thStyle}>Uyarı</th>
               <th style={thStyle}>Tarih</th>
               <th style={thStyle}>İşlem</th>
+              <th style={thStyle}>Export</th>
             </tr>
           </thead>
           <tbody>
             {batches.length === 0 && (
-              <tr><td colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: 'var(--tx3)', padding: 22 }}>Henüz import batch yok.</td></tr>
+              <tr><td colSpan={7} style={{ ...tdStyle, textAlign: 'center', color: 'var(--tx3)', padding: 22 }}>Henüz import batch yok.</td></tr>
             )}
             {batches.map(batch => (
               <tr key={batch.id}>
@@ -370,6 +394,26 @@ function BatchHistoryCard({
                   >
                     Aktif yap
                   </button>
+                </td>
+                <td style={tdStyle}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      style={exportingBatchId === `${batch.id}:csv` ? disabledButtonStyle : buttonStyle}
+                      disabled={Boolean(exportingBatchId)}
+                      onClick={() => onExport(batch.id, 'csv')}
+                    >
+                      {exportingBatchId === `${batch.id}:csv` ? 'CSV...' : 'CSV'}
+                    </button>
+                    <button
+                      type="button"
+                      style={exportingBatchId === `${batch.id}:json` ? disabledButtonStyle : buttonStyle}
+                      disabled={Boolean(exportingBatchId)}
+                      onClick={() => onExport(batch.id, 'json')}
+                    >
+                      {exportingBatchId === `${batch.id}:json` ? 'JSON...' : 'JSON'}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -461,6 +505,18 @@ function Badge({ tone, children }: { tone: 'success' | 'error' | 'warning' | 'ne
       {children}
     </span>
   )
+}
+
+function downloadTextFile(fileName: string, mimeType: string, content: string) {
+  const blob = new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
 }
 
 function buildRoleOptions(kpiNumbers: number[]) {

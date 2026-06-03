@@ -51,12 +51,9 @@ export function validateFileBeforeRead(file: File): string | null {
   const type = detectImportFileType(file.name)
 
   if (type === 'unknown') {
-    return 'Desteklenmeyen dosya tipi. Bu adımda CSV ve JSON import desteklenir; XLSX sonraki adımda eklenecek.'
+    return 'Desteklenmeyen dosya tipi. CSV, JSON ve XLSX import desteklenir.'
   }
 
-  if (type === 'xlsx') {
-    return 'XLSX dosyası tanındı ancak bu promptta tarayıcı tarafında XLSX parse aktif değil. Lütfen şimdilik CSV veya JSON yükleyin.'
-  }
 
   if (file.size > MAX_CLIENT_FILE_SIZE_BYTES) {
     return 'Dosya boyutu çok büyük. Bu güvenli import adımı için maksimum 8 MB dosya yükleyin.'
@@ -85,12 +82,13 @@ export function buildInitialMapping(columns: string[]): ImportColumnMapping[] {
 
 export async function parseImportFile(file: File): Promise<ImportPreviewResult> {
   const fileType = detectImportFileType(file.name)
-  const text = await file.text()
+  if (fileType === 'xlsx') return parseXlsxFile(file.name, await file.arrayBuffer())
 
+  const text = await file.text()
   if (fileType === 'csv') return parseCsvText(file.name, text)
   if (fileType === 'json') return parseJsonText(file.name, text)
 
-  throw new Error('Bu dosya tipi bu promptta parse edilemiyor.')
+  throw new Error('Bu dosya tipi parse edilemiyor.')
 }
 
 export function parseCsvText(fileName: string, text: string): ImportPreviewResult {
@@ -142,6 +140,56 @@ export function parseJsonText(fileName: string, text: string): ImportPreviewResu
   return {
     fileName,
     fileType: 'json',
+    columns,
+    rows,
+    previewRows: rows.slice(0, MAX_PREVIEW_ROWS),
+  }
+}
+
+
+export async function parseXlsxFile(fileName: string, arrayBuffer: ArrayBuffer): Promise<ImportPreviewResult> {
+  const XLSX = await import('xlsx')
+  const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true })
+  const firstSheetName = workbook.SheetNames[0]
+
+  if (!firstSheetName) {
+    throw new Error('XLSX dosyasında okunabilir çalışma sayfası bulunamadı.')
+  }
+
+  const worksheet = workbook.Sheets[firstSheetName]
+  if (!worksheet) {
+    throw new Error('XLSX çalışma sayfası okunamadı.')
+  }
+
+  const matrix = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
+    header: 1,
+    defval: '',
+    blankrows: false,
+    raw: false,
+  })
+
+  const rowsAsStrings = matrix
+    .map(row => row.map(cell => normalizeXlsxCell(cell)))
+    .filter(row => row.some(cell => cell.trim().length > 0))
+
+  const header = rowsAsStrings[0] ?? []
+  const columns = header.map((cell, index) => cleanColumnName(cell, index)).filter(Boolean)
+
+  if (columns.length === 0) {
+    throw new Error('XLSX dosyasının ilk satırında kolon başlıkları bulunamadı.')
+  }
+
+  const rows: ImportRawRow[] = rowsAsStrings.slice(1).map((cells, rowIndex) => {
+    const values: Record<string, string> = {}
+    columns.forEach((column, columnIndex) => {
+      values[column] = (cells[columnIndex] ?? '').trim()
+    })
+    return { rowNumber: rowIndex + 2, values }
+  }).filter(row => Object.values(row.values).some(value => value.length > 0))
+
+  return {
+    fileName,
+    fileType: 'xlsx',
     columns,
     rows,
     previewRows: rows.slice(0, MAX_PREVIEW_ROWS),
@@ -358,6 +406,13 @@ function parseCsvRows(text: string): string[][] {
   rows.push(currentRow)
 
   return rows.filter(row => row.some(cell => cell.trim().length > 0))
+}
+
+
+function normalizeXlsxCell(value: unknown) {
+  if (value === null || value === undefined) return ''
+  if (value instanceof Date) return value.toISOString().slice(0, 10)
+  return String(value).trim()
 }
 
 function cleanColumnName(value: string, index: number) {

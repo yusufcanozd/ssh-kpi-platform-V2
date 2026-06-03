@@ -95,3 +95,30 @@ export interface PersistImportBatchResult {
   batch: DataImportBatchListItem
   insertedFactRows: number
 }
+
+
+export type DataImportExportFormat = 'csv' | 'json'
+
+export interface DataImportExportRow {
+  id: string
+  batch_id: string
+  segment: string | null
+  region: string | null
+  age_group: string | null
+  period: string | null
+  brand_id: string | null
+  brand_name: string | null
+  brand_code: string | null
+  kpi_no: number | null
+  kpi_value: number | null
+  work_order_count: number | null
+  service_count: number | null
+  created_at: string
+}
+
+export interface DataImportExportFile {
+  fileName: string
+  mimeType: string
+  content: string
+  rowCount: number
+}
