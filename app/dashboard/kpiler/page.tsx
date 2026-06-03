@@ -13,39 +13,10 @@ import {
 } from '@/lib/kpi'
 import { GeneralScoreMethodology, CategoryScoreMethodology, KpiMethodologyTooltip } from '@/components/dashboard/MethodologyTooltip'
 import styles from './page.module.css'
+import { smartBarValueLabels as barValuePlugin } from '@/lib/kpi/chart-labels'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
-const barValuePlugin = {
-  id: 'barValueLabels',
-  afterDatasetsDraw(chart: ChartJS) {
-    const ctx = chart.ctx
-    const barCount = chart.data.labels ? chart.data.labels.length : 0
-    // Dinamik font boyutu — cok barda kucuk yaz, cok kalabaliksa gizle
-    const fontSize = barCount <= 10 ? 11 : barCount <= 20 ? 9 : barCount <= 35 ? 7 : 0
-    if (!fontSize) return
-    chart.data.datasets.forEach(function(dataset, di) {
-      const meta = chart.getDatasetMeta(di)
-      if (meta.hidden) return
-      const isPrev = di > 0  // ikinci dataset = onceki donem
-      meta.data.forEach(function(bar, idx) {
-        const val = dataset.data[idx] as number
-        if (!val && val !== 0) return
-        const rounded = Math.round(val)
-        // Bar rengiyle ayni renk
-        const color = isPrev ? 'rgba(100,116,139,.85)' : scoreColor(rounded)
-        ctx.save()
-        ctx.font = 'bold ' + String(fontSize) + 'px monospace'
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'bottom'
-        ctx.fillStyle = color
-        // Bar'in tam ustune yaz
-        ctx.fillText(String(rounded), bar.x, bar.y - 3)
-        ctx.restore()
-      })
-    })
-  },
-}
 
 function SkorHucre(props: { skor: number; cmpSkor?: number | null; size?: string }) {
   const skor = props.skor
