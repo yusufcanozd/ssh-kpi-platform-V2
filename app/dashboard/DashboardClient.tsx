@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, createContext, useContext, useCallback } from 'react'
+import { useState, useEffect, useMemo, createContext, useContext, useCallback } from 'react'
 import Sidebar from '@/components/layout/Sidebar'
 import { BOLGELER, SEGMENTLER, YAS_GRUPLARI, DONEMLER, YAS_COLORS, YAS_STATS } from '@/lib/kpi'
+import { createClient } from '@/lib/supabase/client'
+import { loadCurrentUserPermissions, EMPTY_PERMISSIONS, type DataPermissions } from '@/lib/auth/permissions'
 import styles from './layout.module.css'
 
 export interface DashboardCtx {
@@ -28,16 +30,37 @@ export default function DashboardClient({ children }: { children: React.ReactNod
   const [selCmpDonem, setCmpDonem] = useState('')
   const [collapsed,   setCollapsed] = useState(false)
 
+  // ── Veri görünürlük kısıtları (Prompt 7) — FAIL-OPEN ──
+  const supabase = useMemo(() => createClient(), [])
+  const [perm, setPerm] = useState<DataPermissions>(EMPTY_PERMISSIONS)
+  useEffect(() => {
+    let cancelled = false
+    loadCurrentUserPermissions(supabase).then(p => { if (!cancelled) setPerm(p) })
+    return () => { cancelled = true }
+  }, [supabase])
+
+  const segRestricted = perm.allowedSegments.length > 0
+  const regionRestricted = perm.allowedRegions.length > 0
+  const segOptions = segRestricted ? SEGMENTLER.filter(s => perm.allowedSegments.includes(s)) : SEGMENTLER
+  const regionOptions = regionRestricted ? BOLGELER.filter(b => perm.allowedRegions.includes(b)) : BOLGELER
+
+  useEffect(() => {
+    if (segRestricted && (selSeg === '' || !segOptions.includes(selSeg))) setSeg(segOptions[0] ?? '')
+  }, [segRestricted, segOptions, selSeg])
+  useEffect(() => {
+    if (regionRestricted && (selBolge === '' || !regionOptions.includes(selBolge))) setBolge(regionOptions[0] ?? '')
+  }, [regionRestricted, regionOptions, selBolge])
+
   // Topbar'da gösterilecek kompakt filtreler (collapsed modda)
   const topbarFilters = collapsed ? (
     <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'nowrap',overflow:'hidden'}}>
       <select value={selBolge} onChange={e=>setBolge(e.target.value)} style={compactSelect}>
-        <option value="">Tüm TR</option>
-        {BOLGELER.map(b=><option key={b} value={b}>{b}</option>)}
+        {!regionRestricted && <option value="">Tüm TR</option>}
+        {regionOptions.map(b=><option key={b} value={b}>{b}</option>)}
       </select>
       <select value={selSeg} onChange={e=>setSeg(e.target.value)} style={compactSelect}>
-        <option value="">Tüm Seg.</option>
-        {SEGMENTLER.map(s=><option key={s} value={s}>{s}</option>)}
+        {!segRestricted && <option value="">Tüm Seg.</option>}
+        {segOptions.map(s=><option key={s} value={s}>{s}</option>)}
       </select>
       <select value={selYas} onChange={e=>setYas(e.target.value)} style={compactSelect}>
         {YAS_GRUPLARI.map(y=><option key={y} value={y}>{y==='Tümü'?'Tüm Yaş':y+'y'}</option>)}
@@ -59,15 +82,15 @@ export default function DashboardClient({ children }: { children: React.ReactNod
       <div className={styles.filterRow}>
         <label>Bölge</label>
         <select value={selBolge} onChange={e=>setBolge(e.target.value)}>
-          <option value="">Tüm Türkiye</option>
-          {BOLGELER.map(b=><option key={b} value={b}>{b}</option>)}
+          {!regionRestricted && <option value="">Tüm Türkiye</option>}
+          {regionOptions.map(b=><option key={b} value={b}>{b}</option>)}
         </select>
       </div>
       <div className={styles.filterRow}>
         <label>Segment</label>
         <select value={selSeg} onChange={e=>setSeg(e.target.value)}>
-          <option value="">Tüm Segmentler</option>
-          {SEGMENTLER.map(s=><option key={s} value={s}>{s}</option>)}
+          {!segRestricted && <option value="">Tüm Segmentler</option>}
+          {segOptions.map(s=><option key={s} value={s}>{s}</option>)}
         </select>
       </div>
       <div className={styles.filterRow}>
