@@ -168,7 +168,7 @@ export default function DataImportAdminPage() {
                       )}
                       <label className={styles.checkboxRow}>
                         <input type="checkbox" checked={makeActive} onChange={e => setMakeActive(e.target.checked)} />
-                        İçe aktarınca bu batch'i aktif yap (dashboard bunu kullanır)
+                        İçe aktarınca bu veri setini aktif yap (dashboard bu veriyi kullanır)
                       </label>
                       <div className={styles.actions}>
                         <button type="button" className={styles.button} onClick={doImport} disabled={!canImport || importing}>{importing ? 'İçe aktarılıyor…' : 'İçe aktar'}</button>
