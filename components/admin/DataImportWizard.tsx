@@ -193,13 +193,13 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 900, color: '#60a5fa', letterSpacing: '.08em', textTransform: 'uppercase' }}>
-              Prompt 6-B · Super Admin export
+              Prompt 6-C · Import şablonu
             </div>
             <h2 style={{ margin: '7px 0 6px', color: 'var(--tx)', fontSize: 20 }}>
               Dosya seç, valide et, Supabase import batch kaydı oluştur
             </h2>
             <p style={{ margin: 0, color: 'var(--tx3)', fontSize: 13, lineHeight: 1.6, maxWidth: 820 }}>
-              Bu adım CSV/JSON/XLSX dosyasını data_import_batches ve kpi_fact_rows tablolarına yazar; import edilmiş batchler CSV/JSON olarak export edilebilir. Dashboard henüz bu batch verisini kullanmaz;
+              Bu adım CSV/JSON dosyasını data_import_batches ve kpi_fact_rows tablolarına yazar; import edilmiş batchler CSV/JSON olarak export edilebilir. Aşağıdan örnek import şablonu indirebilirsin. Dashboard henüz bu batch verisini kullanmaz;
               dinamik KPI motoru bir sonraki promptta bağlanacak.
             </p>
           </div>
@@ -208,7 +208,7 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
             {isReading ? 'Dosya okunuyor...' : 'CSV / JSON / XLSX seç'}
             <input
               type="file"
-              accept=".csv,.json,.xlsx,.xls"
+              accept=".csv,.json"
               onChange={event => void handleFile(event.target.files?.[0] ?? null)}
               style={{ display: 'none' }}
               disabled={isReading || isImporting}
@@ -505,6 +505,80 @@ function Badge({ tone, children }: { tone: 'success' | 'error' | 'warning' | 'ne
       {children}
     </span>
   )
+}
+
+
+function downloadTemplate(format: 'csv' | 'json') {
+  const templateRows = buildTemplateRows()
+
+  if (format === 'json') {
+    downloadTextFile(
+      'ssh-kpi-import-template.json',
+      'application/json;charset=utf-8',
+      JSON.stringify(templateRows, null, 2),
+    )
+    return
+  }
+
+  const columns = Object.keys(templateRows[0])
+  const csvRows = [
+    columns.join(','),
+    ...templateRows.map(row => columns.map(column => escapeCsvCell(String(row[column] ?? ''))).join(',')),
+  ]
+
+  downloadTextFile('ssh-kpi-import-template.csv', 'text/csv;charset=utf-8', csvRows.join('\n'))
+}
+
+function buildTemplateRows(): Array<Record<string, string | number>> {
+  return [
+    {
+      segment: 'Premium',
+      bolge: 'Marmara',
+      donem: '2025-01',
+      marka: 'Audi',
+      yas_grubu: '0-3',
+      is_emri_sayisi: 120,
+      servis_sayisi: 18,
+      KPI_1: 102,
+      KPI_2: 98,
+      KPI_3: 107,
+      KPI_4: 95,
+      KPI_5: 111,
+      KPI_6: 89,
+      KPI_7: 101,
+      KPI_8: 104,
+      KPI_9: 92,
+      KPI_10: 99,
+      KPI_11: 115,
+      KPI_12: 108,
+    },
+    {
+      segment: 'Volume',
+      bolge: 'Ege',
+      donem: '2025-01',
+      marka: 'Toyota',
+      yas_grubu: '4-7',
+      is_emri_sayisi: 180,
+      servis_sayisi: 24,
+      KPI_1: 96,
+      KPI_2: 103,
+      KPI_3: 100,
+      KPI_4: 91,
+      KPI_5: 105,
+      KPI_6: 94,
+      KPI_7: 99,
+      KPI_8: 97,
+      KPI_9: 88,
+      KPI_10: 102,
+      KPI_11: 109,
+      KPI_12: 101,
+    },
+  ]
+}
+
+function escapeCsvCell(value: string) {
+  if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`
+  return value
 }
 
 function downloadTextFile(fileName: string, mimeType: string, content: string) {
