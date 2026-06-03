@@ -8,10 +8,12 @@ import { createClient } from '@/lib/supabase/client'
 import {
   buildFallbackVersion,
   buildFallbackWeights,
-  buildWeightAuditDraft,
+  createMethodologyVersion,
+  isPersistedVersionId,
   isWeightTotalValid,
   parseSupabaseVersions,
   parseSupabaseWeights,
+  saveWeights,
   totalWeight,
   type ManagedCategoryWeight,
   type ManagedMethodologyVersion,
@@ -35,6 +37,7 @@ const emptyVersionForm: VersionFormState = {
 export default function WeightsAdminPage() {
   const router = useRouter()
   const { isSuperAdmin, loading } = useAuth()
+  const supabase = useMemo(() => createClient(), [])
 
   const [weights, setWeights] = useState<ManagedCategoryWeight[]>(() => buildFallbackWeights())
   const [versions, setVersions] = useState<ManagedMethodologyVersion[]>(() => [buildFallbackVersion()])
@@ -42,6 +45,7 @@ export default function WeightsAdminPage() {
   const [versionForm, setVersionForm] = useState<VersionFormState>(emptyVersionForm)
   const [errors, setErrors] = useState<string[]>([])
   const [message, setMessage] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!loading && !isSuperAdmin) router.replace('/dashboard')
@@ -49,7 +53,6 @@ export default function WeightsAdminPage() {
 
   useEffect(() => {
     let cancelled = false
-    const supabase = createClient()
 
     async function load() {
       const { data: versionRows, error: versionError } = await supabase
@@ -89,7 +92,7 @@ export default function WeightsAdminPage() {
     })
 
     return () => { cancelled = true }
-  }, [])
+  }, [supabase])
 
   const total = useMemo(() => totalWeight(weights), [weights])
   const valid = isWeightTotalValid(weights)
@@ -105,21 +108,26 @@ export default function WeightsAdminPage() {
     setMessage('')
   }
 
-  function saveWeights() {
+  async function handleSaveWeights() {
     if (!valid) {
       setErrors([`Toplam ağırlık ${total} — kaydetmek için tam olarak 100 olmalı.`])
       return
     }
     setErrors([])
-    buildWeightAuditDraft({
-      action: 'update_weights',
-      versionId: activeVersion?.id ?? 'fallback',
-      summary: `Kategori ağırlıkları güncellendi (${weights.map(w => `${w.shortName}:${w.weight}`).join(', ')})`,
-    })
-    setMessage('Ağırlıklar ekran durumunda kaydedildi. Kalıcı DB yazımı (kpi_category_weights upsert + audit_logs) Batch 2’de bağlanacak.')
+
+    if (source === 'supabase' && activeVersion && isPersistedVersionId(activeVersion.id)) {
+      setSaving(true)
+      const { error } = await saveWeights(supabase, activeVersion.id, weights)
+      setSaving(false)
+      if (error) { setErrors([error]); return }
+      setMessage(`Ağırlıklar "${activeVersion.name}" versiyonuna kaydedildi (Supabase).`)
+      return
+    }
+
+    setMessage('Fallback modunda: ekran güncellendi, DB yazımı yapılmadı (aktif DB versiyonu yok).')
   }
 
-  function createVersion() {
+  async function createVersion() {
     const nextErrors: string[] = []
     if (!versionForm.name.trim()) nextErrors.push('Versiyon adı zorunludur.')
     if (!versionForm.description.trim()) nextErrors.push('Açıklama zorunludur.')
@@ -128,6 +136,26 @@ export default function WeightsAdminPage() {
     setErrors(nextErrors)
     if (nextErrors.length > 0) return
 
+    if (source === 'supabase') {
+      setSaving(true)
+      const { data, error } = await createMethodologyVersion(supabase, {
+        name: versionForm.name.trim(),
+        description: versionForm.description.trim(),
+        effectiveDate: versionForm.effectiveDate,
+        isActive: versionForm.isActive,
+      }, weights)
+      setSaving(false)
+      if (error || !data) { setErrors([error ?? 'Versiyon oluşturulamadı.']); return }
+
+      setVersions(current => {
+        const deactivated = data.isActive ? current.map(v => ({ ...v, isActive: false })) : current
+        return [data, ...deactivated]
+      })
+      setVersionForm(emptyVersionForm)
+      setMessage(`"${data.name}" versiyonu oluşturuldu ve ağırlıklar kaydedildi (Supabase).`)
+      return
+    }
+
     const newId = `local-version-${Date.now()}`
     const newVersion: ManagedMethodologyVersion = {
       id: newId,
@@ -135,23 +163,14 @@ export default function WeightsAdminPage() {
       description: versionForm.description.trim(),
       effectiveDate: versionForm.effectiveDate,
       isActive: versionForm.isActive,
-      source: source === 'supabase' ? 'supabase' : 'fallback',
+      source: 'fallback',
     }
-
     setVersions(current => {
-      const next = versionForm.isActive
-        ? current.map(version => ({ ...version, isActive: false }))
-        : [...current]
+      const next = versionForm.isActive ? current.map(version => ({ ...version, isActive: false })) : [...current]
       return [newVersion, ...next]
     })
-
-    buildWeightAuditDraft({
-      action: 'create_version',
-      versionId: newId,
-      summary: `Yeni metodoloji versiyonu: ${newVersion.name}`,
-    })
     setVersionForm(emptyVersionForm)
-    setMessage(`"${newVersion.name}" versiyonu ekran durumunda oluşturuldu. Kalıcı kayıt Batch 2’de bağlanacak.`)
+    setMessage('Fallback modunda: versiyon ekranda oluşturuldu, DB yazımı yapılmadı.')
   }
 
   if (loading) return <div className={styles.content}>Yetki kontrol ediliyor...</div>
@@ -186,7 +205,7 @@ export default function WeightsAdminPage() {
                   </div>
                 </div>
                 <div className={styles.actions}>
-                  <button type="button" className={styles.button} onClick={saveWeights} disabled={!valid}>Ağırlıkları kaydet</button>
+                  <button type="button" className={styles.button} onClick={handleSaveWeights} disabled={!valid || saving}>{saving ? 'Kaydediliyor…' : 'Ağırlıkları kaydet'}</button>
                 </div>
               </div>
               <div className={styles.tableWrap}>
@@ -304,7 +323,7 @@ export default function WeightsAdminPage() {
                 </div>
 
                 <div className={styles.actions}>
-                  <button type="submit" className={styles.button}>Yeni metodoloji versiyonu oluştur</button>
+                  <button type="submit" className={styles.button} disabled={saving}>{saving ? 'Kaydediliyor…' : 'Yeni metodoloji versiyonu oluştur'}</button>
                 </div>
               </form>
             </aside>

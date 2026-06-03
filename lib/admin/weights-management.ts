@@ -9,6 +9,7 @@ import {
   KAT_YAPILAR,
   type CategoryKey,
 } from '@/lib/kpi'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export interface ManagedCategoryWeight {
   categoryKey: CategoryKey
@@ -132,4 +133,104 @@ export function isWeightTotalValid(weights: ManagedCategoryWeight[]): boolean {
 export function buildWeightAuditDraft(event: WeightAuditDraft): WeightAuditDraft {
   // TODO (Batch 2): aktif kullanıcı superadmin ise bu olay audit_logs tablosuna yazılacak.
   return event
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// DB persistence (Prompt 5 — Batch 3). RLS: yalnızca aktif superadmin.
+// ─────────────────────────────────────────────────────────────────────────
+
+
+export interface PersistResult<T> {
+  data?: T
+  error?: string
+}
+
+export interface NewVersionInput {
+  name: string
+  description: string
+  effectiveDate: string
+  isActive: boolean
+}
+
+/** id bir Supabase uuid'i mi? (fallback-/local- id'lerini ayırır) */
+export function isPersistedVersionId(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+}
+
+async function writeWeightAudit(
+  supabase: SupabaseClient,
+  action: string,
+  entityId: string,
+  summary: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const { data } = await supabase.auth.getUser()
+    await supabase.from('audit_logs').insert({
+      actor_id: data.user?.id ?? null,
+      action,
+      entity: 'kpi_methodology',
+      entity_id: entityId,
+      summary,
+      metadata: payload,
+    })
+  } catch {
+    // audit kritik değil
+  }
+}
+
+/** Aktif versiyonun kategori ağırlıklarını upsert eder. */
+export async function saveWeights(
+  supabase: SupabaseClient,
+  versionId: string,
+  weights: ManagedCategoryWeight[],
+): Promise<PersistResult<true>> {
+  if (!isPersistedVersionId(versionId)) {
+    return { error: 'Aktif metodoloji versiyonu DB’de değil. Önce bir versiyon oluşturun.' }
+  }
+  const rows = weights.map(weight => ({
+    methodology_version_id: versionId,
+    category_key: weight.categoryKey,
+    weight: weight.weight,
+  }))
+  const { error } = await supabase
+    .from('kpi_category_weights')
+    .upsert(rows, { onConflict: 'methodology_version_id,category_key' })
+  if (error) return { error: error.message }
+  await writeWeightAudit(supabase, 'update', versionId, 'Kategori ağırlıkları güncellendi', { weights: rows })
+  return { data: true }
+}
+
+/** Yeni metodoloji versiyonu oluşturur ve mevcut ağırlıkları ona kopyalar. */
+export async function createMethodologyVersion(
+  supabase: SupabaseClient,
+  input: NewVersionInput,
+  weights: ManagedCategoryWeight[],
+): Promise<PersistResult<ManagedMethodologyVersion>> {
+  if (input.isActive) {
+    await supabase.from('kpi_methodology_versions').update({ is_active: false }).eq('is_active', true)
+  }
+  const { data, error } = await supabase
+    .from('kpi_methodology_versions')
+    .insert({
+      name: input.name,
+      description: input.description,
+      effective_date: input.effectiveDate,
+      is_active: input.isActive,
+    })
+    .select()
+    .single()
+  if (error || !data) return { error: error?.message ?? 'Versiyon oluşturulamadı.' }
+
+  const version = parseSupabaseVersions([data])[0]
+  const rows = weights.map(weight => ({
+    methodology_version_id: version.id,
+    category_key: weight.categoryKey,
+    weight: weight.weight,
+  }))
+  const { error: weightError } = await supabase.from('kpi_category_weights').insert(rows)
+  if (weightError) return { error: weightError.message }
+
+  await writeWeightAudit(supabase, 'create', version.id, `Yeni metodoloji versiyonu: ${version.name}`, { weights: rows })
+  return { data: version }
 }
