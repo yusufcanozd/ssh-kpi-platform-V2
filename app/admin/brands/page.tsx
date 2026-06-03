@@ -10,15 +10,14 @@ import {
   SEGMENT_OPTIONS,
   deleteBrand,
   getFallbackBrands,
+  importFallbackBrands,
   isPersistedId,
   loadBrands,
   saveBrand,
   setBrandActive,
-  setBrandHidden,
   slugifyBrandCode,
   validateBrand,
 } from '@/lib/admin/brands-management'
-import { getActiveSegmentNames } from '@/lib/admin/segments-management'
 import styles from '@/components/admin/KpiManagement.module.css'
 
 const emptyBrand: AdminBrand = {
@@ -30,6 +29,16 @@ const emptyBrand: AdminBrand = {
   isHidden: false,
   dataSource: 'fallback',
   source: 'fallback',
+}
+
+function confirmPermanentDelete(label: string, warning: string) {
+  if (typeof window === 'undefined') return false
+
+  const firstConfirm = window.confirm(`${label} kalıcı olarak silinecek. Bu işlem geri alınamaz.\n\n${warning}\n\nDevam edilsin mi?`)
+  if (!firstConfirm) return false
+
+  const typed = window.prompt('Kalıcı silmeyi onaylamak için büyük harflerle SIL yazın.')
+  return typed === 'SIL'
 }
 
 export default function BrandsAdminPage() {
@@ -45,7 +54,6 @@ export default function BrandsAdminPage() {
   const [auditNote, setAuditNote] = useState('')
   const [dbError, setDbError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [segmentOptions, setSegmentOptions] = useState<string[]>(SEGMENT_OPTIONS)
 
   useEffect(() => {
     if (!loading && !isSuperAdmin) router.replace('/dashboard')
@@ -58,10 +66,6 @@ export default function BrandsAdminPage() {
       setBrands(result.brands)
       setSource(result.source)
       setWarning(result.warning ?? '')
-    })
-    getActiveSegmentNames(supabase).then(names => {
-      if (cancelled) return
-      if (names.length) setSegmentOptions(names)
     })
     return () => { cancelled = true }
   }, [supabase])
@@ -137,24 +141,8 @@ export default function BrandsAdminPage() {
     setDbError('Fallback modunda durum değiştirilemez. Önce içe aktarın.')
   }
 
-  async function toggleHidden(brand: AdminBrand) {
-    const nextHidden = !brand.isHidden
-    setDbError('')
-    if (source === 'supabase' && isPersistedId(brand.id)) {
-      setSaving(true)
-      const { data, error } = await setBrandHidden(supabase, brand.id, nextHidden)
-      setSaving(false)
-      if (error || !data) { setDbError(error ?? 'Gizlilik guncellenemedi.'); return }
-      upsertLocal(data)
-      setDraft(current => current.id === data.id ? data : current)
-      setAuditNote(`${data.name} ${nextHidden ? 'gizlendi' : 'gorunur yapildi'}.`)
-      return
-    }
-    setDbError('Fallback modunda gizlilik degistirilemez.')
-  }
-
   async function removeBrand(brand: AdminBrand) {
-    if (typeof window !== 'undefined' && !window.confirm(`"${brand.name}" markası kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?`)) return
+    if (!confirmPermanentDelete(`"${brand.name}" markası`, 'Bu marka geçmiş ranking, rule-of-3 gizlilik ve import eşleşmelerinde kullanılmış olabilir. Emin değilseniz önce Pasifleştir veya Gizli seçeneklerini kullanın.')) return
     setDbError('')
     if (source === 'supabase' && isPersistedId(brand.id)) {
       setSaving(true)
@@ -165,6 +153,19 @@ export default function BrandsAdminPage() {
     setBrands(current => current.filter(item => item.id !== brand.id))
     if (selectedId === brand.id) resetForm()
     setAuditNote(`"${brand.name}" silindi.`)
+  }
+
+  async function handleImport() {
+    setDbError('')
+    setSaving(true)
+    const { data, error } = await importFallbackBrands(supabase)
+    setSaving(false)
+    if (error) { setDbError(error); return }
+    const reload = await loadBrands(supabase)
+    setBrands(reload.brands)
+    setSource(reload.source)
+    setWarning(reload.warning ?? '')
+    setAuditNote(`${data ?? 0} marka brands tablosuna aktarıldı.`)
   }
 
   if (loading) return <div className={styles.content}>Yetki kontrol ediliyor...</div>
@@ -182,7 +183,7 @@ export default function BrandsAdminPage() {
           <section className={styles.notice}>
             <div className={styles.noticeTitle}>Gizlilik kuralı (rule of 3)</div>
             <div className={styles.noticeText}>
-              Görünür (aktif ve gizli olmayan) marka sayısı 1-3 ise dashboard maskeleme uygular. Şu an görünür marka: <strong>{visibleCount}</strong>{privacyMasking ? ' — maskeleme aktif.' : '.'} Silme yerine pasifleştirme önerilir.
+              Görünür (aktif ve gizli olmayan) marka sayısı 1-3 ise dashboard maskeleme uygular. Şu an görünür marka: <strong>{visibleCount}</strong>{privacyMasking ? ' — maskeleme aktif.' : '.'} Kalıcı silme açıktır; emin değilseniz pasifleştirme veya gizleme kullanın.
             </div>
             {warning && <div className={styles.noticeText}>{warning}</div>}
           </section>
@@ -195,6 +196,9 @@ export default function BrandsAdminPage() {
                   <div className={styles.toolbarHint}>{brands.length} marka · {activeCount} aktif · {visibleCount} görünür</div>
                 </div>
                 <div className={styles.actions}>
+                  {source === 'fallback' && (
+                    <button type="button" className={styles.button} onClick={handleImport} disabled={saving}>{saving ? 'Aktarılıyor…' : 'Mevcut markaları içe aktar'}</button>
+                  )}
                   <button type="button" className={styles.secondaryButton} onClick={resetForm}>Yeni marka</button>
                 </div>
               </div>
@@ -233,7 +237,6 @@ export default function BrandsAdminPage() {
                           <div className={styles.actions}>
                             <button type="button" className={styles.secondaryButton} onClick={() => editBrand(brand)}>Düzenle</button>
                             <button type="button" className={styles.dangerButton} onClick={() => toggleActive(brand)} disabled={saving}>{brand.isActive ? 'Pasifleştir' : 'Aktifleştir'}</button>
-                            <button type="button" className={styles.secondaryButton} onClick={() => toggleHidden(brand)} disabled={saving}>{brand.isHidden ? 'Göster' : 'Gizle'}</button>
                             <button type="button" className={styles.dangerButton} onClick={() => removeBrand(brand)} disabled={saving} title="Kalıcı sil">Sil</button>
                           </div>
                         </td>
@@ -248,7 +251,7 @@ export default function BrandsAdminPage() {
               <form className={styles.form} onSubmit={event => { event.preventDefault(); saveDraft() }}>
                 <div>
                   <h2 className={styles.formTitle}>{selectedId ? 'Marka Düzenle' : 'Yeni Marka Ekle'}</h2>
-                  <div className={styles.formHint}>Kaydet işlemi Supabase brands tablosuna yazılır. Gizli markalar dashboard’da maskelenir.</div>
+                  <div className={styles.formHint}>Kaydet işlemi Supabase brands tablosuna yazılır. Gizli markalar dashboard’da maskelenir; Sil işlemi kalıcıdır ve audit_logs'a yazılır.</div>
                 </div>
 
                 {validationErrors.length > 0 && (
@@ -270,7 +273,7 @@ export default function BrandsAdminPage() {
                     <label>Segment</label>
                     <select className={styles.select} value={draft.segment} onChange={event => setDraft({ ...draft, segment: event.target.value })}>
                       <option value="">Segment seç</option>
-                      {segmentOptions.map(segment => <option key={segment} value={segment}>{segment}</option>)}
+                      {SEGMENT_OPTIONS.map(segment => <option key={segment} value={segment}>{segment}</option>)}
                     </select>
                   </div>
                 </div>

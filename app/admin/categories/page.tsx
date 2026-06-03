@@ -48,6 +48,16 @@ function getNextSortOrder(categories: AdminCategoryDefinition[]) {
   return Math.max(0, ...categories.map(category => category.sortOrder)) + 1
 }
 
+function confirmPermanentDelete(label: string, warning: string) {
+  if (typeof window === 'undefined') return false
+
+  const firstConfirm = window.confirm(`${label} kalıcı olarak silinecek. Bu işlem geri alınamaz.\n\n${warning}\n\nDevam edilsin mi?`)
+  if (!firstConfirm) return false
+
+  const typed = window.prompt('Kalıcı silmeyi onaylamak için büyük harflerle SIL yazın.')
+  return typed === 'SIL'
+}
+
 export default function CategoriesAdminPage() {
   const supabase = useMemo(() => createClient(), [])
   const [categories, setCategories] = useState<AdminCategoryDefinition[]>(getFallbackCategories())
@@ -169,14 +179,14 @@ export default function CategoriesAdminPage() {
   }
 
   async function removeCategory(category: AdminCategoryDefinition) {
-    if (typeof window !== 'undefined' && !window.confirm(`"${category.name}" kategorisi kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?`)) return
+    if (!confirmPermanentDelete(`"${category.name}" kategorisi`, 'Bu kategoriye bağlı KPI varsa Supabase silmeyi engelleyebilir. Dashboard ve geçmiş rapor bütünlüğü için emin değilseniz önce Pasifleştir seçeneğini kullanın.')) return
     setDbError('')
     if (source === 'supabase' && isPersistedId(category.id)) {
       setSaving(true)
       const { error } = await deleteCategory(supabase, category.id)
       setSaving(false)
       if (error) { setDbError(error); return }
-      await writeAuditLog(supabase, buildAuditDraft('kpi_category', category.id, 'deactivate', { key: category.key, deleted: true }))
+      await writeAuditLog(supabase, buildAuditDraft('kpi_category', category.id, 'delete', { key: category.key, name: category.name, permanentDelete: true }))
     }
     setCategories(current => current.filter(item => item.id !== category.id))
     if (selectedId === category.id) resetForm()
@@ -197,7 +207,7 @@ export default function CategoriesAdminPage() {
           <section className={styles.notice}>
             <div className={styles.noticeTitle}>Metodoloji uyarısı</div>
             <div className={styles.noticeText}>
-              Kategori değişiklikleri skor metodolojisini ve executive rapor yorumunu etkiler. Kaydet/Pasifleştir Supabase’e yazılır; silme yerine pasifleştirme kullanılır.
+              Kategori değişiklikleri skor metodolojisini ve executive rapor yorumunu etkiler. Kaydet/Pasifleştir/Sil Supabase’e yazılır; silme kalıcıdır ve bağlı KPI varsa engellenebilir.
             </div>
             {warning && <div className={styles.noticeText}>{warning}</div>}
           </section>
@@ -260,7 +270,7 @@ export default function CategoriesAdminPage() {
               <form className={styles.form} onSubmit={event => { event.preventDefault(); saveDraft() }}>
                 <div>
                   <h2 className={styles.formTitle}>{selectedId ? 'Kategori Düzenle' : 'Yeni Kategori Ekle'}</h2>
-                  <div className={styles.formHint}>Kategori silinmez; dashboard ve geçmiş rapor bütünlüğü için pasifleştirme uygulanır.</div>
+                  <div className={styles.formHint}>Kalıcı silme açıktır; dashboard ve geçmiş rapor bütünlüğü için emin değilseniz pasifleştirme kullanın.</div>
                 </div>
 
                 {validationErrors.length > 0 && (

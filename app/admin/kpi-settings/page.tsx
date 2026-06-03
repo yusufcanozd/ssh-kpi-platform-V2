@@ -37,6 +37,16 @@ function getNextKpiNo(kpis: AdminKpiDefinition[]) {
   return Math.max(0, ...kpis.map(kpi => kpi.kpiNo)) + 1
 }
 
+function confirmPermanentDelete(label: string, warning: string) {
+  if (typeof window === 'undefined') return false
+
+  const firstConfirm = window.confirm(`${label} kalıcı olarak silinecek. Bu işlem geri alınamaz.\n\n${warning}\n\nDevam edilsin mi?`)
+  if (!firstConfirm) return false
+
+  const typed = window.prompt('Kalıcı silmeyi onaylamak için büyük harflerle SIL yazın.')
+  return typed === 'SIL'
+}
+
 export default function KpiSettingsAdminPage() {
   const supabase = useMemo(() => createClient(), [])
   const [kpis, setKpis] = useState<AdminKpiDefinition[]>(getFallbackKpis())
@@ -148,14 +158,14 @@ export default function KpiSettingsAdminPage() {
   }
 
   async function removeKpi(kpi: AdminKpiDefinition) {
-    if (typeof window !== 'undefined' && !window.confirm(`KPI ${kpi.kpiNo} kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?`)) return
+    if (!confirmPermanentDelete(`KPI ${kpi.kpiNo}`, 'Bu KPI geçmiş raporlar, kategori ortalamaları ve metodoloji karşılaştırmalarında referans alınmış olabilir. Emin değilseniz önce Pasifleştir seçeneğini kullanın.')) return
     setDbError('')
     if (source === 'supabase' && isPersistedId(kpi.id)) {
       setSaving(true)
       const { error } = await deleteKpi(supabase, kpi.id)
       setSaving(false)
       if (error) { setDbError(error); return }
-      await writeAuditLog(supabase, buildAuditDraft('kpi_definition', kpi.id, 'deactivate', { kpiNo: kpi.kpiNo, deleted: true }))
+      await writeAuditLog(supabase, buildAuditDraft('kpi_definition', kpi.id, 'delete', { kpiNo: kpi.kpiNo, name: kpi.name, permanentDelete: true }))
     }
     setKpis(current => current.filter(item => item.id !== kpi.id))
     if (selectedId === kpi.id) resetForm()
@@ -240,7 +250,7 @@ export default function KpiSettingsAdminPage() {
               <form className={styles.form} onSubmit={event => { event.preventDefault(); saveDraft() }}>
                 <div>
                   <h2 className={styles.formTitle}>{selectedId ? 'KPI Düzenle' : 'Yeni KPI Ekle'}</h2>
-                  <div className={styles.formHint}>Kaydet/Güncelle işlemleri Supabase’e yazılır. Silme yerine pasifleştirme kullanılır.</div>
+                  <div className={styles.formHint}>Kaydet/Güncelle işlemleri Supabase’e yazılır. Silme kalıcıdır; metodoloji geçmişi için emin değilseniz Pasifleştir kullanın.</div>
                 </div>
 
                 {validationErrors.length > 0 && (

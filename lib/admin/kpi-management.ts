@@ -11,7 +11,7 @@ export type KpiDirection = 'higher_is_better' | 'lower_is_better'
 export type KpiDataType = 'index' | 'ratio' | 'currency' | 'duration' | 'count' | 'percentage'
 export type CoverageRule = 'included' | 'excluded_zero_variance' | 'optional' | 'required'
 export type AuditEntityType = 'kpi_definition' | 'kpi_category'
-export type AuditAction = 'create' | 'update' | 'deactivate' | 'reactivate'
+export type AuditAction = 'create' | 'update' | 'deactivate' | 'reactivate' | 'delete'
 
 export interface AdminCategoryDefinition {
   id: string
