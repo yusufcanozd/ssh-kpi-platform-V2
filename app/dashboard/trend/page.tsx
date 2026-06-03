@@ -5,9 +5,9 @@ import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, SEGMENTLER, CATEGORY_OPTIONS, CAT_COLORS,
-  fmtKpi, getKpisFromCube, getScore, getKpiScores, DONEMLER,
+  fmtKpi, DONEMLER,
   isLowerBetter, getSegmentColor,
-  getAvailableDonemler, getKpiScoresDetailed, getKpisForCategory,
+  createRuntimeCalculator, getKpisForCategory,
 } from '@/lib/kpi'
 import { Line } from 'react-chartjs-2'
 import {
@@ -49,20 +49,20 @@ interface Seri {
 }
 function makeSeriId() { return Math.random().toString(36).slice(2,8) }
 
-function getSeriVeri(s: Seri, donemler: string[], bolge: string, yas: string): number[] {
+function getSeriVeri(s: Seri, donemler: string[], bolge: string, yas: string, runtimeCalc: ReturnType<typeof createRuntimeCalculator>): number[] {
   return donemler.map(d => {
     if (s.tip === 'skor') {
       if (s.kpiIdx !== null) {
-        const scores = getKpiScores(s.segment, bolge, yas, d)
+        const scores = runtimeCalc.getKpiScores(s.segment, bolge, yas, d)
         return scores[s.kpiIdx] ?? 0
       }
-      const sc = getScore(s.segment, bolge, yas, d)
+      const sc = runtimeCalc.getScore(s.segment, bolge, yas, d)
       if (!sc) return 0
       if (s.katKey) return (sc as any)[s.katKey] ?? sc.genel
       return sc.genel
     }
     if (s.kpiIdx === null) return 0
-    return getKpisFromCube(s.segment, bolge, yas, d)[s.kpiIdx] ?? 0
+    return runtimeCalc.getKpisFromCube(s.segment, bolge, yas, d)[s.kpiIdx] ?? 0
   })
 }
 
@@ -202,9 +202,10 @@ interface GrafikPaneliProps {
   aktifDonemler: string[]
   locked: boolean
   onLockToggle: () => void
+  runtimeCalc: ReturnType<typeof createRuntimeCalculator>
 }
 
-function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler, aktifDonemler, locked, onLockToggle }: GrafikPaneliProps) {
+function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler, aktifDonemler, locked, onLockToggle, runtimeCalc }: GrafikPaneliProps) {
   const [dragOver, setDragOver] = useState(false)
 
   const hasDeger = seriler.some(s => s.tip === 'deger')
@@ -273,7 +274,7 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
   const chartData = useMemo(() => ({
     labels: aktifDonemler,
     datasets: seriler.map(s => {
-      const veri = getSeriVeri(s, aktifDonemler, bolge, yas)
+      const veri = getSeriVeri(s, aktifDonemler, bolge, yas, runtimeCalc)
       const fmt = s.kpiIdx !== null ? KPI_META[s.kpiIdx].fmt : 'int'
       return {
         label: s.label, data: veri, borderColor: s.color, backgroundColor: s.color+'18',
@@ -284,11 +285,11 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
         _fmt: (v: number) => s.tip==='skor' ? `${Math.round(v)}` : fmtKpi(v, fmt),
       }
     }),
-  }), [seriler, aktifDonemler, bolge, yas, dualAxis])
+  }), [seriler, aktifDonemler, bolge, yas, dualAxis, runtimeCalc])
 
   const chartOptions = useMemo(() => {
-    const dV = seriler.filter(s=>s.tip==='deger').flatMap(s=>getSeriVeri(s,aktifDonemler,bolge,yas)).filter(v=>v>0)
-    const sV = seriler.filter(s=>s.tip==='skor').flatMap(s=>getSeriVeri(s,aktifDonemler,bolge,yas)).filter(v=>v>0)
+    const dV = seriler.filter(s=>s.tip==='deger').flatMap(s=>getSeriVeri(s,aktifDonemler,bolge,yas,runtimeCalc)).filter(v=>v>0)
+    const sV = seriler.filter(s=>s.tip==='skor').flatMap(s=>getSeriVeri(s,aktifDonemler,bolge,yas,runtimeCalc)).filter(v=>v>0)
     function bounds(vals: number[]) {
       if (!vals.length) return { min:0, max:100, stepSize: 20 }
       const mn=Math.min(...vals), mx=Math.max(...vals)
@@ -417,7 +418,10 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
 
 // ── Ana Sayfa ─────────────────────────────────────────────────────────────────
 export default function TrendPage() {
-  const { selBolge, selYas } = useDashboardCtx()
+  const { selBolge, selYas, runtimeData, allowedSegments } = useDashboardCtx()
+  const runtimeCalc = useMemo(() => createRuntimeCalculator(runtimeData), [runtimeData])
+  const segmentOptions = runtimeData.dimensions.segments.length > 0 ? runtimeData.dimensions.segments : SEGMENTLER
+  const filteredSegmentOptions = allowedSegments.length > 0 ? segmentOptions.filter(seg => allowedSegments.includes(seg)) : segmentOptions
   const ilkYil = TUM_YILLAR[0] ?? 2024
   const sonYil = TUM_YILLAR[TUM_YILLAR.length-1] ?? 2024
 
@@ -434,12 +438,12 @@ export default function TrendPage() {
   // Akıllı Filtre: CUBE'da gerçekten veri olan dönemler
   // bSnap tanımlandıktan SONRA gelmeli — used before declaration hatasını önler
   const availableDonemler = useMemo(
-    () => getAvailableDonemler(
+    () => runtimeCalc.getAvailableDonemler(
       bSnap.segmentler[0] ?? '',
       selBolge,
       selYas,
     ),
-    [bSnap.segmentler, selBolge, selYas]
+    [runtimeCalc, bSnap.segmentler, selBolge, selYas]
   )
 
   // Her grafiğin kendi kaydedilmiş builder state'i
@@ -567,7 +571,7 @@ export default function TrendPage() {
             </PanelGrup>
 
             <PanelGrup title="Segment" icon="🔷">
-              {['', ...SEGMENTLER].map(s => (
+              {['', ...filteredSegmentOptions].map(s => (
                 <SelectChip key={s||'tr'} label={s||'Tüm TR'} color={getSegmentColor(s)}
                   active={bSnap.segmentler.includes(s)}
                   draggable onDrag={() => onChipDrag({ grup:'segment', seg:s })}
@@ -641,6 +645,7 @@ export default function TrendPage() {
           {/* Sağ — 2 grafik alt alta */}
           <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
             <GrafikPaneli idx={0} bolge={selBolge} yas={selYas}
+              runtimeCalc={runtimeCalc}
               bRef={bRef} dragPayload={dragPayload}
               seriler={seriler1} setSeriler={setSeriler1}
               aktifDonemler={aktifDonemler}
@@ -648,6 +653,7 @@ export default function TrendPage() {
               onLockToggle={() => switchGrafik(1)} />
             <div style={{ borderTop:'1px solid var(--bd)', paddingTop:16 }}>
               <GrafikPaneli idx={1} bolge={selBolge} yas={selYas}
+                runtimeCalc={runtimeCalc}
                 bRef={bRef} dragPayload={dragPayload}
                 seriler={seriler2} setSeriler={setSeriler2}
                 aktifDonemler={aktifDonemler}

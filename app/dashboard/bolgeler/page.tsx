@@ -4,10 +4,10 @@ import { useMemo, useState } from 'react'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
-  KPI_META, BOLGELER, CATEGORY_OPTIONS,
-  fmtKpi, getKpisFromCube, heatColor, isLowerBetter,
-  getScore, getRegionalScorePrecise, getRegionalKpiScoresPrecise, scoreColor, scoreBg, kpiUnit, chgColor,
-  getKpiScores, kpiScoreColor, kpiScoreBg, scoreBarWidth, fmtSkor1, fmtSkor0
+  KPI_META, CATEGORY_OPTIONS,
+  fmtKpi, heatColor, isLowerBetter,
+  createRuntimeCalculator, scoreColor, scoreBg, kpiUnit, chgColor,
+  kpiScoreColor, kpiScoreBg, scoreBarWidth, fmtSkor1, fmtSkor0
 } from '@/lib/kpi'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
@@ -88,32 +88,33 @@ function SkorSutun({ bazG, cmpG, bazRank, cmpRank }: { bazG:number; cmpG:number|
 }
 
 export default function BolgelerPage() {
-  const { selSeg, selBolge, selYas, selDonem, selCmpDonem } = useDashboardCtx()
+  const { selSeg, selBolge, selYas, selDonem, selCmpDonem, allowedRegions, runtimeData } = useDashboardCtx()
   const [selKpi, setSelKpi] = useState(3)
   const [selKat, setSelKat] = useState('genel')
   const [mode, setMode]     = useState<'katSkor'|'kpiSkor'|'kpiDeger'>('katSkor')
+  const runtimeCalc = useMemo(() => createRuntimeCalculator(runtimeData), [runtimeData])
 
-  const bolgeList = selBolge ? [selBolge] : BOLGELER
+  const bolgeList = selBolge ? [selBolge] : allowedRegions
   const meta = KPI_META[selKpi]
   const lob  = isLowerBetter(selKpi)
   const unit = kpiUnit(meta.fmt)
 
-  const trKpis        = useMemo(() => getKpisFromCube(selSeg,'',selYas,selDonem), [selSeg,selYas,selDonem])
-  const trKpisCmp     = useMemo(() => selCmpDonem?getKpisFromCube(selSeg,'',selYas,selCmpDonem):null, [selSeg,selYas,selCmpDonem])
-  const trScore       = useMemo(() => getScore(selSeg,'',selYas,selDonem),  [selSeg,selYas,selDonem])
-  const trScoreCmp    = useMemo(() => selCmpDonem?getScore(selSeg,'',selYas,selCmpDonem):null, [selSeg,selYas,selCmpDonem])
-  const trKpiScores   = useMemo(() => getKpiScores(selSeg,'',selYas,selDonem), [selSeg,selYas,selDonem])
-  const trKpiScoresCmp= useMemo(() => selCmpDonem?getKpiScores(selSeg,'',selYas,selCmpDonem):null, [selSeg,selYas,selCmpDonem])
+  const trKpis        = useMemo(() => runtimeCalc.getKpisFromCube(selSeg,'',selYas,selDonem), [runtimeCalc,selSeg,selYas,selDonem])
+  const trKpisCmp     = useMemo(() => selCmpDonem?runtimeCalc.getKpisFromCube(selSeg,'',selYas,selCmpDonem):null, [runtimeCalc,selSeg,selYas,selCmpDonem])
+  const trScore       = useMemo(() => runtimeCalc.getScore(selSeg,'',selYas,selDonem),  [runtimeCalc,selSeg,selYas,selDonem])
+  const trScoreCmp    = useMemo(() => selCmpDonem?runtimeCalc.getScore(selSeg,'',selYas,selCmpDonem):null, [runtimeCalc,selSeg,selYas,selCmpDonem])
+  const trKpiScores   = useMemo(() => runtimeCalc.getKpiScores(selSeg,'',selYas,selDonem), [runtimeCalc,selSeg,selYas,selDonem])
+  const trKpiScoresCmp= useMemo(() => selCmpDonem?runtimeCalc.getKpiScores(selSeg,'',selYas,selCmpDonem):null, [runtimeCalc,selSeg,selYas,selCmpDonem])
 
   const bolgeData = useMemo(() => bolgeList.map(b=>({
     bolge: b,
-    kpis:          getKpisFromCube(selSeg,b,selYas,selDonem),
-    kpisCmp:       selCmpDonem?getKpisFromCube(selSeg,b,selYas,selCmpDonem):null,
-    kpiScores:     getRegionalKpiScoresPrecise(selSeg,b,selYas,selDonem),
-    kpiScoresCmp:  selCmpDonem?getRegionalKpiScoresPrecise(selSeg,b,selYas,selCmpDonem):null,
-    score:         getRegionalScorePrecise(selSeg,b,selYas,selDonem),
-    scoreCmp:      selCmpDonem?getRegionalScorePrecise(selSeg,b,selYas,selCmpDonem):null,
-  })), [selSeg,selBolge,selYas,selDonem,selCmpDonem])
+    kpis:          runtimeCalc.getKpisFromCube(selSeg,b,selYas,selDonem),
+    kpisCmp:       selCmpDonem?runtimeCalc.getKpisFromCube(selSeg,b,selYas,selCmpDonem):null,
+    kpiScores:     runtimeCalc.getRegionalKpiScores(selSeg,b,selYas,selDonem),
+    kpiScoresCmp:  selCmpDonem?runtimeCalc.getRegionalKpiScores(selSeg,b,selYas,selCmpDonem):null,
+    score:         runtimeCalc.getRegionalScore(selSeg,b,selYas,selDonem),
+    scoreCmp:      selCmpDonem?runtimeCalc.getRegionalScore(selSeg,b,selYas,selCmpDonem):null,
+  })), [runtimeCalc, selSeg, bolgeList, selYas, selDonem, selCmpDonem])
 
   // Skor sütunu için genel puan
   const getGenelPuan = (b: typeof bolgeData[0]) => b.score?.genel || 0

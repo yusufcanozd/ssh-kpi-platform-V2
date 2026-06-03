@@ -7,7 +7,7 @@ import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, SEGMENT_HEX, SEGMENT_BG, KAT_YAPILAR,
-  getKpiScores, getKpiScoresFullDetail, getScore, getMarkaRanking,
+  createRuntimeCalculator, getMarkaRanking,
   kpiScoreColor, kpiScoreBg, scoreColor, scoreBarWidth, scoreBg,
   changePct, chgColor, isLowerBetter,
 } from '@/lib/kpi'
@@ -73,10 +73,11 @@ function SkorHucre(props: { skor: number; cmpSkor?: number | null; size?: string
 }
 
 export default function KpiDetayPage() {
-  const { selSeg, selBolge, selYas, selDonem, selCmpDonem } = useDashboardCtx()
+  const { selSeg, selBolge, selYas, selDonem, selCmpDonem, runtimeData } = useDashboardCtx()
   const [tab, setTab]             = useState('kpi')
   const [sortKpi, setSortKpi]     = useState(-1)
   const [katSortKey, setKatSortKey] = useState('genel')
+  const runtimeCalc = useMemo(() => createRuntimeCalculator(runtimeData), [runtimeData])
 
   const filterLabel = [
     selBolge || 'Tum TR',
@@ -89,14 +90,14 @@ export default function KpiDetayPage() {
     return segs.map(function(s) {
       return {
         seg: s,
-        kpiSkorlar:    getKpiScores(s, selBolge, selYas, selDonem),
-        kpiDetaylar:   getKpiScoresFullDetail(s, selBolge, selYas, selDonem),
-        kpiSkorlarCmp: selCmpDonem ? getKpiScores(s, selBolge, selYas, selCmpDonem) : null,
-        katSkor:       getScore(s, selBolge, selYas, selDonem),
-        katSkorCmp:    selCmpDonem ? getScore(s, selBolge, selYas, selCmpDonem) : null,
+        kpiSkorlar:    runtimeCalc.getKpiScores(s, selBolge, selYas, selDonem),
+        kpiDetaylar:   runtimeCalc.getKpiScoresFullDetail(s, selBolge, selYas, selDonem),
+        kpiSkorlarCmp: selCmpDonem ? runtimeCalc.getKpiScores(s, selBolge, selYas, selCmpDonem) : null,
+        katSkor:       runtimeCalc.getScore(s, selBolge, selYas, selDonem),
+        katSkorCmp:    selCmpDonem ? runtimeCalc.getScore(s, selBolge, selYas, selCmpDonem) : null,
       }
     })
-  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem])
+  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, runtimeCalc])
 
   const katMarkalar = useMemo(function() {
     const ranked    = getMarkaRanking(selSeg, selBolge, selYas, selDonem)
@@ -106,8 +107,8 @@ export default function KpiDetayPage() {
         marka:      m.marka,
         segment:    m.segment,
         score:      m.score,
-        katSkor:    getScore(m.segment, selBolge, selYas, selDonem),
-        katSkorCmp: selCmpDonem ? getScore(m.segment, selBolge, selYas, selCmpDonem) : null,
+        katSkor:    runtimeCalc.getScore(m.segment, selBolge, selYas, selDonem),
+        katSkorCmp: selCmpDonem ? runtimeCalc.getScore(m.segment, selBolge, selYas, selCmpDonem) : null,
         cmpScore:   cmpRanked.find(function(x) { return x.marka === m.marka })?.score ?? null,
       }
     }).sort(function(a, b) {
@@ -116,7 +117,7 @@ export default function KpiDetayPage() {
       const bv = b.katSkor ? (b.katSkor as any)[katSortKey] ?? 0 : 0
       return bv - av
     })
-  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, katSortKey])
+  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, katSortKey, runtimeCalc])
 
   const katBarData = useMemo(function() {
     const vals = katMarkalar.map(function(m) {
