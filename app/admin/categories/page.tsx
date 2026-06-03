@@ -9,8 +9,12 @@ import {
   buildAuditDraft,
   getFallbackCategories,
   getFallbackKpis,
+  isPersistedId,
   loadAdminKpiConfig,
+  saveCategory,
+  setCategoryActive,
   validateCategoryDraft,
+  writeAuditLog,
 } from '@/lib/admin/kpi-management'
 import styles from '@/components/admin/KpiManagement.module.css'
 
@@ -44,6 +48,7 @@ function getNextSortOrder(categories: AdminCategoryDefinition[]) {
 }
 
 export default function CategoriesAdminPage() {
+  const supabase = useMemo(() => createClient(), [])
   const [categories, setCategories] = useState<AdminCategoryDefinition[]>(getFallbackCategories())
   const [kpis, setKpis] = useState<AdminKpiDefinition[]>(getFallbackKpis())
   const [source, setSource] = useState<'supabase' | 'fallback'>('fallback')
@@ -51,10 +56,11 @@ export default function CategoriesAdminPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draft, setDraft] = useState<AdminCategoryDefinition>({ ...emptyCategory, sortOrder: getNextSortOrder(getFallbackCategories()) })
   const [auditNote, setAuditNote] = useState('')
+  const [dbError, setDbError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    const supabase = createClient()
     loadAdminKpiConfig(supabase).then(config => {
       if (cancelled) return
       setCategories(config.categories)
@@ -64,7 +70,7 @@ export default function CategoriesAdminPage() {
       setDraft(prev => ({ ...prev, sortOrder: getNextSortOrder(config.categories) }))
     })
     return () => { cancelled = true }
-  }, [])
+  }, [supabase])
 
   const kpiCountByCategory = useMemo(() => {
     const counts = new Map<string, number>()
@@ -78,12 +84,14 @@ export default function CategoriesAdminPage() {
     setSelectedId(null)
     setDraft({ ...emptyCategory, sortOrder: getNextSortOrder(categories) })
     setAuditNote('')
+    setDbError('')
   }
 
   function editCategory(category: AdminCategoryDefinition) {
     setSelectedId(category.id)
     setDraft({ ...category })
     setAuditNote('')
+    setDbError('')
   }
 
   function updateName(name: string) {
@@ -95,42 +103,68 @@ export default function CategoriesAdminPage() {
     }))
   }
 
-  function saveDraft() {
-    const errors = validateCategoryDraft(draft, categories, selectedId ?? undefined)
-    if (errors.length) return
-
-    const action = selectedId ? 'update' : 'create'
-    const entityId = selectedId ?? `local-category-${draft.key}-${Date.now()}`
-    const nextDraft: AdminCategoryDefinition = {
-      ...draft,
-      id: entityId,
-      source: source === 'supabase' ? 'supabase' : 'fallback',
-    }
-
+  function upsertLocal(saved: AdminCategoryDefinition) {
     setCategories(current => {
-      if (selectedId) return current.map(item => item.id === selectedId ? nextDraft : item).sort((a, b) => a.sortOrder - b.sortOrder)
-      return [...current, nextDraft].sort((a, b) => a.sortOrder - b.sortOrder)
+      const exists = current.some(item => item.id === saved.id)
+      const next = exists
+        ? current.map(item => item.id === saved.id ? saved : item)
+        : [...current, saved]
+      return next.sort((a, b) => a.sortOrder - b.sortOrder)
     })
-
-    const auditDraft = buildAuditDraft('kpi_category', entityId, action, {
-      key: nextDraft.key,
-      name: nextDraft.name,
-      sortOrder: nextDraft.sortOrder,
-      isActive: nextDraft.isActive,
-    })
-    setAuditNote(`${auditDraft.action} audit taslağı hazırlandı · ${auditDraft.note}`)
-    setSelectedId(entityId)
   }
 
-  function toggleActive(category: AdminCategoryDefinition) {
-    const next = { ...category, isActive: !category.isActive }
+  async function saveDraft() {
+    const errors = validateCategoryDraft(draft, categories, selectedId ?? undefined)
+    if (errors.length) return
+    setDbError('')
+
+    const action = selectedId ? 'update' : 'create'
+
+    if (source === 'supabase') {
+      setSaving(true)
+      const editing = Boolean(selectedId) && isPersistedId(selectedId as string)
+      const { data, error } = await saveCategory(supabase, draft, editing)
+      setSaving(false)
+      if (error || !data) { setDbError(error ?? 'Kategori kaydedilemedi.'); return }
+      upsertLocal(data)
+      setSelectedId(data.id)
+      setDraft({ ...data })
+      await writeAuditLog(supabase, buildAuditDraft('kpi_category', data.id, action, {
+        key: data.key, name: data.name, sortOrder: data.sortOrder, isActive: data.isActive,
+      }))
+      setAuditNote(`${data.name} ${action === 'create' ? 'eklendi' : 'güncellendi'} · Supabase'e yazıldı.`)
+      return
+    }
+
+    const entityId = selectedId ?? `local-category-${draft.key}-${Date.now()}`
+    const nextDraft: AdminCategoryDefinition = { ...draft, id: entityId, source: 'fallback' }
+    upsertLocal(nextDraft)
+    setSelectedId(entityId)
+    setAuditNote('Fallback modunda: ekran güncellendi, DB yazımı yapılmadı (tablolar okunamadı).')
+  }
+
+  async function toggleActive(category: AdminCategoryDefinition) {
+    const nextActive = !category.isActive
+    setDbError('')
+
+    if (source === 'supabase' && isPersistedId(category.id)) {
+      setSaving(true)
+      const { data, error } = await setCategoryActive(supabase, category.id, nextActive)
+      setSaving(false)
+      if (error || !data) { setDbError(error ?? 'Durum güncellenemedi.'); return }
+      upsertLocal(data)
+      setDraft(current => current.id === data.id ? data : current)
+      await writeAuditLog(supabase, buildAuditDraft('kpi_category', data.id, nextActive ? 'reactivate' : 'deactivate', {
+        key: data.key, isActive: data.isActive,
+      }))
+      setAuditNote(`${data.name} ${nextActive ? 'aktifleştirildi' : 'pasifleştirildi'} · Supabase'e yazıldı.`)
+      return
+    }
+
+    const next = { ...category, isActive: nextActive }
     setCategories(current => current.map(item => item.id === category.id ? next : item))
     setDraft(current => current.id === category.id ? next : current)
-    const auditDraft = buildAuditDraft('kpi_category', category.id, next.isActive ? 'reactivate' : 'deactivate', {
-      key: category.key,
-      isActive: next.isActive,
-    })
-    setAuditNote(`${auditDraft.action} audit taslağı hazırlandı · ${auditDraft.note}`)
+    setAuditNote('Fallback modunda: ekran güncellendi, DB yazımı yapılmadı.')
   }
 
   const activeCount = categories.filter(category => category.isActive).length
@@ -147,7 +181,7 @@ export default function CategoriesAdminPage() {
           <section className={styles.notice}>
             <div className={styles.noticeTitle}>Metodoloji uyarısı</div>
             <div className={styles.noticeText}>
-              Kategori değişiklikleri skor metodolojisini ve executive rapor yorumunu etkiler. Prompt 4 kapsamında skor motoru değiştirilmez; silme yerine pasifleştirme kullanılır.
+              Kategori değişiklikleri skor metodolojisini ve executive rapor yorumunu etkiler. Kaydet/Pasifleştir Supabase’e yazılır; silme yerine pasifleştirme kullanılır.
             </div>
             {warning && <div className={styles.noticeText}>{warning}</div>}
           </section>
@@ -157,7 +191,7 @@ export default function CategoriesAdminPage() {
               <div className={styles.toolbar}>
                 <div>
                   <h2 className={styles.toolbarTitle}>Kategori Listesi</h2>
-                  <div className={styles.toolbarHint}>{categories.length} kategori · {activeCount} aktif · KPI bağlantıları fallback/dinamik tanımdan okunur</div>
+                  <div className={styles.toolbarHint}>{categories.length} kategori · {activeCount} aktif · KPI bağlantıları dinamik tanımdan okunur</div>
                 </div>
                 <div className={styles.actions}>
                   <button type="button" className={styles.secondaryButton} onClick={resetForm}>Yeni kategori</button>
@@ -195,7 +229,7 @@ export default function CategoriesAdminPage() {
                         <td>
                           <div className={styles.actions}>
                             <button type="button" className={styles.secondaryButton} onClick={() => editCategory(category)}>Düzenle</button>
-                            <button type="button" className={styles.dangerButton} onClick={() => toggleActive(category)}>{category.isActive ? 'Pasifleştir' : 'Aktifleştir'}</button>
+                            <button type="button" className={styles.dangerButton} onClick={() => toggleActive(category)} disabled={saving}>{category.isActive ? 'Pasifleştir' : 'Aktifleştir'}</button>
                           </div>
                         </td>
                       </tr>
@@ -215,6 +249,7 @@ export default function CategoriesAdminPage() {
                 {validationErrors.length > 0 && (
                   <div className={styles.errors}>{validationErrors.map(error => <div key={error}>{error}</div>)}</div>
                 )}
+                {dbError && <div className={styles.errors}>{dbError}</div>}
 
                 <div className={styles.field}>
                   <label>Ad</label>
@@ -254,7 +289,7 @@ export default function CategoriesAdminPage() {
                 </label>
 
                 <div className={styles.actions}>
-                  <button type="submit" className={styles.button} disabled={validationErrors.length > 0}>{selectedId ? 'Güncelle' : 'Ekle'}</button>
+                  <button type="submit" className={styles.button} disabled={validationErrors.length > 0 || saving}>{saving ? 'Kaydediliyor…' : (selectedId ? 'Güncelle' : 'Ekle')}</button>
                   <button type="button" className={styles.secondaryButton} onClick={resetForm}>Temizle</button>
                 </div>
 

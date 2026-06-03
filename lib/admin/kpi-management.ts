@@ -252,3 +252,111 @@ export function validateCategoryDraft(category: AdminCategoryDefinition, existin
   if (duplicateKey) errors.push(`Kategori anahtarı ${category.key} zaten kullanılıyor.`)
   return errors
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// DB persistence (Prompt 4 — Batch 2)
+// Yönetim ekranlarının Supabase'e gerçek yazımı. RLS: yalnızca aktif superadmin.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** id bir Supabase uuid'i mi? (fallback-/local-/draft id'lerini ayırır) */
+export function isPersistedId(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+}
+
+function categoryToRow(category: AdminCategoryDefinition) {
+  return {
+    key: category.key,
+    name: category.name,
+    short_name: category.shortName,
+    description: category.description,
+    color: category.color,
+    sort_order: category.sortOrder,
+    is_active: category.isActive,
+  }
+}
+
+function kpiToRow(kpi: AdminKpiDefinition) {
+  return {
+    kpi_no: kpi.kpiNo,
+    name: kpi.name,
+    short_name: kpi.shortName,
+    description: kpi.description,
+    category_key: kpi.categoryKey,
+    is_active: kpi.isActive,
+    direction: kpi.direction,
+    data_type: kpi.dataType,
+    coverage_rule: kpi.coverageRule,
+  }
+}
+
+export interface PersistResult<T> {
+  data?: T
+  error?: string
+}
+
+export async function saveCategory(
+  supabase: SupabaseClient,
+  category: AdminCategoryDefinition,
+  editing: boolean,
+): Promise<PersistResult<AdminCategoryDefinition>> {
+  const row = categoryToRow(category)
+  const builder = editing && isPersistedId(category.id)
+    ? supabase.from('kpi_categories').update(row).eq('id', category.id).select().single()
+    : supabase.from('kpi_categories').insert(row).select().single()
+  const { data, error } = await builder
+  if (error) return { error: error.message }
+  return { data: parseSupabaseCategories([data])[0] }
+}
+
+export async function saveKpi(
+  supabase: SupabaseClient,
+  kpi: AdminKpiDefinition,
+  editing: boolean,
+): Promise<PersistResult<AdminKpiDefinition>> {
+  const row = kpiToRow(kpi)
+  const builder = editing && isPersistedId(kpi.id)
+    ? supabase.from('kpi_definitions').update(row).eq('id', kpi.id).select().single()
+    : supabase.from('kpi_definitions').insert(row).select().single()
+  const { data, error } = await builder
+  if (error) return { error: error.message }
+  return { data: parseSupabaseKpis([data])[0] }
+}
+
+export async function setCategoryActive(
+  supabase: SupabaseClient,
+  id: string,
+  isActive: boolean,
+): Promise<PersistResult<AdminCategoryDefinition>> {
+  if (!isPersistedId(id)) return { error: 'Bu kayıt henüz DB’de değil.' }
+  const { data, error } = await supabase.from('kpi_categories').update({ is_active: isActive }).eq('id', id).select().single()
+  if (error) return { error: error.message }
+  return { data: parseSupabaseCategories([data])[0] }
+}
+
+export async function setKpiActive(
+  supabase: SupabaseClient,
+  id: string,
+  isActive: boolean,
+): Promise<PersistResult<AdminKpiDefinition>> {
+  if (!isPersistedId(id)) return { error: 'Bu kayıt henüz DB’de değil.' }
+  const { data, error } = await supabase.from('kpi_definitions').update({ is_active: isActive }).eq('id', id).select().single()
+  if (error) return { error: error.message }
+  return { data: parseSupabaseKpis([data])[0] }
+}
+
+/** Audit kaydını audit_logs tablosuna yazar. Hata olsa bile akışı bozmaz. */
+export async function writeAuditLog(supabase: SupabaseClient, draft: AuditDraft): Promise<void> {
+  try {
+    const { data } = await supabase.auth.getUser()
+    await supabase.from('audit_logs').insert({
+      actor_id: data.user?.id ?? null,
+      action: draft.action,
+      entity: draft.entityType,
+      entity_id: draft.entityId,
+      summary: draft.note,
+      metadata: draft.payload,
+    })
+  } catch {
+    // audit yazımı kritik değil; sessiz geç.
+  }
+}

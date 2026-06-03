@@ -9,8 +9,12 @@ import {
   buildAuditDraft,
   getFallbackCategories,
   getFallbackKpis,
+  isPersistedId,
   loadAdminKpiConfig,
+  saveKpi,
+  setKpiActive,
   validateKpiDraft,
+  writeAuditLog,
 } from '@/lib/admin/kpi-management'
 import styles from '@/components/admin/KpiManagement.module.css'
 
@@ -33,6 +37,7 @@ function getNextKpiNo(kpis: AdminKpiDefinition[]) {
 }
 
 export default function KpiSettingsAdminPage() {
+  const supabase = useMemo(() => createClient(), [])
   const [kpis, setKpis] = useState<AdminKpiDefinition[]>(getFallbackKpis())
   const [categories, setCategories] = useState<AdminCategoryDefinition[]>(getFallbackCategories())
   const [source, setSource] = useState<'supabase' | 'fallback'>('fallback')
@@ -40,10 +45,11 @@ export default function KpiSettingsAdminPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draft, setDraft] = useState<AdminKpiDefinition>({ ...emptyKpi, kpiNo: getNextKpiNo(getFallbackKpis()) })
   const [auditNote, setAuditNote] = useState('')
+  const [dbError, setDbError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    const supabase = createClient()
     loadAdminKpiConfig(supabase).then(config => {
       if (cancelled) return
       setKpis(config.kpis)
@@ -53,7 +59,7 @@ export default function KpiSettingsAdminPage() {
       setDraft(prev => ({ ...prev, kpiNo: getNextKpiNo(config.kpis), categoryKey: config.categories[0]?.key ?? '' }))
     })
     return () => { cancelled = true }
-  }, [])
+  }, [supabase])
 
   const categoryNameByKey = useMemo(() => {
     return new Map(categories.map(category => [category.key, category.name]))
@@ -65,50 +71,79 @@ export default function KpiSettingsAdminPage() {
     setSelectedId(null)
     setDraft({ ...emptyKpi, id: 'draft', kpiNo: getNextKpiNo(kpis), categoryKey: categories[0]?.key ?? '' })
     setAuditNote('')
+    setDbError('')
   }
 
   function editKpi(kpi: AdminKpiDefinition) {
     setSelectedId(kpi.id)
     setDraft({ ...kpi })
     setAuditNote('')
+    setDbError('')
   }
 
-  function saveDraft() {
+  function upsertLocal(saved: AdminKpiDefinition) {
+    setKpis(current => {
+      const exists = current.some(item => item.id === saved.id)
+      const next = exists
+        ? current.map(item => item.id === saved.id ? saved : item)
+        : [...current, saved]
+      return next.sort((a, b) => a.kpiNo - b.kpiNo)
+    })
+  }
+
+  async function saveDraft() {
     const errors = validateKpiDraft(draft, kpis, selectedId ?? undefined)
     if (errors.length) return
+    setDbError('')
 
     const action = selectedId ? 'update' : 'create'
-    const entityId = selectedId ?? `local-kpi-${draft.kpiNo}-${Date.now()}`
-    const nextDraft: AdminKpiDefinition = {
-      ...draft,
-      id: entityId,
-      source: source === 'supabase' ? 'supabase' : 'fallback',
+
+    if (source === 'supabase') {
+      setSaving(true)
+      const editing = Boolean(selectedId) && isPersistedId(selectedId as string)
+      const { data, error } = await saveKpi(supabase, draft, editing)
+      setSaving(false)
+      if (error || !data) { setDbError(error ?? 'KPI kaydedilemedi.'); return }
+      upsertLocal(data)
+      setSelectedId(data.id)
+      setDraft({ ...data })
+      await writeAuditLog(supabase, buildAuditDraft('kpi_definition', data.id, action, {
+        kpiNo: data.kpiNo, name: data.name, categoryKey: data.categoryKey, isActive: data.isActive,
+      }))
+      setAuditNote(`KPI ${data.kpiNo} ${action === 'create' ? 'eklendi' : 'güncellendi'} · Supabase'e yazıldı.`)
+      return
     }
 
-    setKpis(current => {
-      if (selectedId) return current.map(item => item.id === selectedId ? nextDraft : item).sort((a, b) => a.kpiNo - b.kpiNo)
-      return [...current, nextDraft].sort((a, b) => a.kpiNo - b.kpiNo)
-    })
-
-    const auditDraft = buildAuditDraft('kpi_definition', entityId, action, {
-      kpiNo: nextDraft.kpiNo,
-      name: nextDraft.name,
-      categoryKey: nextDraft.categoryKey,
-      isActive: nextDraft.isActive,
-    })
-    setAuditNote(`${auditDraft.action} audit taslağı hazırlandı · ${auditDraft.note}`)
+    // Fallback: DB kapalı/okunamıyor → sadece ekran state'i güncellenir.
+    const entityId = selectedId ?? `local-kpi-${draft.kpiNo}-${Date.now()}`
+    const nextDraft: AdminKpiDefinition = { ...draft, id: entityId, source: 'fallback' }
+    upsertLocal(nextDraft)
     setSelectedId(entityId)
+    setAuditNote('Fallback modunda: ekran güncellendi, DB yazımı yapılmadı (tablolar okunamadı).')
   }
 
-  function toggleActive(kpi: AdminKpiDefinition) {
-    const next = { ...kpi, isActive: !kpi.isActive }
+  async function toggleActive(kpi: AdminKpiDefinition) {
+    const nextActive = !kpi.isActive
+    setDbError('')
+
+    if (source === 'supabase' && isPersistedId(kpi.id)) {
+      setSaving(true)
+      const { data, error } = await setKpiActive(supabase, kpi.id, nextActive)
+      setSaving(false)
+      if (error || !data) { setDbError(error ?? 'Durum güncellenemedi.'); return }
+      upsertLocal(data)
+      setDraft(current => current.id === data.id ? data : current)
+      await writeAuditLog(supabase, buildAuditDraft('kpi_definition', data.id, nextActive ? 'reactivate' : 'deactivate', {
+        kpiNo: data.kpiNo, isActive: data.isActive,
+      }))
+      setAuditNote(`KPI ${data.kpiNo} ${nextActive ? 'aktifleştirildi' : 'pasifleştirildi'} · Supabase'e yazıldı.`)
+      return
+    }
+
+    const next = { ...kpi, isActive: nextActive }
     setKpis(current => current.map(item => item.id === kpi.id ? next : item))
     setDraft(current => current.id === kpi.id ? next : current)
-    const auditDraft = buildAuditDraft('kpi_definition', kpi.id, next.isActive ? 'reactivate' : 'deactivate', {
-      kpiNo: kpi.kpiNo,
-      isActive: next.isActive,
-    })
-    setAuditNote(`${auditDraft.action} audit taslağı hazırlandı · ${auditDraft.note}`)
+    setAuditNote('Fallback modunda: ekran güncellendi, DB yazımı yapılmadı.')
   }
 
   const activeCount = kpis.filter(kpi => kpi.isActive).length
@@ -126,7 +161,7 @@ export default function KpiSettingsAdminPage() {
           <section className={styles.notice}>
             <div className={styles.noticeTitle}>Metodoloji uyarısı</div>
             <div className={styles.noticeText}>
-              Bu ayarlar skor metodolojisini etkiler. Prompt 4 kapsamında ekran state’i ve fallback okuma hazırlanır; dinamik skor motoru ve dashboard hesapları henüz değiştirilmez.
+              Bu ayarlar skor metodolojisini etkiler. Kaydet/Pasifleştir işlemleri Supabase’e yazılır ve audit_logs’a düşer; dinamik skor motoru (Prompt 9) henüz değiştirilmez.
             </div>
             {warning && <div className={styles.noticeText}>{warning}</div>}
           </section>
@@ -174,7 +209,7 @@ export default function KpiSettingsAdminPage() {
                         <td>
                           <div className={styles.actions}>
                             <button type="button" className={styles.secondaryButton} onClick={() => editKpi(kpi)}>Düzenle</button>
-                            <button type="button" className={styles.dangerButton} onClick={() => toggleActive(kpi)}>{kpi.isActive ? 'Pasifleştir' : 'Aktifleştir'}</button>
+                            <button type="button" className={styles.dangerButton} onClick={() => toggleActive(kpi)} disabled={saving}>{kpi.isActive ? 'Pasifleştir' : 'Aktifleştir'}</button>
                           </div>
                         </td>
                       </tr>
@@ -188,12 +223,13 @@ export default function KpiSettingsAdminPage() {
               <form className={styles.form} onSubmit={event => { event.preventDefault(); saveDraft() }}>
                 <div>
                   <h2 className={styles.formTitle}>{selectedId ? 'KPI Düzenle' : 'Yeni KPI Ekle'}</h2>
-                  <div className={styles.formHint}>Kalıcı DB yazımı migration ve audit log aktif olduğunda bağlanacak. Şimdilik güvenli admin UI davranışı hazırlanır.</div>
+                  <div className={styles.formHint}>Kaydet/Güncelle işlemleri Supabase’e yazılır. Silme yerine pasifleştirme kullanılır.</div>
                 </div>
 
                 {validationErrors.length > 0 && (
                   <div className={styles.errors}>{validationErrors.map(error => <div key={error}>{error}</div>)}</div>
                 )}
+                {dbError && <div className={styles.errors}>{dbError}</div>}
 
                 <div className={styles.twoCols}>
                   <div className={styles.field}>
@@ -261,7 +297,7 @@ export default function KpiSettingsAdminPage() {
                 </label>
 
                 <div className={styles.actions}>
-                  <button type="submit" className={styles.button} disabled={validationErrors.length > 0}>{selectedId ? 'Güncelle' : 'Ekle'}</button>
+                  <button type="submit" className={styles.button} disabled={validationErrors.length > 0 || saving}>{saving ? 'Kaydediliyor…' : (selectedId ? 'Güncelle' : 'Ekle')}</button>
                   <button type="button" className={styles.secondaryButton} onClick={resetForm}>Temizle</button>
                 </div>
 
