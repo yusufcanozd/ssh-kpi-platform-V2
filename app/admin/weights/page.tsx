@@ -38,7 +38,7 @@ export default function WeightsAdminPage() {
 
   const [weights, setWeights] = useState<ManagedCategoryWeight[]>(() => buildFallbackWeights())
   const [versions, setVersions] = useState<ManagedMethodologyVersion[]>(() => [buildFallbackVersion()])
-  const [dataSource, setDataSource] = useState<'supabase' | 'fallback'>('fallback')
+  const [source, setSource] = useState<'supabase' | 'fallback'>('fallback')
   const [versionForm, setVersionForm] = useState<VersionFormState>(emptyVersionForm)
   const [errors, setErrors] = useState<string[]>([])
   const [message, setMessage] = useState('')
@@ -48,7 +48,7 @@ export default function WeightsAdminPage() {
   }, [isSuperAdmin, loading, router])
 
   useEffect(() => {
-    let mounted = true
+    let cancelled = false
     const supabase = createClient()
 
     async function load() {
@@ -57,18 +57,18 @@ export default function WeightsAdminPage() {
         .select('*')
         .order('effective_date', { ascending: false })
 
-      if (!mounted) return
+      if (cancelled) return
 
       const parsedVersions = !versionError ? parseSupabaseVersions(versionRows as unknown) : []
       if (parsedVersions.length === 0) {
         setVersions([buildFallbackVersion()])
         setWeights(buildFallbackWeights())
-        setDataSource('fallback')
+        setSource('fallback')
         return
       }
 
       setVersions(parsedVersions)
-      setDataSource('supabase')
+      setSource('supabase')
 
       const activeVersion = parsedVersions.find(version => version.isActive) ?? parsedVersions[0]
       const { data: weightRows, error: weightError } = await supabase
@@ -76,19 +76,19 @@ export default function WeightsAdminPage() {
         .select('*')
         .eq('methodology_version_id', activeVersion.id)
 
-      if (!mounted) return
+      if (cancelled) return
       const parsedWeights = !weightError ? parseSupabaseWeights(weightRows as unknown) : []
       setWeights(parsedWeights.length > 0 ? parsedWeights : buildFallbackWeights())
     }
 
     load().catch(() => {
-      if (!mounted) return
+      if (cancelled) return
       setVersions([buildFallbackVersion()])
       setWeights(buildFallbackWeights())
-      setDataSource('fallback')
+      setSource('fallback')
     })
 
-    return () => { mounted = false }
+    return () => { cancelled = true }
   }, [])
 
   const total = useMemo(() => totalWeight(weights), [weights])
@@ -97,7 +97,7 @@ export default function WeightsAdminPage() {
 
   function updateWeight(categoryKey: string, raw: string) {
     const value = Number(raw)
-    setWeights(prev => prev.map(item =>
+    setWeights(current => current.map(item =>
       item.categoryKey === categoryKey
         ? { ...item, weight: Number.isFinite(value) ? value : 0 }
         : item
@@ -128,20 +128,20 @@ export default function WeightsAdminPage() {
     setErrors(nextErrors)
     if (nextErrors.length > 0) return
 
-    const newId = `draft-version-${Date.now()}`
+    const newId = `local-version-${Date.now()}`
     const newVersion: ManagedMethodologyVersion = {
       id: newId,
       name: versionForm.name.trim(),
       description: versionForm.description.trim(),
       effectiveDate: versionForm.effectiveDate,
       isActive: versionForm.isActive,
-      source: dataSource,
+      source: source === 'supabase' ? 'supabase' : 'fallback',
     }
 
-    setVersions(prev => {
+    setVersions(current => {
       const next = versionForm.isActive
-        ? prev.map(version => ({ ...version, isActive: false }))
-        : [...prev]
+        ? current.map(version => ({ ...version, isActive: false }))
+        : [...current]
       return [newVersion, ...next]
     })
 
@@ -154,8 +154,8 @@ export default function WeightsAdminPage() {
     setMessage(`"${newVersion.name}" versiyonu ekran durumunda oluşturuldu. Kalıcı kayıt Batch 2’de bağlanacak.`)
   }
 
-  if (loading) return <div className={styles.body}>Yetki kontrol ediliyor...</div>
-  if (!isSuperAdmin) return <div className={styles.body}>Bu ekrana sadece Super Admin erişebilir.</div>
+  if (loading) return <div className={styles.content}>Yetki kontrol ediliyor...</div>
+  if (!isSuperAdmin) return <div className={styles.content}>Bu ekrana sadece Super Admin erişebilir.</div>
 
   return (
     <div className={styles.shell}>
@@ -163,45 +163,49 @@ export default function WeightsAdminPage() {
         title="Kategori Ağırlıkları"
         subtitle="Kategori ağırlık editörü, toplam-100 kontrolü ve metodoloji versiyonlama"
         pills={[
-          { label: dataSource === 'supabase' ? 'Supabase kaynaklı' : 'Config fallback', variant: dataSource === 'supabase' ? 'green' : 'amber' },
+          { label: source === 'supabase' ? 'Supabase' : 'Fallback config', variant: source === 'supabase' ? 'green' : 'amber' },
           { label: valid ? 'Toplam 100 ✓' : `Toplam ${total}`, variant: valid ? 'green' : 'amber' },
         ]}
-        actions={<button className={`${styles.button} ${styles.buttonPrimary}`} onClick={saveWeights} type="button" disabled={!valid}>Ağırlıkları kaydet</button>}
       />
-      <main className={styles.body}>
+      <div className={styles.content}>
         <div className={styles.inner}>
-          <div className={styles.notice}>
-            <strong>Metodoloji uyarısı:</strong> Ağırlıklar genel ve kategori skorlarını doğrudan etkiler. Toplam 100 olmadan kayıt yapılamaz. Aktif versiyon: <strong>{activeVersion?.name ?? '—'}</strong>.
-          </div>
-
-          <section className={styles.metricGrid}>
-            <Metric label="Kategori" value={weights.length} hint="Ağırlığı yönetilen kategori" />
-            <Metric label="Toplam ağırlık" value={`${total}`} hint={valid ? 'Geçerli (100)' : 'Kaydetmek için 100 olmalı'} />
-            <Metric label="Versiyon" value={versions.length} hint="Metodoloji versiyon sayısı" />
-            <Metric label="Kaynak" value={dataSource === 'supabase' ? 'DB' : 'Config'} hint="Supabase yoksa fallback" />
+          <section className={styles.notice}>
+            <div className={styles.noticeTitle}>Metodoloji uyarısı</div>
+            <div className={styles.noticeText}>
+              Ağırlıklar genel ve kategori skorlarını doğrudan etkiler. Toplam 100 olmadan kayıt yapılamaz. Aktif versiyon: <strong>{activeVersion?.name ?? '—'}</strong>.
+            </div>
           </section>
 
-          <section className={styles.grid}>
-            <div className={styles.card}>
-              <div className={styles.cardHeader}>
+          <div className={styles.grid}>
+            <section className={styles.card}>
+              <div className={styles.toolbar}>
                 <div>
-                  <h2 className={styles.cardTitle}>Ağırlık editörü</h2>
-                  <p className={styles.cardSub}>Her kategori için yüzde gir. Toplam canlı hesaplanır; 100 değilse kayıt kapalıdır.</p>
+                  <h2 className={styles.toolbarTitle}>Ağırlık Editörü</h2>
+                  <div className={styles.toolbarHint}>
+                    {weights.length} kategori · toplam {total}/100 · kaynak {source === 'supabase' ? 'DB' : 'Config'}
+                  </div>
+                </div>
+                <div className={styles.actions}>
+                  <button type="button" className={styles.button} onClick={saveWeights} disabled={!valid}>Ağırlıkları kaydet</button>
                 </div>
               </div>
               <div className={styles.tableWrap}>
                 <table className={styles.table}>
                   <thead>
-                    <tr><th>Kategori</th><th>Renk</th><th>Ağırlık (%)</th></tr>
+                    <tr>
+                      <th>Kategori</th>
+                      <th>Renk</th>
+                      <th>Ağırlık (%)</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {weights.map(item => (
                       <tr key={item.categoryKey}>
                         <td>
-                          <div className={styles.primaryText}>{item.name}</div>
-                          <div className={styles.muted}>{item.shortName}</div>
+                          <div>{item.name}</div>
+                          <div className={`${styles.muted} ${styles.small}`}>{item.shortName}</div>
                         </td>
-                        <td><span className={styles.colorChip} style={{ background: item.color }} /></td>
+                        <td><span className={styles.colorDot} style={{ background: item.color }} />{item.color}</td>
                         <td>
                           <input
                             className={styles.input}
@@ -210,47 +214,62 @@ export default function WeightsAdminPage() {
                             max={100}
                             step={1}
                             value={item.weight}
-                            onChange={e => updateWeight(item.categoryKey, e.target.value)}
-                            style={{ maxWidth: 110 }}
+                            onChange={event => updateWeight(item.categoryKey, event.target.value)}
+                            style={{ maxWidth: 120 }}
                           />
                         </td>
                       </tr>
                     ))}
                     <tr>
-                      <td colSpan={2}><span className={styles.primaryText}>Toplam</span></td>
+                      <td colSpan={2}><strong>Toplam</strong></td>
                       <td>
-                        <span className={`${styles.badge} ${valid ? styles.active : styles.passive}`}>{total} / 100</span>
+                        <span className={`${styles.status} ${valid ? styles.statusActive : styles.statusPassive}`}>{total} / 100</span>
                       </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-              {errors.length > 0 && <div className={styles.errorBox}>{errors.map(error => <div key={error}>• {error}</div>)}</div>}
-              {message && <div className={styles.successBox}>{message}</div>}
-            </div>
+              {errors.length > 0 && (
+                <div className={styles.form}>
+                  <div className={styles.errors}>{errors.map(error => <div key={error}>{error}</div>)}</div>
+                </div>
+              )}
+              {message && (
+                <div className={styles.form}>
+                  <div className={styles.formHint}>{message}</div>
+                </div>
+              )}
+            </section>
 
             <aside className={styles.card}>
-              <div className={styles.cardHeader}>
+              <div className={styles.toolbar}>
                 <div>
-                  <h2 className={styles.cardTitle}>Metodoloji versiyonları</h2>
-                  <p className={styles.cardSub}>Yeni versiyon mevcut ağırlık dağılımını kaydeder. Aktif tek versiyon dashboard skorunu belirler.</p>
+                  <h2 className={styles.toolbarTitle}>Metodoloji Versiyonları</h2>
+                  <div className={styles.toolbarHint}>Aktif tek versiyon dashboard skorunu belirler.</div>
                 </div>
               </div>
-
               <div className={styles.tableWrap}>
                 <table className={styles.table}>
                   <thead>
-                    <tr><th>Versiyon</th><th>Tarih</th><th>Durum</th></tr>
+                    <tr>
+                      <th>Versiyon</th>
+                      <th>Tarih</th>
+                      <th>Durum</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {versions.map(version => (
                       <tr key={version.id}>
                         <td>
-                          <div className={styles.primaryText}>{version.name}</div>
-                          <div className={styles.muted}>{version.description}</div>
+                          <div>{version.name}</div>
+                          <div className={`${styles.muted} ${styles.small}`}>{version.description}</div>
                         </td>
-                        <td><span className={styles.muted}>{version.effectiveDate}</span></td>
-                        <td><span className={`${styles.badge} ${version.isActive ? styles.active : styles.passive}`}>{version.isActive ? 'Aktif' : 'Pasif'}</span></td>
+                        <td>{version.effectiveDate}</td>
+                        <td>
+                          <span className={`${styles.status} ${version.isActive ? styles.statusActive : styles.statusPassive}`}>
+                            {version.isActive ? 'Aktif' : 'Pasif'}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -258,33 +277,40 @@ export default function WeightsAdminPage() {
               </div>
 
               <form className={styles.form} onSubmit={event => { event.preventDefault(); createVersion() }}>
-                <label className={styles.field}>
-                  <span className={styles.label}>Versiyon adı</span>
-                  <input className={styles.input} value={versionForm.name} onChange={e => setVersionForm(prev => ({ ...prev, name: e.target.value }))} placeholder="ör. v2 — 2026 Revizyonu" />
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>Açıklama</span>
-                  <textarea className={styles.textarea} value={versionForm.description} onChange={e => setVersionForm(prev => ({ ...prev, description: e.target.value }))} />
-                </label>
-                <div className={styles.twoFields}>
-                  <label className={styles.field}>
-                    <span className={styles.label}>Geçerlilik tarihi</span>
-                    <input className={styles.input} type="date" value={versionForm.effectiveDate} onChange={e => setVersionForm(prev => ({ ...prev, effectiveDate: e.target.value }))} />
-                  </label>
-                  <label className={styles.checkRow} style={{ alignSelf: 'end' }}>
-                    <input type="checkbox" checked={versionForm.isActive} onChange={e => setVersionForm(prev => ({ ...prev, isActive: e.target.checked }))} /> Aktif yap
+                <div>
+                  <h2 className={styles.formTitle}>Yeni Versiyon</h2>
+                  <div className={styles.formHint}>Yeni versiyon mevcut ağırlık dağılımını kaydeder.</div>
+                </div>
+
+                <div className={styles.field}>
+                  <label>Versiyon adı</label>
+                  <input className={styles.input} value={versionForm.name} onChange={event => setVersionForm(current => ({ ...current, name: event.target.value }))} placeholder="ör. v2 — 2026 Revizyonu" />
+                </div>
+
+                <div className={styles.field}>
+                  <label>Açıklama</label>
+                  <textarea className={styles.textarea} value={versionForm.description} onChange={event => setVersionForm(current => ({ ...current, description: event.target.value }))} placeholder="Versiyon açıklaması" />
+                </div>
+
+                <div className={styles.twoCols}>
+                  <div className={styles.field}>
+                    <label>Geçerlilik tarihi</label>
+                    <input className={styles.input} type="date" value={versionForm.effectiveDate} onChange={event => setVersionForm(current => ({ ...current, effectiveDate: event.target.value }))} />
+                  </div>
+                  <label className={styles.checkboxRow}>
+                    <input type="checkbox" checked={versionForm.isActive} onChange={event => setVersionForm(current => ({ ...current, isActive: event.target.checked }))} />
+                    Aktif yap
                   </label>
                 </div>
-                <button className={`${styles.button} ${styles.buttonPrimary}`} type="submit">Yeni metodoloji versiyonu oluştur</button>
+
+                <div className={styles.actions}>
+                  <button type="submit" className={styles.button}>Yeni metodoloji versiyonu oluştur</button>
+                </div>
               </form>
             </aside>
-          </section>
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   )
-}
-
-function Metric({ label, value, hint }: { label: string; value: string | number; hint: string }) {
-  return <div className={styles.metric}><div className={styles.metricLabel}>{label}</div><div className={styles.metricValue}>{value}</div><div className={styles.metricHint}>{hint}</div></div>
 }
