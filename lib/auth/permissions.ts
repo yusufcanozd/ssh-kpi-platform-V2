@@ -1,76 +1,104 @@
-// lib/auth/permissions.ts
-// Prompt 7 (2. parça) — Giriş yapan kullanıcının veri görünürlük kısıtları.
-// FAIL-OPEN: hata olursa veya kısıt yoksa boş diziler döner (= kısıt yok).
+import { createClient } from '@/lib/supabase/client'
+import type { UserDataPermission, UserPermissionDraft } from '@/types/permissions'
+import { createDefaultPermissionDraft, hasAnyDataRestriction, permissionRowToDraft } from '@/types/permissions'
 
-import type { SupabaseClient } from '@supabase/supabase-js'
-
-export interface DataPermissions {
-  loaded: boolean
-  isSuperadmin: boolean
-  /** Boş dizi = kısıt yok (hepsi görünür) */
-  allowedSegments: string[]
-  allowedRegions: string[]
-  allowedBrandIds: string[]
+export interface PermissionLoadResult {
+  permission: UserPermissionDraft
+  source: 'supabase' | 'default'
+  hasRestrictions: boolean
+  error?: string
 }
 
-export const EMPTY_PERMISSIONS: DataPermissions = {
-  loaded: false,
-  isSuperadmin: false,
-  allowedSegments: [],
-  allowedRegions: [],
-  allowedBrandIds: [],
+export function isSuperAdminRole(role?: string | null): boolean {
+  return role === 'superadmin'
 }
 
-function asStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
+export function shouldApplyUserRestrictions(role?: string | null, permission?: UserPermissionDraft | null): boolean {
+  if (isSuperAdminRole(role)) return false
+  return hasAnyDataRestriction(permission)
 }
 
-export async function loadCurrentUserPermissions(supabase: SupabaseClient): Promise<DataPermissions> {
+export function filterAllowedValues<T extends string>(allValues: readonly T[], allowedValues: readonly string[], applyRestriction: boolean): T[] {
+  if (!applyRestriction || allowedValues.length === 0) return [...allValues]
+  const allowedSet = new Set(allowedValues)
+  return allValues.filter(value => allowedSet.has(value))
+}
+
+export function filterAllowedBrands<T extends { id: string }>(brands: readonly T[], allowedBrandIds: readonly string[], applyRestriction: boolean): T[] {
+  if (!applyRestriction || allowedBrandIds.length === 0) return [...brands]
+  const allowedSet = new Set(allowedBrandIds)
+  return brands.filter(brand => allowedSet.has(brand.id))
+}
+
+export function filterAllowedBrandNames<T extends { marka: string; originalMarka?: string }>(rows: readonly T[], allowedBrandNames: readonly string[], applyRestriction: boolean): T[] {
+  if (!applyRestriction || allowedBrandNames.length === 0) return [...rows]
+  const allowedSet = new Set(allowedBrandNames.map(name => name.trim()).filter(Boolean))
+  return rows.filter(row => allowedSet.has(row.originalMarka ?? row.marka))
+}
+
+export async function fetchAllowedBrandNamesByIds(allowedBrandIds: readonly string[]): Promise<string[]> {
+  const ids = Array.from(new Set(allowedBrandIds.filter(id => typeof id === 'string' && id.trim().length > 0)))
+  if (ids.length === 0) return []
+
   try {
-    const { data: auth } = await supabase.auth.getUser()
-    const uid = auth.user?.id
-    if (!uid) return { ...EMPTY_PERMISSIONS, loaded: true }
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('brands')
+      .select('id, name')
+      .in('id', ids)
 
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', uid).maybeSingle()
-    const role = typeof profile?.role === 'string' ? profile.role : 'viewer'
-    const isSuperadmin = role === 'superadmin'
+    if (error) return []
 
-    if (isSuperadmin) {
-      return { loaded: true, isSuperadmin: true, allowedSegments: [], allowedRegions: [], allowedBrandIds: [] }
-    }
+    const nameById = new Map<string, string>()
+    ;((data ?? []) as Array<{ id?: string | null; name?: string | null }>).forEach(row => {
+      if (row.id && row.name) nameById.set(row.id, row.name)
+    })
 
-    const { data: perm } = await supabase
-      .from('user_data_permissions')
-      .select('allowed_segments, allowed_regions, allowed_brand_ids')
-      .eq('user_id', uid)
-      .maybeSingle()
-
-    return {
-      loaded: true,
-      isSuperadmin: false,
-      allowedSegments: asStringArray(perm?.allowed_segments),
-      allowedRegions: asStringArray(perm?.allowed_regions),
-      allowedBrandIds: asStringArray(perm?.allowed_brand_ids),
-    }
+    return ids.map(id => nameById.get(id)).filter((name): name is string => Boolean(name))
   } catch {
-    return { ...EMPTY_PERMISSIONS, loaded: true } // fail-open
+    return []
   }
 }
 
-/**
- * Geçerli kullanıcının izin verilen marka ADLARINI döndürür (marka kırılımı filtresi için).
- * Boş dizi = kısıt yok / superadmin / hata (fail-open).
- */
-export async function resolveAllowedBrandNames(supabase: SupabaseClient): Promise<string[]> {
+export async function fetchUserDataPermission(userId: string): Promise<PermissionLoadResult> {
+  if (!userId) {
+    return {
+      permission: createDefaultPermissionDraft(),
+      source: 'default',
+      hasRestrictions: false,
+      error: 'Kullanıcı kimliği bulunamadı.',
+    }
+  }
+
   try {
-    const perm = await loadCurrentUserPermissions(supabase)
-    if (perm.isSuperadmin || perm.allowedBrandIds.length === 0) return []
-    const { data } = await supabase.from('brands').select('name').in('id', perm.allowedBrandIds)
-    if (!Array.isArray(data)) return []
-    return data
-      .map(row => (row && typeof (row as { name?: unknown }).name === 'string' ? (row as { name: string }).name : ''))
-      .filter(Boolean)
-  } catch {
-    return []
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('user_data_permissions')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle<UserDataPermission>()
+
+    if (error) {
+      return {
+        permission: createDefaultPermissionDraft(),
+        source: 'default',
+        hasRestrictions: false,
+        error: error.message,
+      }
+    }
+
+    const permission = permissionRowToDraft(data)
+    return {
+      permission,
+      source: data ? 'supabase' : 'default',
+      hasRestrictions: hasAnyDataRestriction(permission),
+    }
+  } catch (error) {
+    return {
+      permission: createDefaultPermissionDraft(),
+      source: 'default',
+      hasRestrictions: false,
+      error: error instanceof Error ? error.message : 'Permission okunamadı.',
+    }
   }
 }

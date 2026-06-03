@@ -1,15 +1,14 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
-import { createClient } from '@/lib/supabase/client'
-import { resolveAllowedBrandNames } from '@/lib/auth/permissions'
+import { filterAllowedBrandNames } from '@/lib/auth/permissions'
 import Topbar from '@/components/layout/Topbar'
 import {
   KPI_META, SEGMENT_HEX, SEGMENT_BG, KAT_YAPILAR,
-  getKpiScores, getScore, getMarkaRanking, getRawMarkaRanking, getBrandPrivacyInfo,
+  getKpiScores, getScore, getRawMarkaRanking, getBrandPrivacyInfo, applyBrandPrivacyRule,
   kpiScoreColor, kpiScoreBg, scoreColor, scoreBg,
   changePct, chgColor, isLowerBetter,
 } from '@/lib/kpi'
@@ -78,31 +77,38 @@ function SkorHucre(props: { skor: number; cmpSkor?: number | null; size?: string
 }
 
 export default function MarkalarsPage() {
-  const { selSeg, selBolge, selYas, selDonem, selCmpDonem } = useDashboardCtx()
+  const { selSeg, selBolge, selYas, selDonem, selCmpDonem, hasDataRestriction, allowedBrandNames } = useDashboardCtx()
   const [tab, setTab]             = useState('kpi')
   const [sortKpi, setSortKpi]     = useState(-1)
   const [katSortKey, setKatSortKey] = useState('genel')
 
   const filterLabel = (selBolge || 'Tum TR') + ' - ' + (selYas === 'Tümü' ? 'Tum Yas' : selYas) + ' - ' + (selDonem || 'Tum Donem')
 
-  const [allowedBrandNames, setAllowedBrandNames] = useState<string[]>([])
-  useEffect(function() {
-    let cancelled = false
-    const supabase = createClient()
-    resolveAllowedBrandNames(supabase).then(function(names) { if (!cancelled) setAllowedBrandNames(names) })
-    return function() { cancelled = true }
-  }, [])
+  const brandRestricted = hasDataRestriction && allowedBrandNames.length > 0
+
+  function getPermissionFilteredRawRanking(donem: string) {
+    const rawRows = getRawMarkaRanking(selSeg, selBolge, selYas, donem)
+    return filterAllowedBrandNames(rawRows, allowedBrandNames, brandRestricted)
+  }
+
+  function getPermissionFilteredRanking(donem: string): Array<{ marka: string; originalMarka?: string; segment: string; score: number }> {
+    return applyBrandPrivacyRule(getPermissionFilteredRawRanking(donem)) as Array<{ marka: string; originalMarka?: string; segment: string; score: number }>
+  }
+
+  function getBrandIdentity(row: { marka: string; originalMarka?: string }) {
+    return row.originalMarka ?? row.marka
+  }
 
   const brandPrivacy = useMemo(function() {
-    const rawCount = getRawMarkaRanking(selSeg, selBolge, selYas, selDonem).length
+    const rawCount = getPermissionFilteredRawRanking(selDonem).length
     return getBrandPrivacyInfo(rawCount)
-  }, [selSeg, selBolge, selYas, selDonem])
+  }, [selDonem, selSeg, selBolge, selYas, allowedBrandNames, brandRestricted])
 
   const markalar = useMemo(function() {
-    const ranked    = getMarkaRanking(selSeg, selBolge, selYas, selDonem).filter(function(m) { return allowedBrandNames.length === 0 || allowedBrandNames.indexOf(m.marka) !== -1 })
-    const cmpRanked = (selCmpDonem ? getMarkaRanking(selSeg, selBolge, selYas, selCmpDonem) : []).filter(function(m) { return allowedBrandNames.length === 0 || allowedBrandNames.indexOf(m.marka) !== -1 })
+    const ranked    = getPermissionFilteredRanking(selDonem)
+    const cmpRanked = selCmpDonem ? getPermissionFilteredRanking(selCmpDonem) : []
     const result = ranked.map(function(m, bazIdx) {
-      const cmpIdx = cmpRanked.findIndex(function(x) { return x.marka === m.marka })
+      const cmpIdx = cmpRanked.findIndex(function(x) { return getBrandIdentity(x) === getBrandIdentity(m) })
       return {
         marka:      m.marka,
         segment:    m.segment,
@@ -120,13 +126,13 @@ export default function MarkalarsPage() {
       const bv = b.bazSkorlar[sortKpi] ?? 0
       return isLowerBetter(sortKpi) ? av - bv : bv - av
     })
-  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, sortKpi, allowedBrandNames])
+  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, sortKpi, allowedBrandNames, brandRestricted])
 
   const katMarkalar = useMemo(function() {
-    const ranked    = getMarkaRanking(selSeg, selBolge, selYas, selDonem).filter(function(m) { return allowedBrandNames.length === 0 || allowedBrandNames.indexOf(m.marka) !== -1 })
-    const cmpRanked = (selCmpDonem ? getMarkaRanking(selSeg, selBolge, selYas, selCmpDonem) : []).filter(function(m) { return allowedBrandNames.length === 0 || allowedBrandNames.indexOf(m.marka) !== -1 })
+    const ranked    = getPermissionFilteredRanking(selDonem)
+    const cmpRanked = selCmpDonem ? getPermissionFilteredRanking(selCmpDonem) : []
     const result = ranked.map(function(m, bazIdx) {
-      const cmpIdx = cmpRanked.findIndex(function(x) { return x.marka === m.marka })
+      const cmpIdx = cmpRanked.findIndex(function(x) { return getBrandIdentity(x) === getBrandIdentity(m) })
       return {
         marka:      m.marka,
         segment:    m.segment,
@@ -144,7 +150,7 @@ export default function MarkalarsPage() {
       const bv = b.katSkor ? (b.katSkor as any)[katSortKey] ?? 0 : 0
       return bv - av
     })
-  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, katSortKey, allowedBrandNames])
+  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, katSortKey, allowedBrandNames, brandRestricted])
 
   function makeBarData(labels: string[], vals: number[], cmpVals: number[] | null, label: string) {
     const colors = vals.map(function(v) { return kpiScoreColor(v) })
@@ -234,6 +240,21 @@ export default function MarkalarsPage() {
     <div className={styles.wrap}>
       <Topbar title="Marka Siralaması" subtitle={String(markalar.length) + ' marka - ' + filterLabel + (selCmpDonem ? ' vs ' + selCmpDonem : '')} />
       <div className={styles.content}>
+
+        {brandRestricted && (
+          <div style={{
+            background: 'rgba(59,130,246,.08)',
+            border: '1px solid rgba(59,130,246,.28)',
+            borderRadius: 10,
+            padding: '10px 14px',
+            marginBottom: 16,
+            fontSize: 10,
+            color: 'var(--tx2)',
+            lineHeight: 1.5,
+          }}>
+            <strong>Marka kısıtı aktif:</strong> Bu kullanıcı sadece izin verilen {allowedBrandNames.length} markanın sıralamasını görür. 3 veya daha az marka varsa rekabet gizlilik kuralı marka adlarını maskeleyebilir.
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           <button onClick={function() { setTab('kpi') }} style={{ padding: '6px 18px', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: '1px solid ' + (tab === 'kpi' ? 'var(--blue)' : 'var(--bd)'), background: tab === 'kpi' ? 'rgba(59,130,246,.12)' : 'var(--surf)', color: tab === 'kpi' ? 'var(--blue)' : 'var(--tx2)' }}>KPI Bazli</button>

@@ -1,10 +1,17 @@
 'use client'
 
-import { useState, useEffect, useMemo, createContext, useContext, useCallback } from 'react'
+import { useState, createContext, useContext, useCallback, useEffect, useMemo } from 'react'
 import Sidebar from '@/components/layout/Sidebar'
 import { BOLGELER, SEGMENTLER, YAS_GRUPLARI, DONEMLER, YAS_COLORS, YAS_STATS } from '@/lib/kpi'
-import { createClient } from '@/lib/supabase/client'
-import { loadCurrentUserPermissions, EMPTY_PERMISSIONS, type DataPermissions } from '@/lib/auth/permissions'
+import { useAuth } from '@/context/AuthContext'
+import { createDefaultPermissionDraft } from '@/types/permissions'
+import type { UserPermissionDraft } from '@/types/permissions'
+import {
+  fetchAllowedBrandNamesByIds,
+  fetchUserDataPermission,
+  filterAllowedValues,
+  shouldApplyUserRestrictions,
+} from '@/lib/auth/permissions'
 import styles from './layout.module.css'
 
 export interface DashboardCtx {
@@ -13,54 +20,156 @@ export interface DashboardCtx {
   setSeg:(s:string)=>void; setBolge:(b:string)=>void
   setYas:(y:string)=>void; setDonem:(d:string)=>void; setCmpDonem:(d:string)=>void
   collapsed: boolean
+  permissionLoading: boolean
+  permissionError: string
+  hasDataRestriction: boolean
+  allowedSegments: string[]
+  allowedRegions: string[]
+  allowedBrandNames: string[]
+  canDownloadReports: boolean
+  canImportData: boolean
 }
 
 export const DashboardContext = createContext<DashboardCtx>({
   selSeg:'',selBolge:'',selYas:'Tümü',selDonem:'',selCmpDonem:'',
   setSeg:()=>{},setBolge:()=>{},setYas:()=>{},setDonem:()=>{},setCmpDonem:()=>{},
-  collapsed: false
+  collapsed: false,
+  permissionLoading: false,
+  permissionError: '',
+  hasDataRestriction: false,
+  allowedSegments: [],
+  allowedRegions: [],
+  allowedBrandNames: [],
+  canDownloadReports: true,
+  canImportData: false,
 })
 export const useDashboardCtx = () => useContext(DashboardContext)
 
 export default function DashboardClient({ children }: { children: React.ReactNode }) {
+  const { profile, loading: authLoading } = useAuth()
   const [selSeg,      setSeg]      = useState('')
   const [selBolge,    setBolge]    = useState('')
   const [selYas,      setYas]      = useState('Tümü')
   const [selDonem,    setDonem]    = useState('')
   const [selCmpDonem, setCmpDonem] = useState('')
   const [collapsed,   setCollapsed] = useState(false)
-
-  // ── Veri görünürlük kısıtları (Prompt 7) — FAIL-OPEN ──
-  const supabase = useMemo(() => createClient(), [])
-  const [perm, setPerm] = useState<DataPermissions>(EMPTY_PERMISSIONS)
-  useEffect(() => {
-    let cancelled = false
-    loadCurrentUserPermissions(supabase).then(p => { if (!cancelled) setPerm(p) })
-    return () => { cancelled = true }
-  }, [supabase])
-
-  const segRestricted = perm.allowedSegments.length > 0
-  const regionRestricted = perm.allowedRegions.length > 0
-  const segOptions = segRestricted ? SEGMENTLER.filter(s => perm.allowedSegments.includes(s)) : SEGMENTLER
-  const regionOptions = regionRestricted ? BOLGELER.filter(b => perm.allowedRegions.includes(b)) : BOLGELER
+  const [permission, setPermission] = useState<UserPermissionDraft>(() => createDefaultPermissionDraft())
+  const [permissionLoading, setPermissionLoading] = useState(false)
+  const [permissionError, setPermissionError] = useState('')
+  const [allowedBrandNames, setAllowedBrandNames] = useState<string[]>([])
 
   useEffect(() => {
-    if (segRestricted && (selSeg === '' || !segOptions.includes(selSeg))) setSeg(segOptions[0] ?? '')
-  }, [segRestricted, segOptions, selSeg])
+    let mounted = true
+
+    async function loadPermission() {
+      if (authLoading) return
+
+      if (!profile?.id || profile.role === 'superadmin') {
+        if (!mounted) return
+        setPermission(createDefaultPermissionDraft())
+        setAllowedBrandNames([])
+        setPermissionError('')
+        setPermissionLoading(false)
+        return
+      }
+
+      setPermissionLoading(true)
+      setPermissionError('')
+
+      const result = await fetchUserDataPermission(profile.id)
+      if (!mounted) return
+
+      setPermission(result.permission)
+      setPermissionError(result.error ?? '')
+
+      if (result.permission.allowed_brand_ids.length > 0) {
+        const brandNames = await fetchAllowedBrandNamesByIds(result.permission.allowed_brand_ids)
+        if (!mounted) return
+        setAllowedBrandNames(brandNames)
+      } else {
+        setAllowedBrandNames([])
+      }
+
+      setPermissionLoading(false)
+    }
+
+    loadPermission()
+
+    return () => {
+      mounted = false
+    }
+  }, [authLoading, profile?.id, profile?.role])
+
+  const applyRestriction = shouldApplyUserRestrictions(profile?.role, permission)
+  const segmentRestricted = applyRestriction && permission.allowed_segments.length > 0
+  const regionRestricted = applyRestriction && permission.allowed_regions.length > 0
+  const brandRestricted = applyRestriction && permission.allowed_brand_ids.length > 0
+
+  const allowedSegments = useMemo(
+    () => filterAllowedValues(SEGMENTLER, permission.allowed_segments, segmentRestricted),
+    [permission.allowed_segments, segmentRestricted]
+  )
+
+  const allowedRegions = useMemo(
+    () => filterAllowedValues(BOLGELER, permission.allowed_regions, regionRestricted),
+    [permission.allowed_regions, regionRestricted]
+  )
+
+  const allowedSegmentKey = allowedSegments.join('|')
+  const allowedRegionKey = allowedRegions.join('|')
+
   useEffect(() => {
-    if (regionRestricted && (selBolge === '' || !regionOptions.includes(selBolge))) setBolge(regionOptions[0] ?? '')
-  }, [regionRestricted, regionOptions, selBolge])
+    if (!segmentRestricted) return
+    if (allowedSegments.length === 0) return
+    if (!allowedSegments.includes(selSeg)) setSeg(allowedSegments[0])
+  }, [segmentRestricted, allowedSegmentKey, selSeg, allowedSegments])
+
+  useEffect(() => {
+    if (!regionRestricted) return
+    if (allowedRegions.length === 0) return
+    if (!allowedRegions.includes(selBolge)) setBolge(allowedRegions[0])
+  }, [regionRestricted, allowedRegionKey, selBolge, allowedRegions])
+
+  const permissionNotice = applyRestriction ? (
+    <div style={{
+      marginTop: 8,
+      padding: '7px 8px',
+      borderRadius: 8,
+      border: '1px solid rgba(59,130,246,.28)',
+      background: 'rgba(59,130,246,.08)',
+      color: 'var(--tx2)',
+      fontSize: 9,
+      lineHeight: 1.45,
+    }}>
+      Kısıtlı görünüm aktif. Kullanıcı sadece izin verilen segment, bölge ve marka kırılımlarını görür.
+    </div>
+  ) : null
+
+  const permissionErrorNotice = permissionError ? (
+    <div style={{
+      marginTop: 8,
+      padding: '7px 8px',
+      borderRadius: 8,
+      border: '1px solid rgba(245,158,11,.3)',
+      background: 'rgba(245,158,11,.08)',
+      color: 'var(--tx2)',
+      fontSize: 9,
+      lineHeight: 1.45,
+    }}>
+      İzinler okunamadı; dashboard güvenli fallback ile eski davranışını koruyor.
+    </div>
+  ) : null
 
   // Topbar'da gösterilecek kompakt filtreler (collapsed modda)
   const topbarFilters = collapsed ? (
     <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'nowrap',overflow:'hidden'}}>
-      <select value={selBolge} onChange={e=>setBolge(e.target.value)} style={compactSelect}>
+      <select value={selBolge} onChange={e=>setBolge(e.target.value)} style={compactSelect} disabled={permissionLoading || allowedRegions.length === 0}>
         {!regionRestricted && <option value="">Tüm TR</option>}
-        {regionOptions.map(b=><option key={b} value={b}>{b}</option>)}
+        {allowedRegions.map(b=><option key={b} value={b}>{b}</option>)}
       </select>
-      <select value={selSeg} onChange={e=>setSeg(e.target.value)} style={compactSelect}>
-        {!segRestricted && <option value="">Tüm Seg.</option>}
-        {segOptions.map(s=><option key={s} value={s}>{s}</option>)}
+      <select value={selSeg} onChange={e=>setSeg(e.target.value)} style={compactSelect} disabled={permissionLoading || allowedSegments.length === 0}>
+        {!segmentRestricted && <option value="">Tüm Seg.</option>}
+        {allowedSegments.map(s=><option key={s} value={s}>{s}</option>)}
       </select>
       <select value={selYas} onChange={e=>setYas(e.target.value)} style={compactSelect}>
         {YAS_GRUPLARI.map(y=><option key={y} value={y}>{y==='Tümü'?'Tüm Yaş':y+'y'}</option>)}
@@ -81,16 +190,16 @@ export default function DashboardClient({ children }: { children: React.ReactNod
       <div className={styles.filterTitle}>Filtreler</div>
       <div className={styles.filterRow}>
         <label>Bölge</label>
-        <select value={selBolge} onChange={e=>setBolge(e.target.value)}>
+        <select value={selBolge} onChange={e=>setBolge(e.target.value)} disabled={permissionLoading || allowedRegions.length === 0}>
           {!regionRestricted && <option value="">Tüm Türkiye</option>}
-          {regionOptions.map(b=><option key={b} value={b}>{b}</option>)}
+          {allowedRegions.map(b=><option key={b} value={b}>{b}</option>)}
         </select>
       </div>
       <div className={styles.filterRow}>
         <label>Segment</label>
-        <select value={selSeg} onChange={e=>setSeg(e.target.value)}>
-          {!segRestricted && <option value="">Tüm Segmentler</option>}
-          {segOptions.map(s=><option key={s} value={s}>{s}</option>)}
+        <select value={selSeg} onChange={e=>setSeg(e.target.value)} disabled={permissionLoading || allowedSegments.length === 0}>
+          {!segmentRestricted && <option value="">Tüm Segmentler</option>}
+          {allowedSegments.map(s=><option key={s} value={s}>{s}</option>)}
         </select>
       </div>
       <div className={styles.filterRow}>
@@ -113,6 +222,13 @@ export default function DashboardClient({ children }: { children: React.ReactNod
           {DONEMLER.map(d=><option key={d} value={d}>{d}</option>)}
         </select>
       </div>
+      {permissionNotice}
+      {permissionErrorNotice}
+      {brandRestricted && allowedBrandNames.length > 0 && (
+        <div style={{ marginTop: 8, color: 'var(--tx3)', fontSize: 9, lineHeight: 1.45 }}>
+          Marka kısıtı: {allowedBrandNames.length} marka.
+        </div>
+      )}
       <div className={styles.filterSep}>📊 Yaş Dağılımı</div>
       {(['0-3','3-7','7+'] as const).map(yg=>(
         <div key={yg} onClick={()=>setYas(yg===selYas?'Tümü':yg)}
@@ -130,7 +246,17 @@ export default function DashboardClient({ children }: { children: React.ReactNod
   ) : null
 
   return (
-    <DashboardContext.Provider value={{selSeg,selBolge,selYas,selDonem,selCmpDonem,setSeg,setBolge,setYas,setDonem,setCmpDonem,collapsed}}>
+    <DashboardContext.Provider value={{
+      selSeg,selBolge,selYas,selDonem,selCmpDonem,setSeg,setBolge,setYas,setDonem,setCmpDonem,collapsed,
+      permissionLoading,
+      permissionError,
+      hasDataRestriction: applyRestriction,
+      allowedSegments,
+      allowedRegions,
+      allowedBrandNames,
+      canDownloadReports: permission.can_download_reports,
+      canImportData: permission.can_import_data,
+    }}>
       <div className={styles.shell}>
         <Sidebar variant="dashboard" filters={sidebarFilters} collapsed={collapsed} onToggle={()=>setCollapsed(v=>!v)}/>
         <main className={styles.main}>
@@ -148,6 +274,9 @@ export default function DashboardClient({ children }: { children: React.ReactNod
                 Filtreler
               </span>
               {topbarFilters}
+              {applyRestriction && (
+                <span style={{fontSize:9,fontWeight:700,color:'var(--blue)',whiteSpace:'nowrap'}}>Kısıtlı görünüm</span>
+              )}
             </div>
           )}
           {children}
