@@ -7,6 +7,7 @@ import {
   type AdminCategoryDefinition,
   type AdminKpiDefinition,
   buildAuditDraft,
+  deleteKpi,
   getFallbackCategories,
   getFallbackKpis,
   isPersistedId,
@@ -146,6 +147,21 @@ export default function KpiSettingsAdminPage() {
     setAuditNote('Fallback modunda: ekran güncellendi, DB yazımı yapılmadı.')
   }
 
+  async function removeKpi(kpi: AdminKpiDefinition) {
+    if (typeof window !== 'undefined' && !window.confirm(`KPI ${kpi.kpiNo} kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?`)) return
+    setDbError('')
+    if (source === 'supabase' && isPersistedId(kpi.id)) {
+      setSaving(true)
+      const { error } = await deleteKpi(supabase, kpi.id)
+      setSaving(false)
+      if (error) { setDbError(error); return }
+      await writeAuditLog(supabase, buildAuditDraft('kpi_definition', kpi.id, 'deactivate', { kpiNo: kpi.kpiNo, deleted: true }))
+    }
+    setKpis(current => current.filter(item => item.id !== kpi.id))
+    if (selectedId === kpi.id) resetForm()
+    setAuditNote(`KPI ${kpi.kpiNo} kalıcı olarak silindi.`)
+  }
+
   const activeCount = kpis.filter(kpi => kpi.isActive).length
   const lowerBetterCount = kpis.filter(kpi => kpi.direction === 'lower_is_better').length
 
@@ -210,6 +226,7 @@ export default function KpiSettingsAdminPage() {
                           <div className={styles.actions}>
                             <button type="button" className={styles.secondaryButton} onClick={() => editKpi(kpi)}>Düzenle</button>
                             <button type="button" className={styles.dangerButton} onClick={() => toggleActive(kpi)} disabled={saving}>{kpi.isActive ? 'Pasifleştir' : 'Aktifleştir'}</button>
+                            <button type="button" className={styles.dangerButton} onClick={() => removeKpi(kpi)} disabled={saving} title="Kalıcı sil">Sil</button>
                           </div>
                         </td>
                       </tr>

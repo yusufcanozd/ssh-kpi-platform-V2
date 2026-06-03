@@ -360,3 +360,27 @@ export async function writeAuditLog(supabase: SupabaseClient, draft: AuditDraft)
     // audit yazımı kritik değil; sessiz geç.
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Kalıcı silme (test/yanlış kayıtlar için). Geri alınamaz.
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function deleteKpi(supabase: SupabaseClient, id: string): Promise<PersistResult<true>> {
+  if (!isPersistedId(id)) return { data: true } // henüz DB'de değil; çağıran local state'ten silsin
+  const { error } = await supabase.from('kpi_definitions').delete().eq('id', id)
+  if (error) return { error: error.message }
+  return { data: true }
+}
+
+export async function deleteCategory(supabase: SupabaseClient, id: string): Promise<PersistResult<true>> {
+  if (!isPersistedId(id)) return { data: true }
+  const { error } = await supabase.from('kpi_categories').delete().eq('id', id)
+  if (error) {
+    // En sık hata: bu kategoriye bağlı KPI'lar var (foreign key).
+    const friendly = /foreign key|violates|referenced/i.test(error.message)
+      ? 'Bu kategoriye bağlı KPI’lar var. Önce o KPI’ları başka kategoriye taşıyın veya silin.'
+      : error.message
+    return { error: friendly }
+  }
+  return { data: true }
+}

@@ -7,6 +7,7 @@ import {
   type AdminCategoryDefinition,
   type AdminKpiDefinition,
   buildAuditDraft,
+  deleteCategory,
   getFallbackCategories,
   getFallbackKpis,
   isPersistedId,
@@ -167,6 +168,21 @@ export default function CategoriesAdminPage() {
     setAuditNote('Fallback modunda: ekran güncellendi, DB yazımı yapılmadı.')
   }
 
+  async function removeCategory(category: AdminCategoryDefinition) {
+    if (typeof window !== 'undefined' && !window.confirm(`"${category.name}" kategorisi kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?`)) return
+    setDbError('')
+    if (source === 'supabase' && isPersistedId(category.id)) {
+      setSaving(true)
+      const { error } = await deleteCategory(supabase, category.id)
+      setSaving(false)
+      if (error) { setDbError(error); return }
+      await writeAuditLog(supabase, buildAuditDraft('kpi_category', category.id, 'deactivate', { key: category.key, deleted: true }))
+    }
+    setCategories(current => current.filter(item => item.id !== category.id))
+    if (selectedId === category.id) resetForm()
+    setAuditNote(`"${category.name}" kategorisi kalıcı olarak silindi.`)
+  }
+
   const activeCount = categories.filter(category => category.isActive).length
 
   return (
@@ -230,6 +246,7 @@ export default function CategoriesAdminPage() {
                           <div className={styles.actions}>
                             <button type="button" className={styles.secondaryButton} onClick={() => editCategory(category)}>Düzenle</button>
                             <button type="button" className={styles.dangerButton} onClick={() => toggleActive(category)} disabled={saving}>{category.isActive ? 'Pasifleştir' : 'Aktifleştir'}</button>
+                            <button type="button" className={styles.dangerButton} onClick={() => removeCategory(category)} disabled={saving} title="Kalıcı sil">Sil</button>
                           </div>
                         </td>
                       </tr>
