@@ -87,8 +87,19 @@ export default function MarkalarsPage() {
 
   const brandRestricted = hasDataRestriction && allowedBrandNames.length > 0
 
+  function getDynamicOrStaticRawRanking(donem: string) {
+    const dyn = runtimeData?.markaRows
+    if (dyn && dyn.length > 0) {
+      return dyn
+        .filter(r => (!selSeg || r[1] === selSeg) && r[2] === selBolge && r[3] === selYas && r[4] === donem)
+        .map(r => ({ marka: r[0], segment: r[1], score: r[5] ?? 0 }))
+        .sort((a, b) => b.score - a.score || a.marka.localeCompare(b.marka, 'tr'))
+    }
+    return getRawMarkaRanking(selSeg, selBolge, selYas, donem)
+  }
+
   function getPermissionFilteredRawRanking(donem: string) {
-    const rawRows = getRawMarkaRanking(selSeg, selBolge, selYas, donem)
+    const rawRows = getDynamicOrStaticRawRanking(donem)
     return filterAllowedBrandNames(rawRows, allowedBrandNames, brandRestricted)
   }
 
@@ -103,7 +114,7 @@ export default function MarkalarsPage() {
   const brandPrivacy = useMemo(function() {
     const rawCount = getPermissionFilteredRawRanking(selDonem).length
     return getBrandPrivacyInfo(rawCount)
-  }, [selDonem, selSeg, selBolge, selYas, allowedBrandNames, brandRestricted])
+  }, [selDonem, selSeg, selBolge, selYas, allowedBrandNames, brandRestricted, runtimeData])
 
   const markalar = useMemo(function() {
     const ranked    = getPermissionFilteredRanking(selDonem)
