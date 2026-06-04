@@ -7,8 +7,9 @@
   overflow-y: auto;
   overflow-x: hidden;
   flex-shrink: 0;
-  width: 224px;
-  transition: width .25s ease, background .2s, border-color .2s;
+  width: var(--sidebar-width, 224px);
+  min-width: var(--sidebar-width, 224px);
+  transition: width .25s ease, min-width .25s ease, background .2s, border-color .2s;
   position: relative;
 }
 
@@ -145,8 +146,7 @@
 
 /* ── Collapsed state ── */
 .collapsed {
-  width: 44px;
-  min-width: 44px;
+  --sidebar-width: 44px;
 }
 .collapsed .navBtn {
   justify-content: center;
