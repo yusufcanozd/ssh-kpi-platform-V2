@@ -220,7 +220,7 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
             {isReading ? 'Dosya okunuyor...' : 'CSV / JSON seç'}
             <input
               type="file"
-              accept=".csv,.json"
+              accept=".csv,.json,.xlsx,.xls"
               onChange={event => void handleFile(event.target.files?.[0] ?? null)}
               style={{ display: 'none' }}
               disabled={isReading || isImporting}
