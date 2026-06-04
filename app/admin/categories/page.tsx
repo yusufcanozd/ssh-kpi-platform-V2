@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import Topbar from '@/components/layout/Topbar'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -17,6 +17,13 @@ import {
   validateCategoryDraft,
   writeAuditLog,
 } from '@/lib/admin/kpi-management'
+import {
+  type CategoryBulkImportPreview,
+  parseCategoryBulkImportFile,
+  upsertCategoryDefinitionsFromPreview,
+  exportCategoryDefinitionsToExcel,
+} from '@/lib/admin/category-bulk-import'
+import { currentUserIsSuperadmin } from '@/lib/admin/kpi-bulk-import'
 import styles from '@/components/admin/KpiManagement.module.css'
 
 const emptyCategory: AdminCategoryDefinition = {
@@ -69,6 +76,12 @@ export default function CategoriesAdminPage() {
   const [auditNote, setAuditNote] = useState('')
   const [dbError, setDbError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [isSuperadmin, setIsSuperadmin] = useState(false)
+  const [bulkPreview, setBulkPreview] = useState<CategoryBulkImportPreview | null>(null)
+  const [bulkMessage, setBulkMessage] = useState('')
+  const [bulkError, setBulkError] = useState('')
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -82,6 +95,14 @@ export default function CategoriesAdminPage() {
     })
     return () => { cancelled = true }
   }, [supabase])
+
+  useEffect(() => {
+    let cancelled = false
+    currentUserIsSuperadmin().then(allowed => {
+      if (!cancelled) setIsSuperadmin(allowed)
+    })
+    return () => { cancelled = true }
+  }, [])
 
   const kpiCountByCategory = useMemo(() => {
     const counts = new Map<string, number>()
@@ -193,6 +214,75 @@ export default function CategoriesAdminPage() {
     setAuditNote(`"${category.name}" kategorisi kalıcı olarak silindi.`)
   }
 
+  async function handleBulkFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    setBulkMessage('')
+    setBulkError('')
+    setBulkPreview(null)
+    if (!file) return
+
+    setBulkBusy(true)
+    try {
+      const preview = await parseCategoryBulkImportFile(file, categories)
+      setBulkPreview(preview)
+      setBulkMessage(`${preview.fileName}: ${preview.validRows} geçerli, ${preview.errorRows} hatalı satır bulundu.`)
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : 'Excel dosyası okunamadı.')
+    } finally {
+      setBulkBusy(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  async function commitBulkImport() {
+    if (!bulkPreview) return
+    setBulkBusy(true)
+    setBulkError('')
+    setBulkMessage('')
+    try {
+      const saved = await upsertCategoryDefinitionsFromPreview(bulkPreview)
+      setCategories(current => {
+        const byKey = new Map(current.map(category => [category.key, category]))
+        saved.forEach(category => byKey.set(category.key, category))
+        return Array.from(byKey.values()).sort((a, b) => a.sortOrder - b.sortOrder)
+      })
+      setBulkMessage(`${saved.length} kategori Supabase'e yazıldı/güncellendi.`)
+      setBulkPreview(null)
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : 'Toplu kategori import başarısız oldu.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  async function downloadCategoryExport() {
+    setBulkBusy(true)
+    setBulkError('')
+    setBulkMessage('')
+    try {
+      const file = await exportCategoryDefinitionsToExcel()
+      const byteCharacters = atob(file.content)
+      const bytes = new Uint8Array(byteCharacters.length)
+      for (let index = 0; index < byteCharacters.length; index += 1) {
+        bytes[index] = byteCharacters.charCodeAt(index)
+      }
+      const blob = new Blob([bytes], { type: file.mimeType })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = file.fileName
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+      setBulkMessage(`${file.rowCount} kategori Excel olarak indirildi.`)
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : 'Kategori export başarısız oldu.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
   const activeCount = categories.filter(category => category.isActive).length
 
   return (
@@ -273,6 +363,94 @@ export default function CategoriesAdminPage() {
 
               {auditNote && <div className={styles.formHint}>{auditNote}</div>}
             </form>
+          </section>
+
+          <section className={`${styles.card} ${styles.bulkCard}`}>
+            <div className={styles.toolbar}>
+              <div>
+                <h2 className={styles.toolbarTitle}>Excel ile Toplu Kategori</h2>
+                <div className={styles.toolbarHint}>
+                  .xlsx/.xls dosyasında key, ad, kısa ad, renk, sıra ve aktif kolonlarını önizleyip geçerli satırları Supabase’e yazın. Anahtar yalnızca musteri, ticari, operasyonel, bayi, kapsam olabilir.
+                </div>
+              </div>
+              <div className={styles.actions}>
+                <input
+                  ref={fileInputRef}
+                  className={styles.hiddenFileInput}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleBulkFileChange}
+                />
+                <button type="button" className={styles.secondaryButton} onClick={() => fileInputRef.current?.click()} disabled={bulkBusy}>Excel Seç</button>
+                {isSuperadmin && (
+                  <button type="button" className={styles.secondaryButton} onClick={downloadCategoryExport} disabled={bulkBusy}>Excel Export</button>
+                )}
+              </div>
+            </div>
+
+            {!isSuperadmin && (
+              <div className={styles.inlineNotice}>Excel export ve commit işlemleri yalnızca aktif super-admin kullanıcıya açıktır.</div>
+            )}
+            {bulkError && <div className={styles.errors}>{bulkError}</div>}
+            {bulkMessage && <div className={styles.successBox}>{bulkMessage}</div>}
+
+            {bulkPreview && (
+              <div className={styles.bulkPreview}>
+                <div className={styles.bulkSummary}>
+                  <strong>{bulkPreview.totalRows}</strong> satır · <strong>{bulkPreview.validRows}</strong> geçerli · <strong>{bulkPreview.errorRows}</strong> hatalı
+                </div>
+                {bulkPreview.issues.length > 0 && (
+                  <div className={styles.issueList}>
+                    {bulkPreview.issues.slice(0, 12).map((issue, index) => (
+                      <div key={`${issue.rowNumber}-${issue.message}-${index}`} className={issue.severity === 'error' ? styles.issueError : styles.issueWarning}>
+                        Satır {issue.rowNumber}: {issue.message}
+                      </div>
+                    ))}
+                    {bulkPreview.issues.length > 12 && (
+                      <div className={styles.formHint}>+{bulkPreview.issues.length - 12} ek uyarı/hata daha var.</div>
+                    )}
+                  </div>
+                )}
+                <div className={styles.tableWrap}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Satır</th>
+                        <th>Anahtar</th>
+                        <th>Ad</th>
+                        <th>Renk</th>
+                        <th>Sıra</th>
+                        <th>Aktif</th>
+                        <th>Durum</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bulkPreview.rows.slice(0, 10).map(row => (
+                        <tr key={row.rowNumber}>
+                          <td>{row.rowNumber}</td>
+                          <td>{row.category.key || '—'}</td>
+                          <td>{row.category.name || '—'}</td>
+                          <td><span className={styles.colorDot} style={{ background: row.category.color }} />{row.category.color}</td>
+                          <td>{row.category.sortOrder}</td>
+                          <td>{row.category.isActive ? 'Aktif' : 'Pasif'}</td>
+                          <td>
+                            <span className={`${styles.status} ${row.status === 'valid' ? styles.statusActive : styles.statusPassive}`}>
+                              {row.status === 'valid' ? 'Geçerli' : 'Hatalı'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className={styles.formFooter}>
+                  <div className={styles.formHint}>Önizlemede ilk 10 satır gösterilir. Commit yalnızca geçerli satırları yazar.</div>
+                  <button type="button" className={styles.button} onClick={commitBulkImport} disabled={bulkBusy || bulkPreview.validRows === 0}>
+                    Geçerli Satırları İçe Aktar
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
 
           <section className={styles.card}>
