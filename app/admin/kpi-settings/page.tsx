@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import Topbar from "@/components/layout/Topbar";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -18,6 +18,13 @@ import {
   writeAuditLog,
 } from "@/lib/admin/kpi-management";
 import styles from "@/components/admin/KpiManagement.module.css";
+import {
+  currentUserIsSuperadmin,
+  exportKpiDefinitionsToExcel,
+  parseKpiBulkImportFile,
+  upsertKpiDefinitionsFromPreview,
+  type KpiBulkImportPreview,
+} from "@/lib/admin/kpi-bulk-import";
 
 const emptyKpi: AdminKpiDefinition = {
   id: "draft",
@@ -68,6 +75,12 @@ export default function KpiSettingsAdminPage() {
   const [dbError, setDbError] = useState("");
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isSuperadmin, setIsSuperadmin] = useState(false);
+  const [bulkPreview, setBulkPreview] = useState<KpiBulkImportPreview | null>(null);
+  const [bulkMessage, setBulkMessage] = useState("");
+  const [bulkError, setBulkError] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,6 +100,16 @@ export default function KpiSettingsAdminPage() {
       cancelled = true;
     };
   }, [supabase]);
+
+  useEffect(() => {
+    let cancelled = false;
+    currentUserIsSuperadmin().then((allowed) => {
+      if (!cancelled) setIsSuperadmin(allowed);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const categoryNameByKey = useMemo(() => {
     return new Map(categories.map((category) => [category.key, category.name]));
@@ -244,6 +267,77 @@ export default function KpiSettingsAdminPage() {
     setKpis((current) => current.filter((item) => item.id !== kpi.id));
     if (selectedId === kpi.id) resetForm();
     setAuditNote(`KPI ${kpi.kpiNo} kalıcı olarak silindi.`);
+  }
+
+  async function handleBulkFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    setBulkMessage("");
+    setBulkError("");
+    setBulkPreview(null);
+    if (!file) return;
+
+    setBulkBusy(true);
+    try {
+      const preview = await parseKpiBulkImportFile(file, categories, kpis);
+      setBulkPreview(preview);
+      setBulkMessage(
+        `${preview.fileName}: ${preview.validRows} geçerli, ${preview.errorRows} hatalı satır bulundu.`,
+      );
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : "Excel dosyası okunamadı.");
+    } finally {
+      setBulkBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function commitBulkImport() {
+    if (!bulkPreview) return;
+    setBulkBusy(true);
+    setBulkError("");
+    setBulkMessage("");
+    try {
+      const saved = await upsertKpiDefinitionsFromPreview(bulkPreview);
+      setKpis((current) => {
+        const byNo = new Map(current.map((kpi) => [kpi.kpiNo, kpi]));
+        saved.forEach((kpi) => byNo.set(kpi.kpiNo, kpi));
+        return Array.from(byNo.values()).sort((a, b) => a.kpiNo - b.kpiNo);
+      });
+      setBulkMessage(`${saved.length} KPI Supabase'e yazıldı/güncellendi.`);
+      setBulkPreview(null);
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : "Toplu KPI import başarısız oldu.");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function downloadKpiExport() {
+    setBulkBusy(true);
+    setBulkError("");
+    setBulkMessage("");
+    try {
+      const file = await exportKpiDefinitionsToExcel();
+      const byteCharacters = atob(file.content);
+      const bytes = new Uint8Array(byteCharacters.length);
+      for (let index = 0; index < byteCharacters.length; index += 1) {
+        bytes[index] = byteCharacters.charCodeAt(index);
+      }
+      const blob = new Blob([bytes], { type: file.mimeType });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = file.fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setBulkMessage(`${file.rowCount} KPI tanımı Excel olarak indirildi.`);
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : "KPI export başarısız oldu.");
+    } finally {
+      setBulkBusy(false);
+    }
   }
 
   const activeCount = kpis.filter((kpi) => kpi.isActive).length;
@@ -504,6 +598,117 @@ export default function KpiSettingsAdminPage() {
                 )}
               </div>
             </form>
+          </section>
+
+          <section className={`${styles.card} ${styles.bulkCard}`}>
+            <div className={styles.toolbar}>
+              <div>
+                <h2 className={styles.toolbarTitle}>Excel ile Toplu KPI</h2>
+                <div className={styles.toolbarHint}>
+                  .xlsx/.xls dosyasında kpi_no, ad, kısa ad, kategori, yön ve aktif kolonlarını önizleyip geçerli satırları Supabase’e yazın.
+                </div>
+              </div>
+              <div className={styles.actions}>
+                <input
+                  ref={fileInputRef}
+                  className={styles.hiddenFileInput}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleBulkFileChange}
+                />
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={bulkBusy}
+                >
+                  Excel Seç
+                </button>
+                {isSuperadmin && (
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={downloadKpiExport}
+                    disabled={bulkBusy}
+                  >
+                    Excel Export
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {!isSuperadmin && (
+              <div className={styles.inlineNotice}>
+                Excel export ve commit işlemleri yalnızca aktif super-admin kullanıcıya açıktır.
+              </div>
+            )}
+            {bulkError && <div className={styles.errors}>{bulkError}</div>}
+            {bulkMessage && <div className={styles.successBox}>{bulkMessage}</div>}
+
+            {bulkPreview && (
+              <div className={styles.bulkPreview}>
+                <div className={styles.bulkSummary}>
+                  <strong>{bulkPreview.totalRows}</strong> satır · <strong>{bulkPreview.validRows}</strong> geçerli · <strong>{bulkPreview.errorRows}</strong> hatalı
+                </div>
+                {bulkPreview.issues.length > 0 && (
+                  <div className={styles.issueList}>
+                    {bulkPreview.issues.slice(0, 12).map((issue, index) => (
+                      <div key={`${issue.rowNumber}-${issue.message}-${index}`} className={issue.severity === "error" ? styles.issueError : styles.issueWarning}>
+                        Satır {issue.rowNumber}: {issue.message}
+                      </div>
+                    ))}
+                    {bulkPreview.issues.length > 12 && (
+                      <div className={styles.formHint}>+{bulkPreview.issues.length - 12} ek uyarı/hata daha var.</div>
+                    )}
+                  </div>
+                )}
+                <div className={styles.tableWrap}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Satır</th>
+                        <th>No</th>
+                        <th>Ad</th>
+                        <th>Kısa ad</th>
+                        <th>Kategori</th>
+                        <th>Yön</th>
+                        <th>Aktif</th>
+                        <th>Durum</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bulkPreview.rows.slice(0, 10).map((row) => (
+                        <tr key={row.rowNumber}>
+                          <td>{row.rowNumber}</td>
+                          <td>KPI {row.kpi.kpiNo || "—"}</td>
+                          <td>{row.kpi.name || "—"}</td>
+                          <td>{row.kpi.shortName || "—"}</td>
+                          <td>{categoryNameByKey.get(row.kpi.categoryKey) ?? row.kpi.categoryKey}</td>
+                          <td>{row.kpi.direction === "lower_is_better" ? "Düşük daha iyi" : "Yüksek daha iyi"}</td>
+                          <td>{row.kpi.isActive ? "Aktif" : "Pasif"}</td>
+                          <td>
+                            <span className={`${styles.status} ${row.status === "valid" ? styles.statusActive : styles.statusPassive}`}>
+                              {row.status === "valid" ? "Geçerli" : "Hatalı"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className={styles.formFooter}>
+                  <div className={styles.formHint}>Önizlemede ilk 10 satır gösterilir. Commit yalnızca geçerli satırları yazar.</div>
+                  <button
+                    type="button"
+                    className={styles.button}
+                    onClick={commitBulkImport}
+                    disabled={bulkBusy || bulkPreview.validRows === 0}
+                  >
+                    Geçerli Satırları İçe Aktar
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
 
           <section className={styles.card}>
