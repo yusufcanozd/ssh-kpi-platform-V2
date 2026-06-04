@@ -1,6 +1,5 @@
 'use client'
 
-import { CategoryScoreMethodology } from '@/components/dashboard/MethodologyTooltip'
 import { CATEGORY_OPTIONS, scoreColor, scoreBarWidth, type SegmentScore } from '@/lib/kpi'
 
 export type CategoryBreakdownItem = {
@@ -27,7 +26,6 @@ function CategoryBox({ item }: { item: CategoryBreakdownItem }) {
     <div style={{ background: item.bg || 'var(--surf2)', border: `1px solid ${item.color}33`, borderRadius: 10, padding: '12px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
         <span style={{ fontSize: 10, fontWeight: 700, color: item.color }}>{item.label} — Kategori Kırılımı</span>
-        <CategoryScoreMethodology align="right" />
       </div>
 
       {CATEGORIES.map((cat) => {

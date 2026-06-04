@@ -272,7 +272,7 @@ export default function MarkalarsPage() {
                       <th style={{ ...thS, minWidth: 72, position: 'sticky', left: 130, background: 'var(--surf2)', zIndex: 3 }}>Seg.</th>
                       {KPI_META.map(function(k, i) {
                         return (
-                          <th key={i} onClick={function() { setSortKpi(i) }} title={k.ad} style={{ ...thS, minWidth: 110, whiteSpace: 'normal', lineHeight: 1.3, verticalAlign: 'bottom', paddingBottom: 6, color: sortKpi === i ? 'var(--blue)' : 'var(--tx3)', background: sortKpi === i ? 'rgba(59,130,246,.08)' : 'var(--surf2)' }}>
+                          <th key={i} onClick={function() { setSortKpi(i) }} style={{ ...thS, minWidth: 110, whiteSpace: 'normal', lineHeight: 1.3, verticalAlign: 'bottom', paddingBottom: 6, color: sortKpi === i ? 'var(--blue)' : 'var(--tx3)', background: sortKpi === i ? 'rgba(59,130,246,.08)' : 'var(--surf2)' }}>
                             {k.ad}{sortKpi === i ? ' v' : ''}
                           </th>
                         )

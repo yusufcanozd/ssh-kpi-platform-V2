@@ -11,7 +11,6 @@ import {
 } from '@/lib/kpi'
 import { Bar, Line } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend, Filler } from 'chart.js'
-import { GeneralScoreMethodology, CategoryScoreMethodology } from '@/components/dashboard/MethodologyTooltip'
 import ScoreSummaryCards, { type SegmentScoreCardItem } from '@/components/dashboard/ScoreSummaryCards'
 import CategoryBreakdown, { type CategoryBreakdownItem } from '@/components/dashboard/CategoryBreakdown'
 import RegionScoreGrid from '@/components/dashboard/RegionScoreGrid'
@@ -125,7 +124,7 @@ export default function DashboardPage() {
           {/* Segment skor bar grafik */}
           <div className={styles.card}>
             <div className={styles.cardHd}>
-              <h3 style={{display:'inline-flex',alignItems:'center',gap:6}}>Segment Skor Karşılaştırması <GeneralScoreMethodology align="left" /></h3>
+              <h3 style={{display:'inline-flex',alignItems:'center',gap:6}}>Segment Skor Karşılaştırması</h3>
               <span className={styles.hint}>
                 {selDonem||'Tüm Dönem'}{selCmpDonem?` vs ${selCmpDonem}`:''}
               </span>
@@ -335,7 +334,7 @@ function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, s
     <div style={{borderTop:'1px solid var(--bd)',marginTop:14,paddingTop:12}}>
       {/* Başlık */}
       <div style={{fontSize:10,fontWeight:600,color:'var(--tx3)',marginBottom:10}}>
-        <span style={{display:'inline-flex',alignItems:'center',gap:6}}>Kategori Skor Karşılaştırması <CategoryScoreMethodology align="left" /></span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:6}}>Kategori Skor Karşılaştırması</span>
       </div>
 
       {/* 5 kategori için grouped bar grid */}

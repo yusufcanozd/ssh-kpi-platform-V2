@@ -162,7 +162,6 @@ function DonemSecici({
           const dis = altDisabled(a)
           return (
             <button key={a} disabled={dis} onClick={() => !dis && onChange({ ...value, alt:a })}
-              title={dis ? 'Bu dönem için veri mevcut değil' : undefined}
               style={{ padding:'2px 6px', borderRadius:3, fontSize:9,
                 cursor: dis ? 'not-allowed' : 'pointer',
                 border:`1px solid ${altSec===a?'var(--blue)':dis?'var(--bd)':'var(--bd)'}`,
@@ -338,7 +337,7 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
     <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
       {/* Başlık + kilit butonu */}
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <button onClick={onLockToggle} title={locked ? 'Kilidi aç' : 'Kilitle'}
+        <button onClick={onLockToggle} aria-label={locked ? 'Kilidi aç' : 'Kilitle'}
           style={{ display:'flex', alignItems:'center', justifyContent:'center',
             width:22, height:22, borderRadius:6, cursor:'pointer',
             border:`1px solid ${locked ? '#c9d4e0' : '#a8c4e8'}`,

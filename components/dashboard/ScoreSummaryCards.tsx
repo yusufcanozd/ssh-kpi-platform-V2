@@ -1,6 +1,5 @@
 'use client'
 
-import { GeneralScoreMethodology } from '@/components/dashboard/MethodologyTooltip'
 import { scoreColor, scoreBarWidth, type SegmentScore } from '@/lib/kpi'
 
 export type SegmentScoreCardItem = {
@@ -23,7 +22,6 @@ function ScoreCard({ item, bazDonem, cmpDonem }: { item: SegmentScoreCardItem; b
     <div style={{ background: item.bg, border: `1px solid ${item.color}44`, borderRadius: 10, padding: '14px 16px', minHeight: 110 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: item.color }}>{item.label}</span>
-        <GeneralScoreMethodology align="right" />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 10 }}>

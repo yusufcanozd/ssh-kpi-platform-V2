@@ -6,7 +6,6 @@ export default function CoverageBadge({ ratio, available, total }: { ratio: numb
 
   return (
     <span
-      title={`Veri kapsama: ${available}/${total} KPI`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -20,7 +19,7 @@ export default function CoverageBadge({ ratio, available, total }: { ratio: numb
         fontWeight: 700,
       }}
     >
-      Coverage %{pct}
+      Coverage %{pct} ({available}/{total} KPI)
     </span>
   )
 }
