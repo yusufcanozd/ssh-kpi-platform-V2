@@ -82,16 +82,17 @@ describe('normalizeKpi', () => {
 describe('kategori ve genel skor hesaplama', () => {
   it('kategori skorlarını coverage-aware hesaplar', () => {
     const score = hesaplaKatveGenelSkor(fullRawKpis, refKpis)
-    expect(score.musteri).toBe(100) // KPI 2 zero-variance hariç: (90 + 110) / 2
-    expect(score.ticari).toBe(100)
-    expect(score.operasyonel).toBe(100)
-    expect(score.bayi).toBe(110)
-    expect(score.kapsam).toBe(95)
+    expect(score.musteri).toBe(100) // (90 + 100 + 110) / 3
+    expect(score.ticari).toBe(125) // KPI 4 lower_is_better: 100/8 -> 200 (clamp); (200 + 80 + 95) / 3
+    expect(score.operasyonel).toBe(138) // KPI 7 lower_is_better: 100/8 -> 200; (200 + 75) / 2
+    expect(score.bayi).toBe(110) // (100 + 120) / 2
+    expect(score.kapsam).toBe(95) // (80 + 110) / 2
   })
 
   it('genel skorda kategori ağırlıklarını uygular', () => {
     const score = hesaplaKatveGenelSkor(fullRawKpis, refKpis)
-    expect(score.genel).toBe(101)
+    // 100*.25 + 125*.25 + 138*.25 + 110*.15 + 95*.10 = 117
+    expect(score.genel).toBe(117)
   })
 })
 
@@ -111,7 +112,7 @@ describe('coverage ve detaylı skorlar', () => {
     expect(detailed?.availableKpiCount).toBe(9)
     expect(detailed?.missingKpis).toEqual([0, 1, 4])
     expect(detailed?.musteri).toBe(110)
-    expect(detailed?.ticari).toBe(110)
+    expect(detailed?.ticari).toBe(148)
   })
 
   it('getScore ile getScoreDetailed skorları tutarlıdır', () => {
