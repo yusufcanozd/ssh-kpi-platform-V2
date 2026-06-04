@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 
 type CommentaryRequestBody = {
   prompt?: unknown
+  cacheKey?: unknown
+  params?: unknown
 }
 
 type AnthropicResponse = {
@@ -17,6 +19,7 @@ type ProfileAuthRow = {
 }
 
 const MAX_PROMPT_LENGTH = 4000
+const MAX_CACHE_KEY_LENGTH = 180
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 10
 
@@ -43,6 +46,65 @@ function checkRateLimit(key: string): boolean {
 
   current.count += 1
   return true
+}
+
+
+function normalizeCacheKey(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const key = value.trim()
+  if (!key || key.length > MAX_CACHE_KEY_LENGTH) return null
+  if (!/^[a-zA-Z0-9:_-]+$/.test(key)) return null
+  return key
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+async function readCachedCommentary(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  cacheKey: string
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('report_cache')
+      .select('content')
+      .eq('user_id', userId)
+      .eq('cache_key', cacheKey)
+      .maybeSingle()
+
+    if (error) return null
+
+    const content = (data as { content?: unknown } | null)?.content
+    if (!isJsonObject(content)) return null
+    return typeof content.text === 'string' ? content.text : null
+  } catch {
+    // Migration henüz çalıştırılmadıysa cache sessizce devre dışı kalır.
+    return null
+  }
+}
+
+async function writeCachedCommentary(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  cacheKey: string,
+  params: unknown,
+  text: string
+): Promise<void> {
+  try {
+    await supabase
+      .from('report_cache')
+      .upsert({
+        user_id: userId,
+        cache_key: cacheKey,
+        params: isJsonObject(params) ? params : {},
+        content: { text },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'cache_key' })
+  } catch {
+    // Cache yazılamazsa AI yanıtı yine kullanıcıya döndürülür.
+  }
 }
 
 async function parseRequestBody(req: NextRequest): Promise<CommentaryRequestBody | null> {
@@ -102,6 +164,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'prompt too long' }, { status: 413 })
     }
 
+    const normalizedCacheKey = normalizeCacheKey(body.cacheKey)
+    const cacheKey = normalizedCacheKey ? `${user.id}:${normalizedCacheKey}` : null
+    if (cacheKey) {
+      const cachedText = await readCachedCommentary(supabase, user.id, cacheKey)
+      if (cachedText !== null) {
+        return NextResponse.json({ text: cachedText, cached: true })
+      }
+    }
+
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
       console.error('Commentary endpoint configuration error: ANTHROPIC_API_KEY is missing')
@@ -138,7 +209,10 @@ Yanıtın maksimum 3-4 cümle, direkt editorial yorum olacak. Madde işareti vey
     }
 
     const text = data?.content?.find((item) => typeof item.text === 'string')?.text ?? ''
-    return NextResponse.json({ text })
+    if (cacheKey && text) {
+      await writeCachedCommentary(supabase, user.id, cacheKey, body.params, text)
+    }
+    return NextResponse.json({ text, cached: false })
   } catch (err) {
     console.error('Commentary route unexpected error:', err instanceof Error ? err.name : 'unknown')
     return NextResponse.json({ error: 'Server error' }, { status: 500 })

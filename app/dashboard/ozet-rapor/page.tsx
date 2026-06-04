@@ -35,17 +35,49 @@ function getAltlar(p: DonemPeriyot): string[] {
   return p === 'FY' ? ['FY'] : ['1','2','3','4']
 }
 
-async function callAI(prompt: string): Promise<string> {
+type CommentaryCacheOptions = {
+  cacheKey: string
+  params: Record<string, unknown>
+}
+
+type CommentaryResult = {
+  text: string
+  cached: boolean
+}
+
+async function callAI(prompt: string, cache?: CommentaryCacheOptions): Promise<CommentaryResult> {
   try {
     const res = await fetch('/api/commentary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ prompt, cacheKey: cache?.cacheKey, params: cache?.params }),
     })
-    if (!res.ok) return ''
-    const data = await res.json()
-    return data.text || ''
-  } catch { return '' }
+    if (!res.ok) return { text: '', cached: false }
+    const data = await res.json() as { text?: string; cached?: boolean }
+    return { text: data.text || '', cached: Boolean(data.cached) }
+  } catch {
+    return { text: '', cached: false }
+  }
+}
+
+function stableStringify(value: unknown): string {
+  if (value == null || typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return '[' + value.map(stableStringify).join(',') + ']'
+  const obj = value as Record<string, unknown>
+  return '{' + Object.keys(obj).sort().map(key => JSON.stringify(key) + ':' + stableStringify(obj[key])).join(',') + '}'
+}
+
+function fnv1aHash(input: string): string {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0')
+}
+
+function createStableHash(value: unknown): string {
+  return fnv1aHash(stableStringify(value))
 }
 
 function DonemSec2({ label, value, onChange }: {
@@ -140,6 +172,7 @@ export default function OzetRaporPage() {
   const [progress, setProgress] = useState(0)
   const [rapor, setRapor] = useState<any>(null)
   const [yorumlar, setYorumlar] = useState<Record<string,string>>({})
+  const [cacheNotice, setCacheNotice] = useState('')
 
   const bazStr = toStr(baz)
   const cmpStr = cmpAktif ? toStr(cmp) : null
@@ -154,6 +187,7 @@ export default function OzetRaporPage() {
   async function handleOlustur() {
     setGenerating(true)
     setProgress(10)
+    setCacheNotice('')
 
     const trKpis     = runtimeCalc.getKpisFromCube('', selBolge, selYas, bazStr)
     const trKpisCmp  = cmpStr ? runtimeCalc.getKpisFromCube('', selBolge, selYas, cmpStr) : null
@@ -269,14 +303,48 @@ export default function OzetRaporPage() {
     const prompts = [
       ['genelBakis', p1], ['marka', p2], ['kpiDetay', p3],
       ['bolge', p4], ['trend', p5], ['karsilastirma', p6], ['strateji', p7],
-    ].filter(([, v]) => v)
+    ].filter(([, v]) => v) as Array<[string, string]>
+
+    const reportCacheParams: Record<string, unknown> = {
+      cacheVersion: 'p17-report-commentary-v1',
+      bazStr,
+      cmpStr,
+      filters: { bolge: selBolge || '', yas: selYas || 'Tümü' },
+      dataSource: {
+        kind: runtimeData.source.kind,
+        isDynamic: runtimeData.source.isDynamic,
+        batchId: runtimeData.source.batch?.id ?? null,
+        batchImportedAt: runtimeData.source.batch?.importedAt ?? null,
+        rowCount: runtimeData.source.rowCount,
+        factRowCount: runtimeData.source.factRowCount,
+      },
+      methodology: {
+        weights: runtimeData.weights?.map(w => [w.categoryKey, w.weight, w.source]) ?? null,
+        kpiDefinitions: runtimeData.kpiDefinitions?.map(k => [k.no, k.ad, k.kat, k.is_lower_better ?? false, k.isActive ?? true]) ?? null,
+      },
+      restrictionScope: {
+        restricted: hasDataRestriction,
+        segments: reportSegments,
+        regions: reportRegions,
+        brandNames: allowedBrandNames,
+      },
+    }
+    const reportCacheHash = createStableHash(reportCacheParams)
 
     const yeni: Record<string,string> = {}
+    let cachedCount = 0
     for (let i = 0; i < prompts.length; i++) {
-      yeni[prompts[i][0]] = await callAI(prompts[i][1])
+      const [section, prompt] = prompts[i]
+      const result = await callAI(prompt, {
+        cacheKey: `report:${reportCacheHash}:${section}:${createStableHash(prompt)}`,
+        params: { ...reportCacheParams, section },
+      })
+      yeni[section] = result.text
+      if (result.cached) cachedCount += 1
       setProgress(30 + Math.round((i + 1) / prompts.length * 65))
     }
     setYorumlar(yeni)
+    setCacheNotice(cachedCount > 0 ? `${cachedCount}/${prompts.length} AI yorumu önbellekten getirildi.` : 'AI yorumları oluşturuldu ve önbelleğe kaydedildi.')
     setProgress(100)
     setGenerating(false)
   }
@@ -345,6 +413,11 @@ export default function OzetRaporPage() {
               <div style={{ width:'100%', background:'var(--surf3)', borderRadius:20, height:5, overflow:'hidden' }}>
                 <div style={{ width:progress + '%', height:'100%', background:'var(--blue)', borderRadius:20, transition:'width .4s' }} />
               </div>
+            </div>
+          )}
+          {cacheNotice && !generating && (
+            <div style={{ marginTop:10, fontSize:9, fontWeight:600, color:'var(--tx3)' }}>
+              {cacheNotice}
             </div>
           )}
         </div>
