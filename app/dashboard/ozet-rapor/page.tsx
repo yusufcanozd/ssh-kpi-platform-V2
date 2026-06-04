@@ -7,7 +7,7 @@ import ReportSectionHeader from '@/components/report/ReportSectionHeader'
 import {
   KPI_META, SEGMENTLER, SEGMENT_HEX, SEGMENT_BG,
   BOLGELER, YAS_GRUPLARI, DONEMLER, CATEGORY_OPTIONS,
-  fmtKpi, fmtSkor0, scoreColor, scoreBarWidth, getMarkaRanking, createRuntimeCalculator,
+  fmtKpi, fmtSkor0, scoreColor, scoreBarWidth, getMarkaRanking, applyBrandPrivacyRule, createRuntimeCalculator,
   isLowerBetter, heatColor,
 } from '@/lib/kpi'
 import styles from './page.module.css'
@@ -108,6 +108,19 @@ export default function OzetRaporPage() {
   const { selBolge, selYas, runtimeData } = useDashboardCtx()
   const runtimeCalc = useMemo(() => createRuntimeCalculator(runtimeData), [runtimeData])
 
+  // Marka sıralaması: aktif import varsa dinamik markaRows, yoksa statik; her iki halde de gizlilik maskelemesi uygulanır.
+  function rankMarka(seg: string, bolge: string, yas: string, donem: string) {
+    const dyn = runtimeData?.markaRows
+    if (dyn && dyn.length > 0) {
+      const raw = dyn
+        .filter(r => (!seg || r[1] === seg) && r[2] === bolge && r[3] === yas && r[4] === donem)
+        .map(r => ({ marka: r[0], segment: r[1], score: r[5] ?? 0 }))
+        .sort((a, b) => b.score - a.score || a.marka.localeCompare(b.marka, 'tr'))
+      return applyBrandPrivacyRule(raw)
+    }
+    return getMarkaRanking(seg, bolge, yas, donem)
+  }
+
   const sonYil = TUM_YILLAR[TUM_YILLAR.length - 1] || 2024
 
   const [baz, setBaz] = useState<DonemSec>({ yil: sonYil, periyot:'Q', alt:'4' })
@@ -143,7 +156,7 @@ export default function OzetRaporPage() {
       kpisCmp: cmpStr ? runtimeCalc.getKpisFromCube(seg, selBolge, selYas, cmpStr) : null,
       score: runtimeCalc.getScore(seg, selBolge, selYas, bazStr),
       scoreCmp: cmpStr ? runtimeCalc.getScore(seg, selBolge, selYas, cmpStr) : null,
-      markalar: getMarkaRanking(seg, selBolge, selYas, bazStr).slice(0, 5),
+      markalar: rankMarka(seg, selBolge, selYas, bazStr).slice(0, 5),
     }))
 
     const bolgeData = BOLGELER.slice(0, 8).map(b => ({
@@ -176,9 +189,9 @@ export default function OzetRaporPage() {
     }).filter(Boolean)
 
     const tumMarkalar = SEGMENTLER.flatMap(seg =>
-      getMarkaRanking(seg, selBolge, selYas, bazStr).map(m => ({
+      rankMarka(seg, selBolge, selYas, bazStr).map(m => ({
         ...m,
-        cmpScore: cmpStr ? (getMarkaRanking(seg, selBolge, selYas, cmpStr).find(x => x.marka === m.marka)?.score ?? null) : null,
+        cmpScore: cmpStr ? (rankMarka(seg, selBolge, selYas, cmpStr).find(x => x.marka === m.marka)?.score ?? null) : null,
       }))
     ).sort((a, b) => b.score - a.score)
 

@@ -410,6 +410,7 @@ function normalizeKey(value: string) {
   return value
     .trim()
     .toLocaleLowerCase('tr-TR')
+    .replace(/ı/g, 'i') // tr-TR'de 'I' -> 'ı' olur; 'KPI' gibi başlıklarda kpi_N eşleşmesini korur
     .replace(/[\s_\-./]+/g, '')
     .replace(/[()[\]{}]/g, '')
 }

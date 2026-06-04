@@ -39,6 +39,7 @@ describe('inferColumnRole / buildInitialMapping', () => {
     expect(inferColumnRole('Bölge')).toBe('region')
     expect(inferColumnRole('Dönem')).toBe('period')
     expect(inferColumnRole('kpi_1')).toBe('kpi_1')
+    expect(inferColumnRole('KPI 1')).toBe('kpi_1') // büyük harfli başlık da tanınır
     expect(inferColumnRole('AlakasizKolon')).toBe('ignore')
   })
 
