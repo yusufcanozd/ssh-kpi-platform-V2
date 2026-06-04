@@ -1,25 +1,18 @@
 'use client'
 
 import { useEffect } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 
 type AdminAccessGuardProps = {
   children: React.ReactNode
 }
 
-const ADMIN_AND_SUPERADMIN_PATHS = new Set(['/admin/users'])
-
-function isAdminUsersPath(pathname: string) {
-  return pathname === '/admin/users' || pathname.startsWith('/admin/users/')
-}
-
 export default function AdminAccessGuard({ children }: AdminAccessGuardProps) {
-  const { loading, profile, isAdmin, isSuperAdmin } = useAuth()
-  const pathname = usePathname()
+  const { loading, profile, isSuperAdmin } = useAuth()
   const router = useRouter()
 
-  const canAccess = isSuperAdmin || (isAdmin && isAdminUsersPath(pathname))
+  const canAccess = isSuperAdmin
 
   useEffect(() => {
     if (loading) return
@@ -31,15 +24,8 @@ export default function AdminAccessGuard({ children }: AdminAccessGuardProps) {
 
     if (isSuperAdmin) return
 
-    if (isAdmin && isAdminUsersPath(pathname)) return
-
-    if (isAdmin) {
-      router.replace('/admin/users')
-      return
-    }
-
     router.replace('/dashboard')
-  }, [isAdmin, isSuperAdmin, loading, pathname, profile, router])
+  }, [isSuperAdmin, loading, profile, router])
 
   if (loading) {
     return (

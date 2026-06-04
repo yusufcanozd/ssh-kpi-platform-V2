@@ -19,7 +19,6 @@ const DASHBOARD_NAV = [
 
 const ADMIN_NAV = [
   { href:'/admin',                  label:'Yönetim Özeti',        icon:<ShieldIcon/> },
-  { href:'/admin/users',            label:'Kullanıcılar',         icon:<UsersIcon/> },
   { href:'/admin/kpi-settings',     label:'KPI Ayarları',        icon:<ActivityIcon/> },
   { href:'/admin/categories',       label:'Kategoriler',         icon:<GridIcon/> },
   { href:'/admin/weights',          label:'Kategori Ağırlıkları', icon:<BarIcon/> },
@@ -39,7 +38,7 @@ interface SidebarProps {
 export default function Sidebar({ variant, filters, collapsed: collapsedProp, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const router   = useRouter()
-  const { profile, isAdmin, loading, logout } = useAuth()
+  const { profile, isSuperAdmin, loading, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
 
   const [internalCollapsed, setInternalCollapsed] = useState(false)
@@ -124,7 +123,7 @@ export default function Sidebar({ variant, filters, collapsed: collapsedProp, on
                 <GridIcon />
                 {!collapsed && 'KPI Dashboard'}
               </Link>
-            ) : isAdmin ? (
+            ) : isSuperAdmin ? (
               <Link href="/admin" className={styles.navBtn} title={collapsed ? 'Admin Paneli' : undefined}>
                 <ShieldIcon />
                 {!collapsed && 'Admin Paneli'}

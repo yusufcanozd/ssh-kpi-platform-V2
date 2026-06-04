@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { BOLGELER, SEGMENTLER } from '@/lib/kpi'
 import Topbar from '@/components/layout/Topbar'
+import { useAuth } from '@/context/AuthContext'
 import type { UserRole } from '@/types'
 import type { UserDataPermission, UserPermissionDraft } from '@/types/permissions'
 import { createDefaultPermissionDraft, hasAnyDataRestriction, permissionRowToDraft } from '@/types/permissions'
@@ -71,6 +72,7 @@ function safeRole(value: string | null | undefined): UserRole {
 }
 
 export default function UserPermissionsAdminPage() {
+  const { isSuperAdmin } = useAuth()
   const [state, setState] = useState<LoadState>('idle')
   const [users, setUsers] = useState<UserRow[]>([])
   const [brands, setBrands] = useState<BrandRow[]>([])
@@ -351,8 +353,8 @@ export default function UserPermissionsAdminPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <Topbar
-        title="Kullanıcı Marka / Segment Kısıtları"
-        subtitle="Rol bazlı veri görünürlüğü, marka, segment ve bölge yetkileri"
+        title="Kullanıcı Yönetimi ve Kısıtlar"
+        subtitle="Rol, aktiflik, marka, segment ve bölge bazlı kullanıcı yetkileri"
         pills={[
           { label: `${users.length} kullanıcı`, variant: 'blue' },
           { label: `${restrictedUserCount} kısıtlı`, variant: restrictedUserCount ? 'amber' : 'green' },
@@ -361,7 +363,7 @@ export default function UserPermissionsAdminPage() {
 
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
         <div style={infoBoxStyle}>
-          <strong>Varsayılan davranış:</strong> Boş segment, marka veya bölge listesi o alanda kısıt yok anlamına gelir. Superadmin her zaman tüm veriyi görür. Viewer ve analyst için girilen kısıtlar bir sonraki promptta dashboard filtrelerine merkezi helper ile uygulanacak.
+          <strong>Tek yönetim noktası:</strong> Kullanıcı listesi, rol/aktiflik işlemleri ve segment, marka, bölge kısıtları bu ekrandan yönetilir. Boş segment, marka veya bölge listesi o alanda kısıt yok anlamına gelir. Superadmin her zaman tüm veriyi görür.
         </div>
 
         {error && (
@@ -383,7 +385,7 @@ export default function UserPermissionsAdminPage() {
               <div style={panelHeaderStyle}>
                 <div>
                   <h2 style={panelTitleStyle}>Kullanıcılar</h2>
-                  <p style={hintStyle}>Bir kullanıcı seç ve izinlerini düzenle.</p>
+                  <p style={hintStyle}>Bir kullanıcı seç; rol, aktiflik ve veri izinlerini düzenle.</p>
                 </div>
                 <button type="button" onClick={fetchAll} style={smallButtonStyle}>Yenile</button>
               </div>
@@ -446,14 +448,14 @@ export default function UserPermissionsAdminPage() {
 
                 <section style={sectionStyle}>
                   <h3 style={sectionTitleStyle}>Rol ve hesap durumu</h3>
-                  <p style={hintStyle}>Rol ve aktiflik değişiklikleri mevcut güvenli admin API üzerinden yapılır.</p>
+                  <p style={hintStyle}>Rol ve aktiflik değişiklikleri güvenli super-admin API üzerinden yapılır.</p>
                   <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 260px) 1fr', gap: 12, marginTop: 12 }}>
                     <label style={fieldStyle}>
                       <span style={labelStyle}>Rol</span>
                       <select
                         value={selectedUser.role}
                         onChange={event => changeUserRole(selectedUser.id, event.target.value as UserRole)}
-                        disabled={savingUserId === selectedUser.id}
+                        disabled={savingUserId === selectedUser.id || !isSuperAdmin}
                         style={selectStyle}
                       >
                         {ROLE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -464,13 +466,16 @@ export default function UserPermissionsAdminPage() {
                       <button
                         type="button"
                         onClick={() => toggleUserActive(selectedUser.id, selectedUser.is_active)}
-                        disabled={savingUserId === selectedUser.id}
+                        disabled={savingUserId === selectedUser.id || !isSuperAdmin}
                         style={selectedUser.is_active ? dangerGhostButtonStyle : successGhostButtonStyle}
                       >
                         {selectedUser.is_active ? 'Pasif Yap' : 'Aktif Yap'}
                       </button>
                     </div>
                   </div>
+                  {!isSuperAdmin && (
+                    <p style={{ ...hintStyle, marginTop: 10 }}>Rol ve aktiflik değişiklikleri yalnızca super-admin tarafından yapılabilir.</p>
+                  )}
                 </section>
 
                 <section style={sectionStyle}>

@@ -36,15 +36,6 @@ const CHECK_TIMEOUT_MS = 2500
 
 export const ADMIN_MODULES: AdminModuleDefinition[] = [
   {
-    href: '/admin/users',
-    title: 'Kullanıcılar',
-    desc: 'Rol, aktiflik ve mevcut kullanıcı listesi.',
-    checks: [
-      { type: 'route', href: '/admin/users', label: 'Route' },
-      { type: 'table', table: 'profiles', label: 'Kullanıcı profilleri', requireRows: true },
-    ],
-  },
-  {
     href: '/admin/kpi-settings',
     title: 'KPI Ayarları',
     desc: 'KPI tanımları, yönleri, coverage ve kategori bağlantıları.',
@@ -95,7 +86,7 @@ export const ADMIN_MODULES: AdminModuleDefinition[] = [
   {
     href: '/admin/user-permissions',
     title: 'Kullanıcı Kısıtları',
-    desc: 'Segment, marka ve bölge bazlı görünürlük kurgusu.',
+    desc: 'Kullanıcı listesi, rol/aktiflik ve segment, marka, bölge bazlı görünürlük yönetimi.',
     checks: [
       { type: 'route', href: '/admin/user-permissions', label: 'Route' },
       { type: 'table', table: 'profiles', label: 'Kullanıcı profilleri', requireRows: true },
