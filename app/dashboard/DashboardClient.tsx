@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, createContext, useContext, useEffect, useMemo } from 'react'
+import { useState, createContext, useContext, useEffect, useMemo, useCallback } from 'react'
+import { type CategoryColorMap, defaultCategoryColors, resolveCategoryColors, loadUserCategoryColors } from '@/lib/kpi/category-colors'
 import Sidebar from '@/components/layout/Sidebar'
 import { BOLGELER, SEGMENTLER, YAS_GRUPLARI, DONEMLER, YAS_COLORS, YAS_STATS, getActiveKpiDataSource, getStaticRuntimeData } from '@/lib/kpi'
 import type { KpiRuntimeData } from '@/lib/kpi'
@@ -34,6 +35,8 @@ export interface DashboardCtx {
   runtimeError: string
   dataSourceLabel: string
   isDynamicDataSource: boolean
+  categoryColors: CategoryColorMap
+  refreshCategoryColors: () => void
 }
 
 export const DashboardContext = createContext<DashboardCtx>({
@@ -53,6 +56,8 @@ export const DashboardContext = createContext<DashboardCtx>({
   runtimeError: '',
   dataSourceLabel: 'Statik JSON fallback',
   isDynamicDataSource: false,
+  categoryColors: defaultCategoryColors(),
+  refreshCategoryColors: () => {},
 })
 export const useDashboardCtx = () => useContext(DashboardContext)
 
@@ -71,6 +76,12 @@ export default function DashboardClient({ children }: { children: React.ReactNod
   const [runtimeData, setRuntimeData] = useState<KpiRuntimeData>(() => getStaticRuntimeData())
   const [runtimeLoading, setRuntimeLoading] = useState(false)
   const [runtimeError, setRuntimeError] = useState('')
+  const [categoryColors, setCategoryColors] = useState<CategoryColorMap>(() => defaultCategoryColors())
+
+  const refreshCategoryColors = useCallback(() => {
+    loadUserCategoryColors().then(overrides => setCategoryColors(resolveCategoryColors(overrides)))
+  }, [])
+  useEffect(() => { refreshCategoryColors() }, [refreshCategoryColors])
 
 
 
@@ -340,6 +351,8 @@ export default function DashboardClient({ children }: { children: React.ReactNod
       runtimeError,
       dataSourceLabel: runtimeData.source.label,
       isDynamicDataSource: runtimeData.source.isDynamic,
+      categoryColors,
+      refreshCategoryColors,
     }}>
       <div className={styles.shell}>
         <Sidebar variant="dashboard" filters={sidebarFilters} collapsed={collapsed} onToggle={()=>setCollapsed(v=>!v)}/>

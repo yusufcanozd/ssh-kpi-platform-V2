@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { useDashboardCtx } from './DashboardClient'
+import CategoryColorSettings from '@/components/dashboard/CategoryColorSettings'
 import Topbar from '@/components/layout/Topbar'
 import {
   SEGMENTLER,
@@ -86,6 +87,7 @@ export default function DashboardPage() {
 
   return (
     <div className={styles.wrap}>
+      <CategoryColorSettings />
       <Topbar title="SSH KPI Rekabet Skorkartı" subtitle={filterLabel}
         pills={[
           {label: runtimeLoading ? '● Veri yükleniyor' : isDynamicDataSource ? '● Dinamik data' : '● Fallback data', variant: isDynamicDataSource ? 'green' : 'amber'},
