@@ -18,7 +18,7 @@
   gap: var(--admin-gap-lg, 18px);
 }
 
-:global(:root) {
+.shell {
   --admin-content-max: 1180px;
   --admin-page-padding: 22px 24px 36px;
   --admin-gap-xs: 6px;
