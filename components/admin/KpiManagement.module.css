@@ -12,7 +12,7 @@
 }
 
 .inner {
-  max-width: 1240px;
+  max-width: var(--admin-content-max, 1240px);
   margin: 0 auto;
   display: grid;
   gap: var(--admin-gap-lg, 18px);
@@ -51,21 +51,15 @@
 
 .grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 390px;
   gap: var(--admin-gap-lg, 18px);
-  align-items: start;
-}
-
-@media (max-width: 1050px) {
-  .grid { grid-template-columns: 1fr; }
 }
 
 .toolbar {
   padding: 16px 18px;
   display: flex;
-  gap: 12px;
+  gap: 14px;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   flex-wrap: wrap;
 }
 
@@ -79,6 +73,40 @@
   margin-top: 4px;
   color: var(--tx3);
   font-size: 12px;
+}
+
+.searchBox {
+  min-width: min(100%, 320px);
+  display: grid;
+  gap: 6px;
+}
+
+.searchBox label {
+  color: var(--tx3);
+  font-size: var(--admin-text-label, 11px);
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.searchInput {
+  width: 100%;
+  border: 1px solid var(--bd);
+  border-radius: 999px;
+  background: var(--surf2);
+  color: var(--tx);
+  padding: 10px 14px;
+  font: inherit;
+  font-size: var(--admin-text-body, 13px);
+  outline: none;
+}
+
+.searchInput:focus,
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: rgba(96, 165, 250, .62);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, .16);
 }
 
 .actions {
@@ -132,14 +160,14 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 820px;
+  min-width: 940px;
 }
 
 .table th {
   text-align: left;
-  padding: 12px 14px;
+  padding: 10px 14px;
   color: var(--tx3);
-  font-size: 11px;
+  font-size: var(--admin-text-label, 11px);
   font-weight: 900;
   letter-spacing: .06em;
   text-transform: uppercase;
@@ -148,11 +176,42 @@
 }
 
 .table td {
-  padding: 12px 14px;
+  padding: 9px 14px;
   color: var(--tx);
-  font-size: 13px;
+  font-size: var(--admin-text-body, 13px);
   border-bottom: 1px solid var(--bd);
-  vertical-align: top;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.table tr:hover td {
+  background: rgba(148, 163, 184, .06);
+}
+
+.kpiNameLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.kpiNameLine > span:first-child {
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shortName {
+  color: var(--tx3);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.emptyCell {
+  padding: 28px 14px !important;
+  color: var(--tx3) !important;
+  text-align: center;
 }
 
 .muted { color: var(--tx3); }
@@ -182,7 +241,31 @@
 .form {
   padding: 18px;
   display: grid;
+  gap: 14px;
+}
+
+.formCard {
+  overflow: hidden;
+}
+
+.formHeader,
+.formFooter {
+  display: flex;
   gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: minmax(170px, .75fr) minmax(220px, 1.15fr) minmax(200px, 1fr) minmax(240px, 1.2fr) minmax(190px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.descriptionField {
+  grid-column: 1 / -1;
 }
 
 .formTitle {
@@ -218,23 +301,29 @@
   color: var(--tx);
   padding: 10px 11px;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--admin-text-body, 13px);
   outline: none;
 }
 
 .textarea {
-  min-height: 82px;
+  min-height: 74px;
   resize: vertical;
 }
 
 .twoCols {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(86px, .75fr) minmax(110px, 1fr);
   gap: 10px;
 }
 
+@media (max-width: 1180px) {
+  .formGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .checkboxRow { min-height: 38px; }
+}
+
 @media (max-width: 620px) {
-  .twoCols { grid-template-columns: 1fr; }
+  .twoCols,
+  .formGrid { grid-template-columns: 1fr; }
 }
 
 .checkboxRow {
