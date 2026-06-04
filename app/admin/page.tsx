@@ -2,73 +2,71 @@ import Link from 'next/link'
 import Topbar from '@/components/layout/Topbar'
 import { KAT_YAPILAR, KPI_META, SEGMENTLER, BOLGELER, DONEMLER } from '@/lib/kpi'
 import { getRawMarkaRanking } from '@/lib/kpi'
+import adminStyles from '@/components/admin/adminTheme.module.css'
 
 const modules = [
-  { href: '/admin/users', title: 'Kullanıcılar', desc: 'Rol, aktiflik ve mevcut kullanıcı listesi.', status: 'Aktif' },
-  { href: '/admin/kpi-settings', title: 'KPI Ayarları', desc: 'KPI tanımları, yönleri, coverage ve kategori bağlantıları.', status: 'Prompt 4' },
-  { href: '/admin/categories', title: 'Kategoriler', desc: 'Kategori adı, kısa ad, renk, sıralama ve aktif/pasif yönetimi.', status: 'Prompt 4' },
-  { href: '/admin/weights', title: 'Kategori Ağırlıkları', desc: 'Kategori ağırlıkları ve metodoloji versiyonlama hazırlığı.', status: 'Hazırlık' },
-  { href: '/admin/brands', title: 'Markalar', desc: 'Marka listesi, segment dağılımı ve gizlilik kuralı görünümü.', status: 'İskelet' },
-  { href: '/admin/data-import', title: 'Data Import', desc: 'Excel/CSV import akışı, kolon eşleştirme ve validasyon planı.', status: 'İskelet' },
-  { href: '/admin/user-permissions', title: 'Kullanıcı Kısıtları', desc: 'Segment, marka ve bölge bazlı görünürlük kurgusu.', status: 'Hazırlık' },
-  { href: '/admin/theme', title: 'Tema / Görsel Ayarlar', desc: 'Executive renk sistemi, grafik standardı ve rapor görsel dili.', status: 'İskelet' },
-]
+  { href: '/admin/users', title: 'Kullanıcılar', desc: 'Rol, aktiflik ve mevcut kullanıcı listesi.', status: 'Aktif', tone: 'green' },
+  { href: '/admin/kpi-settings', title: 'KPI Ayarları', desc: 'KPI tanımları, yönleri, coverage ve kategori bağlantıları.', status: 'Prompt 4', tone: 'amber' },
+  { href: '/admin/categories', title: 'Kategoriler', desc: 'Kategori adı, kısa ad, renk, sıralama ve aktif/pasif yönetimi.', status: 'Prompt 4', tone: 'amber' },
+  { href: '/admin/weights', title: 'Kategori Ağırlıkları', desc: 'Kategori ağırlıkları ve metodoloji versiyonlama hazırlığı.', status: 'Hazırlık', tone: 'amber' },
+  { href: '/admin/brands', title: 'Markalar', desc: 'Marka listesi, segment dağılımı ve gizlilik kuralı görünümü.', status: 'İskelet', tone: 'blue' },
+  { href: '/admin/data-import', title: 'Data Import', desc: 'Excel/CSV import akışı, kolon eşleştirme ve validasyon planı.', status: 'İskelet', tone: 'blue' },
+  { href: '/admin/user-permissions', title: 'Kullanıcı Kısıtları', desc: 'Segment, marka ve bölge bazlı görünürlük kurgusu.', status: 'Hazırlık', tone: 'amber' },
+  { href: '/admin/theme', title: 'Tema / Görsel Ayarlar', desc: 'Executive renk sistemi, grafik standardı ve rapor görsel dili.', status: 'İskelet', tone: 'blue' },
+] as const
 
-const cardStyle = {
-  background: 'var(--surf)',
-  border: '1px solid var(--bd)',
-  borderRadius: 14,
-  boxShadow: '0 10px 30px rgba(0,0,0,.10)',
-} as const
+function getBadgeClass(tone: typeof modules[number]['tone']) {
+  if (tone === 'green') return `${adminStyles.badge} ${adminStyles.badgeGreen}`
+  if (tone === 'blue') return `${adminStyles.badge} ${adminStyles.badgeBlue}`
+  return `${adminStyles.badge} ${adminStyles.badgeAmber}`
+}
 
 export default function AdminHomePage() {
   const markaCount = getRawMarkaRanking('', '', 'Tümü', DONEMLER[DONEMLER.length - 1] ?? '').length
   const totalWeight = KAT_YAPILAR.reduce((sum, c) => sum + c.agirlik, 0)
 
+  const metrics = [
+    { label: 'KPI', value: KPI_META.length, hint: 'Statik metadata' },
+    { label: 'Kategori', value: KAT_YAPILAR.length, hint: `Toplam ağırlık %${Math.round(totalWeight * 100)}` },
+    { label: 'Segment', value: SEGMENTLER.length, hint: 'Mevcut veri seti' },
+    { label: 'Bölge', value: BOLGELER.length, hint: 'Mevcut veri seti' },
+    { label: 'Marka', value: markaCount || '—', hint: 'Son dönem / tüm Türkiye' },
+  ]
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div className={adminStyles.shell}>
       <Topbar title="Yönetim Merkezi" subtitle="Super Admin modülleri ve geliştirme yol haritası" pills={[{ label: 'Prompt 4 hazır', variant: 'green' }]} />
-      <div style={{ flex: 1, overflow: 'auto', padding: '22px 24px 32px' }}>
-        <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gap: 18 }}>
-          <section style={{ ...cardStyle, padding: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: '#60a5fa', letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 7 }}>
-              Super Admin Yol Haritası
-            </div>
-            <h1 style={{ margin: 0, fontSize: 26, color: 'var(--tx)' }}>Platform yönetimi tek merkezde toplanıyor</h1>
-            <p style={{ color: 'var(--tx3)', fontSize: 13, lineHeight: 1.65, maxWidth: 820, margin: '10px 0 0' }}>
-              KPI ve kategori yönetimi Prompt 4 kapsamında gerçek form/validasyon yapısına taşındı. Diğer modüller güvenli hazırlık modunda kalır; skor motoru ve dashboard hesapları henüz değiştirilmez.
+      <div className={adminStyles.content}>
+        <div className={adminStyles.inner}>
+          <section className={adminStyles.section}>
+            <div className={adminStyles.eyebrow}>Super Admin Yol Haritası</div>
+            <h1 className={adminStyles.pageTitle}>Platform yönetimi tek merkezde toplanıyor</h1>
+            <p className={adminStyles.bodyText}>
+              KPI ve kategori yönetimi gerçek form/validasyon yapısına taşındı. Diğer modüller güvenli hazırlık modunda kalır; skor motoru ve dashboard hesapları bu sayfadan değiştirilmez.
             </p>
           </section>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-            {[
-              { label: 'KPI', value: KPI_META.length, hint: 'Statik metadata' },
-              { label: 'Kategori', value: KAT_YAPILAR.length, hint: `Toplam ağırlık %${Math.round(totalWeight * 100)}` },
-              { label: 'Segment', value: SEGMENTLER.length, hint: 'Mevcut veri seti' },
-              { label: 'Bölge', value: BOLGELER.length, hint: 'Mevcut veri seti' },
-              { label: 'Marka', value: markaCount || '—', hint: 'Son dönem / tüm Türkiye' },
-            ].map(metric => (
-              <div key={metric.label} style={{ ...cardStyle, padding: 16 }}>
-                <div style={{ fontSize: 11, color: 'var(--tx3)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em' }}>{metric.label}</div>
-                <div style={{ fontSize: 30, fontWeight: 900, color: 'var(--tx)', marginTop: 8 }}>{metric.value}</div>
-                <div style={{ color: 'var(--tx3)', fontSize: 12, marginTop: 5 }}>{metric.hint}</div>
+          <section className={adminStyles.metricGrid} aria-label="Admin özet metrikleri">
+            {metrics.map(metric => (
+              <div key={metric.label} className={adminStyles.metricCard}>
+                <div className={adminStyles.metricLabel}>{metric.label}</div>
+                <div className={adminStyles.metricValue}>{metric.value}</div>
+                <div className={adminStyles.metricHint}>{metric.hint}</div>
               </div>
             ))}
-          </div>
+          </section>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+          <section className={adminStyles.moduleGrid} aria-label="Admin modülleri">
             {modules.map(module => (
-              <Link key={module.href} href={module.href} style={{ ...cardStyle, padding: 18, textDecoration: 'none', color: 'inherit', display: 'grid', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                  <h2 style={{ margin: 0, fontSize: 16, color: 'var(--tx)', fontWeight: 850 }}>{module.title}</h2>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: module.status === 'Aktif' ? '#10b981' : '#f59e0b', border: `1px solid ${module.status === 'Aktif' ? '#10b98155' : '#f59e0b55'}`, borderRadius: 999, padding: '3px 8px' }}>
-                    {module.status}
-                  </span>
+              <Link key={module.href} href={module.href} className={adminStyles.moduleCard}>
+                <div className={adminStyles.moduleHeader}>
+                  <h2 className={adminStyles.cardTitle}>{module.title}</h2>
+                  <span className={getBadgeClass(module.tone)}>{module.status}</span>
                 </div>
-                <p style={{ margin: 0, color: 'var(--tx3)', fontSize: 12, lineHeight: 1.6 }}>{module.desc}</p>
+                <p className={adminStyles.mutedText}>{module.desc}</p>
               </Link>
             ))}
-          </div>
+          </section>
         </div>
       </div>
     </div>

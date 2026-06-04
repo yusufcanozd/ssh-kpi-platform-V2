@@ -1,13 +1,21 @@
 'use client'
+
 import Topbar from '@/components/layout/Topbar'
+import adminStyles from '@/components/admin/adminTheme.module.css'
 
 export default function AdminPage() {
   return (
-    <div style={{display:'flex',flexDirection:'column',height:'100vh',overflow:'hidden'}}>
-      <Topbar title="Admin" subtitle="Hazırlanıyor..." />
-      <div style={{flex:1,overflow:'auto',padding:'20px 24px'}}>
-        <div style={{background:'var(--surf)',border:'1px solid var(--bd)',borderRadius:10,padding:40,textAlign:'center',color:'var(--tx3)',fontSize:14}}>
-          Bu bölüm hazırlanıyor...
+    <div className={adminStyles.shell}>
+      <Topbar title="Servis Yönetimi" subtitle="Admin servis araçları hazırlanıyor" />
+      <div className={adminStyles.content}>
+        <div className={adminStyles.inner}>
+          <section className={adminStyles.emptyState}>
+            <div className={adminStyles.eyebrow}>Hazırlık Modülü</div>
+            <h1 className={adminStyles.emptyTitle}>Bu bölüm hazırlanıyor</h1>
+            <p className={adminStyles.emptyText}>
+              Servis yönetimi ekranı ortak admin tasarım sistemiyle uyumlu boş durum görünümünü kullanır. İşlevsel kontroller eklendiğinde aynı kart, tipografi ve aralık tokenlarıyla genişletilecek.
+            </p>
+          </section>
         </div>
       </div>
     </div>
