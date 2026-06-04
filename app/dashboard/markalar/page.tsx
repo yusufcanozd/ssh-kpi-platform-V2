@@ -18,6 +18,12 @@ import { smartBarValueLabels as barValuePlugin } from '@/lib/kpi/chart-labels'
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 
+function formatPctDelta(delta: number) {
+  if (delta > 0) return '▲ +' + String(Math.abs(delta)) + '%'
+  if (delta < 0) return '▼ -' + String(Math.abs(delta)) + '%'
+  return '%0'
+}
+
 function SkorHucre(props: { skor: number; cmpSkor?: number | null; size?: string }) {
   const skor    = props.skor
   const cmpSkor = props.cmpSkor
@@ -34,7 +40,7 @@ function SkorHucre(props: { skor: number; cmpSkor?: number | null; size?: string
           <span style={{ fontSize: 8, color: 'var(--tx3)', fontFamily: 'var(--font-dm-mono)' }}>{String(Math.round(cmpSkor))}</span>
           {delta != null && (
             <span style={{ fontSize: 8, fontWeight: 700, color: chgColor(delta) }}>
-              {delta > 0 ? '+' + String(Math.abs(delta)) + '%' : delta < 0 ? '-' + String(Math.abs(delta)) + '%' : '='}
+              {formatPctDelta(delta)}
             </span>
           )}
         </div>
@@ -190,8 +196,7 @@ export default function MarkalarsPage() {
   }
 
   function GenelHucre(props: { score: number; cmpScore: number | null; bazRank: number; cmpRank: number; aktif: boolean }) {
-    const rankDelta = selCmpDonem && props.cmpRank > 0 ? props.cmpRank - props.bazRank : null
-    const rankColor = rankDelta === null ? 'var(--tx3)' : rankDelta > 0 ? '#10b981' : rankDelta < 0 ? '#ef4444' : '#64748b'
+    const scoreDelta = selCmpDonem && props.cmpScore != null ? changePct(props.score, props.cmpScore) : null
     return (
       <td style={{ ...tdS, background: props.aktif ? scoreBg(props.score) : undefined, borderLeft: '2px solid var(--bd)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
@@ -203,9 +208,9 @@ export default function MarkalarsPage() {
               {props.cmpScore != null && (
                 <span style={{ fontSize: 8, color: 'var(--tx3)', fontFamily: 'var(--font-dm-mono)' }}>{String(props.cmpScore)}</span>
               )}
-              {rankDelta !== null && (
-                <span style={{ fontSize: 8, fontWeight: 700, color: rankColor }}>
-                  {rankDelta > 0 ? '+' + String(rankDelta) : rankDelta < 0 ? String(rankDelta) : '—'}
+              {scoreDelta !== null && (
+                <span style={{ fontSize: 8, fontWeight: 700, color: chgColor(scoreDelta) }}>
+                  {formatPctDelta(scoreDelta)}
                 </span>
               )}
             </div>
@@ -272,13 +277,13 @@ export default function MarkalarsPage() {
                       <th style={{ ...thS, minWidth: 72, position: 'sticky', left: 130, background: 'var(--surf2)', zIndex: 3 }}>Seg.</th>
                       {KPI_META.map(function(k, i) {
                         return (
-                          <th key={i} onClick={function() { setSortKpi(i) }} style={{ ...thS, minWidth: 110, whiteSpace: 'normal', lineHeight: 1.3, verticalAlign: 'bottom', paddingBottom: 6, color: sortKpi === i ? 'var(--blue)' : 'var(--tx3)', background: sortKpi === i ? 'rgba(59,130,246,.08)' : 'var(--surf2)' }}>
+                          <th key={i} onClick={function() { setSortKpi(i) }} title={k.ad} style={{ ...thS, minWidth: 110, whiteSpace: 'normal', lineHeight: 1.3, verticalAlign: 'bottom', paddingBottom: 6, color: sortKpi === i ? 'var(--blue)' : 'var(--tx3)', background: sortKpi === i ? 'rgba(59,130,246,.08)' : 'var(--surf2)' }}>
                             {k.ad}{sortKpi === i ? ' v' : ''}
                           </th>
                         )
                       })}
                       <th onClick={function() { setSortKpi(-1) }} style={{ ...thS, minWidth: 95, color: sortKpi === -1 ? '#f59e0b' : 'var(--tx3)', background: sortKpi === -1 ? 'rgba(245,158,11,.08)' : 'var(--surf2)', borderLeft: '2px solid var(--bd)' }}>
-                        {'Genel' + (selCmpDonem ? ' / Onceki+Sira' : '') + (sortKpi === -1 ? ' v' : '')}
+                        {'Genel' + (selCmpDonem ? ' / Onceki+%' : '') + (sortKpi === -1 ? ' v' : '')}
                       </th>
                     </tr>
                   </thead>
@@ -348,7 +353,7 @@ export default function MarkalarsPage() {
                         )
                       })}
                       <th onClick={function() { setKatSortKey('genel') }} style={{ ...thS, minWidth: 95, color: katSortKey === 'genel' ? '#f59e0b' : 'var(--tx3)', background: katSortKey === 'genel' ? 'rgba(245,158,11,.08)' : 'var(--surf2)', borderLeft: '2px solid var(--bd)' }}>
-                        {'Genel' + (selCmpDonem ? ' / Onceki+Sira' : '') + (katSortKey === 'genel' ? ' v' : '')}
+                        {'Genel' + (selCmpDonem ? ' / Onceki+%' : '') + (katSortKey === 'genel' ? ' v' : '')}
                       </th>
                     </tr>
                   </thead>
