@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import Topbar from '@/components/layout/Topbar'
+import adminStyles from '@/components/admin/adminTheme.module.css'
 
-type StatusVariant = 'blue' | 'amber' | 'green'
+type StatusVariant = 'blue' | 'amber' | 'green' | 'red'
 
 type AdminModulePageProps = {
   title: string
@@ -12,6 +13,14 @@ type AdminModulePageProps = {
   sections: Array<{ title: string; description?: string; items: string[] }>
   nextSteps?: string[]
   backHref?: string
+}
+
+
+function getModuleBadgeClass(variant: StatusVariant) {
+  if (variant === 'green') return `${adminStyles.badge} ${adminStyles.badgeGreen}`
+  if (variant === 'red') return `${adminStyles.badge} ${adminStyles.badgeRed}`
+  if (variant === 'blue') return `${adminStyles.badge} ${adminStyles.badgeBlue}`
+  return `${adminStyles.badge} ${adminStyles.badgeAmber}`
 }
 
 const cardStyle = {
@@ -36,7 +45,7 @@ export default function AdminModulePage({
       <Topbar
         title={title}
         subtitle={subtitle}
-        pills={[{ label: statusLabel, variant: statusVariant }]}
+        pills={[{ label: statusLabel, variant: statusVariant === 'red' ? 'amber' : statusVariant }]}
       />
 
       <div style={{ flex: 1, overflow: 'auto', padding: '22px 24px 32px' }}>
@@ -53,9 +62,12 @@ export default function AdminModulePage({
                 Bu aşamada veri kaydetme, KPI motorunu değiştirme veya Supabase tablosuna yazma işlemi yapılmaz. Amaç yönetim mimarisini görünür hale getirip sonraki promptlar için güvenli başlangıç oluşturmaktır.
               </div>
             </div>
-            <Link href={backHref} style={{ textDecoration: 'none', color: '#93c5fd', fontSize: 12, fontWeight: 700, border: '1px solid rgba(147,197,253,.35)', borderRadius: 999, padding: '8px 12px' }}>
-              Yönetim özetine dön
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span className={getModuleBadgeClass(statusVariant)}>{statusLabel}</span>
+              <Link href={backHref} style={{ textDecoration: 'none', color: '#93c5fd', fontSize: 12, fontWeight: 700, border: '1px solid rgba(147,197,253,.35)', borderRadius: 999, padding: '8px 12px' }}>
+                Yönetim özetine dön
+              </Link>
+            </div>
           </div>
 
           {metrics.length > 0 && (

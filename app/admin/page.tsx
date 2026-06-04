@@ -1,29 +1,49 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Topbar from '@/components/layout/Topbar'
 import { KAT_YAPILAR, KPI_META, SEGMENTLER, BOLGELER, DONEMLER } from '@/lib/kpi'
 import { getRawMarkaRanking } from '@/lib/kpi'
+import {
+  ADMIN_MODULES,
+  checkAdminModules,
+  getInitialModuleHealth,
+  type ModuleHealthResult,
+  type ModuleHealthTone,
+} from '@/lib/admin/module-health'
 import adminStyles from '@/components/admin/adminTheme.module.css'
 
-const modules = [
-  { href: '/admin/users', title: 'Kullanıcılar', desc: 'Rol, aktiflik ve mevcut kullanıcı listesi.', status: 'Aktif', tone: 'green' },
-  { href: '/admin/kpi-settings', title: 'KPI Ayarları', desc: 'KPI tanımları, yönleri, coverage ve kategori bağlantıları.', status: 'Prompt 4', tone: 'amber' },
-  { href: '/admin/categories', title: 'Kategoriler', desc: 'Kategori adı, kısa ad, renk, sıralama ve aktif/pasif yönetimi.', status: 'Prompt 4', tone: 'amber' },
-  { href: '/admin/weights', title: 'Kategori Ağırlıkları', desc: 'Kategori ağırlıkları ve metodoloji versiyonlama hazırlığı.', status: 'Hazırlık', tone: 'amber' },
-  { href: '/admin/brands', title: 'Markalar', desc: 'Marka listesi, segment dağılımı ve gizlilik kuralı görünümü.', status: 'İskelet', tone: 'blue' },
-  { href: '/admin/data-import', title: 'Data Import', desc: 'Excel/CSV import akışı, kolon eşleştirme ve validasyon planı.', status: 'İskelet', tone: 'blue' },
-  { href: '/admin/user-permissions', title: 'Kullanıcı Kısıtları', desc: 'Segment, marka ve bölge bazlı görünürlük kurgusu.', status: 'Hazırlık', tone: 'amber' },
-  { href: '/admin/theme', title: 'Tema / Görsel Ayarlar', desc: 'Executive renk sistemi, grafik standardı ve rapor görsel dili.', status: 'İskelet', tone: 'blue' },
-] as const
-
-function getBadgeClass(tone: typeof modules[number]['tone']) {
+function getBadgeClass(tone: ModuleHealthTone) {
   if (tone === 'green') return `${adminStyles.badge} ${adminStyles.badgeGreen}`
+  if (tone === 'red') return `${adminStyles.badge} ${adminStyles.badgeRed}`
   if (tone === 'blue') return `${adminStyles.badge} ${adminStyles.badgeBlue}`
   return `${adminStyles.badge} ${adminStyles.badgeAmber}`
 }
 
 export default function AdminHomePage() {
-  const markaCount = getRawMarkaRanking('', '', 'Tümü', DONEMLER[DONEMLER.length - 1] ?? '').length
-  const totalWeight = KAT_YAPILAR.reduce((sum, c) => sum + c.agirlik, 0)
+  const [moduleHealth, setModuleHealth] = useState<Record<string, ModuleHealthResult>>(() => getInitialModuleHealth())
+
+  useEffect(() => {
+    let mounted = true
+    setModuleHealth(getInitialModuleHealth())
+
+    checkAdminModules().then(results => {
+      if (mounted) setModuleHealth(results)
+    })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const markaCount = useMemo(
+    () => getRawMarkaRanking('', '', 'Tümü', DONEMLER[DONEMLER.length - 1] ?? '').length,
+    []
+  )
+  const totalWeight = useMemo(() => KAT_YAPILAR.reduce((sum, c) => sum + c.agirlik, 0), [])
+  const activeModuleCount = ADMIN_MODULES.filter(module => moduleHealth[module.href]?.status === 'active').length
+  const hasChecksInProgress = ADMIN_MODULES.some(module => moduleHealth[module.href]?.status === 'checking')
 
   const metrics = [
     { label: 'KPI', value: KPI_META.length, hint: 'Statik metadata' },
@@ -31,18 +51,23 @@ export default function AdminHomePage() {
     { label: 'Segment', value: SEGMENTLER.length, hint: 'Mevcut veri seti' },
     { label: 'Bölge', value: BOLGELER.length, hint: 'Mevcut veri seti' },
     { label: 'Marka', value: markaCount || '—', hint: 'Son dönem / tüm Türkiye' },
+    {
+      label: 'Modül Sağlığı',
+      value: hasChecksInProgress ? '…' : `${activeModuleCount}/${ADMIN_MODULES.length}`,
+      hint: hasChecksInProgress ? 'Kontrol ediliyor' : 'Aktif modül sayısı',
+    },
   ]
 
   return (
     <div className={adminStyles.shell}>
-      <Topbar title="Yönetim Merkezi" subtitle="Super Admin modülleri ve geliştirme yol haritası" pills={[{ label: 'Prompt 4 hazır', variant: 'green' }]} />
+      <Topbar title="Yönetim Merkezi" subtitle="Super Admin modülleri ve canlı sağlık durumu" pills={[{ label: hasChecksInProgress ? 'Kontrol ediliyor' : 'Sağlık kontrolü tamamlandı', variant: hasChecksInProgress ? 'blue' : 'green' }]} />
       <div className={adminStyles.content}>
         <div className={adminStyles.inner}>
           <section className={adminStyles.section}>
-            <div className={adminStyles.eyebrow}>Super Admin Yol Haritası</div>
-            <h1 className={adminStyles.pageTitle}>Platform yönetimi tek merkezde toplanıyor</h1>
+            <div className={adminStyles.eyebrow}>Super Admin Kontrol Merkezi</div>
+            <h1 className={adminStyles.pageTitle}>Admin modülleri gerçek durumlarıyla izleniyor</h1>
             <p className={adminStyles.bodyText}>
-              KPI ve kategori yönetimi gerçek form/validasyon yapısına taşındı. Diğer modüller güvenli hazırlık modunda kalır; skor motoru ve dashboard hesapları bu sayfadan değiştirilmez.
+              Modül kartları sayfa açılışında route ve ilgili Supabase kaynaklarını hızlıca kontrol eder. Erişilemeyen modüller sayfayı çökertmeden Pasif/Hata olarak işaretlenir.
             </p>
           </section>
 
@@ -57,15 +82,20 @@ export default function AdminHomePage() {
           </section>
 
           <section className={adminStyles.moduleGrid} aria-label="Admin modülleri">
-            {modules.map(module => (
-              <Link key={module.href} href={module.href} className={adminStyles.moduleCard}>
-                <div className={adminStyles.moduleHeader}>
-                  <h2 className={adminStyles.cardTitle}>{module.title}</h2>
-                  <span className={getBadgeClass(module.tone)}>{module.status}</span>
-                </div>
-                <p className={adminStyles.mutedText}>{module.desc}</p>
-              </Link>
-            ))}
+            {ADMIN_MODULES.map(module => {
+              const health = moduleHealth[module.href] ?? getInitialModuleHealth()[module.href]
+
+              return (
+                <Link key={module.href} href={module.href} className={adminStyles.moduleCard}>
+                  <div className={adminStyles.moduleHeader}>
+                    <h2 className={adminStyles.cardTitle}>{module.title}</h2>
+                    <span className={getBadgeClass(health.tone)}>{health.label}</span>
+                  </div>
+                  <p className={adminStyles.mutedText}>{module.desc}</p>
+                  <p className={adminStyles.moduleHealthText}>{health.detail}</p>
+                </Link>
+              )
+            })}
           </section>
         </div>
       </div>
