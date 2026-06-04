@@ -7,7 +7,7 @@ export default function DataImportAdminPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <Topbar
         title="Data Import"
-        subtitle="CSV/JSON preview, validation, batch kaydı, export ve import şablonu"
+        subtitle="CSV/JSON/Excel preview, validation, batch kaydı, super-admin export ve import şablonu"
         pills={[{ label: 'Prompt 6-C · Şablon', variant: 'blue' }]}
       />
 

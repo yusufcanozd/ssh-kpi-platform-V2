@@ -203,21 +203,24 @@ export default function DataImportWizard({ context }: DataImportWizardProps) {
               Dosya seç, valide et, Supabase import batch kaydı oluştur
             </h2>
             <p style={{ margin: 0, color: 'var(--tx3)', fontSize: 13, lineHeight: 1.6, maxWidth: 820 }}>
-              Bu adım CSV/JSON dosyasını data_import_batches ve kpi_fact_rows tablolarına yazar; import edilmiş batchler CSV/JSON olarak export edilebilir. Aşağıdan örnek import şablonu indirebilirsin. Dashboard henüz bu batch verisini kullanmaz;
+              Bu adım CSV/JSON/Excel dosyasını data_import_batches ve kpi_fact_rows tablolarına yazar; import edilmiş batchler CSV/JSON/Excel olarak export edilebilir. Aşağıdan örnek import şablonu indirebilirsin. Dashboard henüz bu batch verisini kullanmaz;
               dinamik KPI motoru bir sonraki promptta bağlanacak.
             </p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
-              <button type="button" style={buttonStyle} onClick={() => downloadTemplate('csv')}>
+              <button type="button" style={buttonStyle} onClick={() => void downloadTemplate('csv')}>
                 CSV Şablonu İndir
               </button>
-              <button type="button" style={buttonStyle} onClick={() => downloadTemplate('json')}>
+              <button type="button" style={buttonStyle} onClick={() => void downloadTemplate('json')}>
                 JSON Şablonu İndir
+              </button>
+              <button type="button" style={buttonStyle} onClick={() => void downloadTemplate('xlsx')}>
+                Excel Şablonu İndir
               </button>
             </div>
           </div>
 
           <label style={buttonStyle}>
-            {isReading ? 'Dosya okunuyor...' : 'CSV / JSON seç'}
+            {isReading ? 'Dosya okunuyor...' : 'CSV / JSON / Excel seç'}
             <input
               type="file"
               accept=".csv,.json,.xlsx,.xls"
@@ -528,7 +531,7 @@ function Badge({ tone, children }: { tone: 'success' | 'error' | 'warning' | 'ne
 }
 
 
-function downloadTemplate(format: 'csv' | 'json') {
+async function downloadTemplate(format: 'csv' | 'json' | 'xlsx') {
   const templateRows = buildTemplateRows()
 
   if (format === 'json') {
@@ -541,6 +544,20 @@ function downloadTemplate(format: 'csv' | 'json') {
   }
 
   const columns = Object.keys(templateRows[0])
+
+  if (format === 'xlsx') {
+    const XLSX = await import('xlsx')
+    const worksheet = XLSX.utils.json_to_sheet(templateRows, { header: columns })
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'import_template')
+    const content = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer
+    downloadBlobFile(
+      'ssh-kpi-import-template.xlsx',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      content,
+    )
+    return
+  }
   const csvRows = [
     columns.join(','),
     ...templateRows.map(row => columns.map(column => escapeCsvCell(String(row[column] ?? ''))).join(',')),
@@ -599,6 +616,18 @@ function buildTemplateRows(): Array<Record<string, string | number>> {
 function escapeCsvCell(value: string) {
   if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`
   return value
+}
+
+function downloadBlobFile(fileName: string, mimeType: string, content: BlobPart) {
+  const blob = new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
 }
 
 function downloadBinaryFile(fileName: string, mimeType: string, base64: string) {
