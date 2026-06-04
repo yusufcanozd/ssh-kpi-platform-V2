@@ -10,6 +10,7 @@ import {
   buildFallbackWeights,
   createMethodologyVersion,
   isPersistedVersionId,
+  loadMethodologyHistory,
   isWeightTotalValid,
   parseSupabaseVersions,
   parseSupabaseWeights,
@@ -17,6 +18,7 @@ import {
   totalWeight,
   type ManagedCategoryWeight,
   type ManagedMethodologyVersion,
+  type MethodologyHistoryItem,
 } from '@/lib/admin/weights-management'
 import styles from '@/components/admin/KpiManagement.module.css'
 
@@ -41,6 +43,8 @@ export default function WeightsAdminPage() {
 
   const [weights, setWeights] = useState<ManagedCategoryWeight[]>(() => buildFallbackWeights())
   const [versions, setVersions] = useState<ManagedMethodologyVersion[]>(() => [buildFallbackVersion()])
+  const [history, setHistory] = useState<MethodologyHistoryItem[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [source, setSource] = useState<'supabase' | 'fallback'>('fallback')
   const [versionForm, setVersionForm] = useState<VersionFormState>(emptyVersionForm)
   const [errors, setErrors] = useState<string[]>([])
@@ -67,11 +71,16 @@ export default function WeightsAdminPage() {
         setVersions([buildFallbackVersion()])
         setWeights(buildFallbackWeights())
         setSource('fallback')
+        setHistory([])
         return
       }
 
       setVersions(parsedVersions)
       setSource('supabase')
+      setHistoryLoading(true)
+      loadMethodologyHistory(supabase)
+        .then(rows => { if (!cancelled) setHistory(rows) })
+        .finally(() => { if (!cancelled) setHistoryLoading(false) })
 
       const activeVersion = parsedVersions.find(version => version.isActive) ?? parsedVersions[0]
       const { data: weightRows, error: weightError } = await supabase
@@ -89,6 +98,7 @@ export default function WeightsAdminPage() {
       setVersions([buildFallbackVersion()])
       setWeights(buildFallbackWeights())
       setSource('fallback')
+      setHistory([])
     })
 
     return () => { cancelled = true }
@@ -97,6 +107,17 @@ export default function WeightsAdminPage() {
   const total = useMemo(() => totalWeight(weights), [weights])
   const valid = isWeightTotalValid(weights)
   const activeVersion = versions.find(version => version.isActive) ?? versions[0]
+
+  async function refreshHistory() {
+    if (source !== 'supabase') {
+      setHistory([])
+      return
+    }
+    setHistoryLoading(true)
+    const rows = await loadMethodologyHistory(supabase)
+    setHistory(rows)
+    setHistoryLoading(false)
+  }
 
   function updateWeight(categoryKey: string, raw: string) {
     const value = Number(raw)
@@ -121,6 +142,7 @@ export default function WeightsAdminPage() {
       setSaving(false)
       if (error) { setErrors([error]); return }
       setMessage(`Ağırlıklar "${activeVersion.name}" versiyonuna kaydedildi (Supabase).`)
+      await refreshHistory()
       return
     }
 
@@ -153,6 +175,7 @@ export default function WeightsAdminPage() {
       })
       setVersionForm(emptyVersionForm)
       setMessage(`"${data.name}" versiyonu oluşturuldu ve ağırlıklar kaydedildi (Supabase).`)
+      await refreshHistory()
       return
     }
 
@@ -258,6 +281,40 @@ export default function WeightsAdminPage() {
                   <div className={styles.formHint}>{message}</div>
                 </div>
               )}
+
+              <div className={styles.historyPanel}>
+                <div className={styles.historyHeader}>
+                  <div>
+                    <h3 className={styles.historyTitle}>Metodoloji Versiyon Geçmişi</h3>
+                    <div className={styles.formHint}>Audit log üzerinden en yeni değişiklikler üstte listelenir.</div>
+                  </div>
+                  <button type="button" className={styles.secondaryButton} onClick={refreshHistory} disabled={historyLoading || source !== 'supabase'}>
+                    {historyLoading ? 'Yükleniyor…' : 'Yenile'}
+                  </button>
+                </div>
+
+                {source !== 'supabase' ? (
+                  <div className={styles.emptyState}>Fallback modunda DB audit geçmişi yok.</div>
+                ) : historyLoading ? (
+                  <div className={styles.emptyState}>Versiyon geçmişi yükleniyor…</div>
+                ) : history.length === 0 ? (
+                  <div className={styles.emptyState}>Henüz versiyon yok.</div>
+                ) : (
+                  <div className={styles.historyList}>
+                    {history.map(item => (
+                      <article key={item.id} className={styles.historyItem}>
+                        <div className={styles.historyMeta}>
+                          <span>{item.date}</span>
+                          <span>{item.actor}</span>
+                          <span className={styles.sourceBadge}>{item.action}</span>
+                        </div>
+                        <div className={styles.historySummary}>{item.summary}</div>
+                        <div className={styles.historyWeights}>{item.weightSummary}</div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
             </section>
 
             <aside className={styles.card}>

@@ -29,6 +29,15 @@ export interface ManagedMethodologyVersion {
   source: 'supabase' | 'fallback'
 }
 
+export interface MethodologyHistoryItem {
+  id: string
+  date: string
+  actor: string
+  action: string
+  summary: string
+  weightSummary: string
+}
+
 export interface WeightAuditDraft {
   action: 'update_weights' | 'create_version' | 'activate_version'
   versionId: string
@@ -56,6 +65,60 @@ function booleanValue(value: unknown, fallback: boolean): boolean {
 function categoryKeyFrom(value: unknown): CategoryKey | null {
   const raw = stringValue(value)
   return KAT_YAPILAR.some(cat => cat.key === raw) ? (raw as CategoryKey) : null
+}
+
+function formatDateTime(value: unknown): string {
+  const raw = stringValue(value)
+  if (!raw) return '—'
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return raw
+  return new Intl.DateTimeFormat('tr-TR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+function formatWeight(value: unknown): string {
+  const n = numberValue(value, Number.NaN)
+  if (!Number.isFinite(n)) return '—'
+  return `${Math.round(n * 100) / 100}%`
+}
+
+function categoryLabel(key: string): string {
+  const match = KAT_YAPILAR.find(category => category.key === key)
+  return match?.ad ?? key
+}
+
+function readWeightRows(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) return []
+  return value.map(toRecord).filter((item): item is Record<string, unknown> => item !== null)
+}
+
+function buildWeightSummary(metadata: Record<string, unknown> | null): string {
+  const changedWeights = readWeightRows(metadata?.changedWeights)
+  if (changedWeights.length > 0) {
+    return changedWeights.map(row => {
+      const key = stringValue(row.category_key ?? row.categoryKey ?? row.key, 'kategori')
+      return `${categoryLabel(key)}: ${formatWeight(row.previous)} → ${formatWeight(row.next)}`
+    }).join(' · ')
+  }
+
+  const afterRows = readWeightRows(metadata?.afterWeights)
+  const rows = afterRows.length > 0 ? afterRows : readWeightRows(metadata?.weights)
+  if (rows.length > 0) {
+    return rows.map(row => {
+      const key = stringValue(row.category_key ?? row.categoryKey ?? row.key, 'kategori')
+      return `${categoryLabel(key)} ${formatWeight(row.weight)}`
+    }).join(' · ')
+  }
+
+  return 'Ağırlık detayı kayıtta bulunmuyor.'
+}
+
+function actorLabel(value: unknown): string {
+  const record = toRecord(value)
+  if (!record) return 'Sistem / bilinmeyen kullanıcı'
+  return stringValue(record.full_name) || stringValue(record.email) || 'Sistem / bilinmeyen kullanıcı'
 }
 
 /** config.ts ağırlıklarından (kesir → yüzde) fallback ağırlık listesi üretir. */
@@ -120,6 +183,23 @@ export function parseSupabaseVersions(rows: unknown): ManagedMethodologyVersion[
   }).filter((item): item is ManagedMethodologyVersion => item !== null && Boolean(item.id))
 }
 
+export function parseMethodologyHistory(rows: unknown): MethodologyHistoryItem[] {
+  if (!Array.isArray(rows)) return []
+  return rows.map((row): MethodologyHistoryItem | null => {
+    const record = toRecord(row)
+    if (!record) return null
+    const metadata = toRecord(record.metadata)
+    return {
+      id: stringValue(record.id, `${stringValue(record.created_at)}-${stringValue(record.action)}`),
+      date: formatDateTime(record.created_at),
+      actor: actorLabel(record.actor),
+      action: stringValue(record.action, 'update'),
+      summary: stringValue(record.summary, 'Metodoloji değişikliği'),
+      weightSummary: buildWeightSummary(metadata),
+    }
+  }).filter((item): item is MethodologyHistoryItem => item !== null)
+}
+
 /** Yüzde ağırlık toplamı (yuvarlama toleranslı). */
 export function totalWeight(weights: ManagedCategoryWeight[]): number {
   return Math.round(weights.reduce((sum, item) => sum + (Number.isFinite(item.weight) ? item.weight : 0), 0) * 100) / 100
@@ -179,6 +259,29 @@ async function writeWeightAudit(
   }
 }
 
+export async function loadMethodologyHistory(
+  supabase: SupabaseClient,
+): Promise<MethodologyHistoryItem[]> {
+  const withActor = await supabase
+    .from('audit_logs')
+    .select('id,created_at,action,summary,metadata,actor:profiles(full_name,email)')
+    .eq('entity', 'kpi_methodology')
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  if (!withActor.error) return parseMethodologyHistory(withActor.data as unknown)
+
+  const plain = await supabase
+    .from('audit_logs')
+    .select('id,created_at,action,summary,metadata')
+    .eq('entity', 'kpi_methodology')
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  if (plain.error) return []
+  return parseMethodologyHistory(plain.data as unknown)
+}
+
 /** Aktif versiyonun kategori ağırlıklarını upsert eder. */
 export async function saveWeights(
   supabase: SupabaseClient,
@@ -188,6 +291,11 @@ export async function saveWeights(
   if (!isPersistedVersionId(versionId)) {
     return { error: 'Aktif metodoloji versiyonu DB’de değil. Önce bir versiyon oluşturun.' }
   }
+  const { data: previousRows } = await supabase
+    .from('kpi_category_weights')
+    .select('category_key,weight')
+    .eq('methodology_version_id', versionId)
+
   const rows = weights.map(weight => ({
     methodology_version_id: versionId,
     category_key: weight.categoryKey,
@@ -197,7 +305,24 @@ export async function saveWeights(
     .from('kpi_category_weights')
     .upsert(rows, { onConflict: 'methodology_version_id,category_key' })
   if (error) return { error: error.message }
-  await writeWeightAudit(supabase, 'update', versionId, 'Kategori ağırlıkları güncellendi', { weights: rows })
+
+  const previousByKey = new Map(readWeightRows(previousRows as unknown).map(row => [
+    stringValue(row.category_key),
+    numberValue(row.weight, Number.NaN),
+  ]))
+  const changedWeights = rows
+    .map(row => ({
+      category_key: row.category_key,
+      previous: previousByKey.get(row.category_key),
+      next: row.weight,
+    }))
+    .filter(row => Number.isFinite(row.previous) && Math.abs(Number(row.previous) - row.next) > 0.01)
+
+  await writeWeightAudit(supabase, 'update', versionId, 'Kategori ağırlıkları güncellendi', {
+    beforeWeights: previousRows ?? [],
+    afterWeights: rows,
+    changedWeights,
+  })
   return { data: true }
 }
 
