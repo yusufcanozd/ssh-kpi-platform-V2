@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import ReportSectionHeader from '@/components/report/ReportSectionHeader'
 import {
   KPI_META, SEGMENTLER, SEGMENT_HEX, SEGMENT_BG,
   BOLGELER, YAS_GRUPLARI, DONEMLER, CATEGORY_OPTIONS,
-  fmtKpi, fmtSkor0, scoreColor, scoreBarWidth, getKpisFromCube, getScore, getRegionalScorePrecise, getKpiScores, getMarkaRanking,
+  fmtKpi, fmtSkor0, scoreColor, scoreBarWidth, getMarkaRanking, createRuntimeCalculator,
   isLowerBetter, heatColor,
 } from '@/lib/kpi'
 import styles from './page.module.css'
@@ -105,7 +105,8 @@ const thS: React.CSSProperties = { padding:'7px 10px', textAlign:'left', fontSiz
 const tdS: React.CSSProperties = { padding:'6px 10px', borderBottom:'1px solid var(--bd)' }
 
 export default function OzetRaporPage() {
-  const { selBolge, selYas } = useDashboardCtx()
+  const { selBolge, selYas, runtimeData } = useDashboardCtx()
+  const runtimeCalc = useMemo(() => createRuntimeCalculator(runtimeData), [runtimeData])
 
   const sonYil = TUM_YILLAR[TUM_YILLAR.length - 1] || 2024
 
@@ -131,30 +132,30 @@ export default function OzetRaporPage() {
     setGenerating(true)
     setProgress(10)
 
-    const trKpis     = getKpisFromCube('', selBolge, selYas, bazStr)
-    const trKpisCmp  = cmpStr ? getKpisFromCube('', selBolge, selYas, cmpStr) : null
-    const trScore    = getScore('', selBolge, selYas, bazStr)
-    const trScoreCmp = cmpStr ? getScore('', selBolge, selYas, cmpStr) : null
+    const trKpis     = runtimeCalc.getKpisFromCube('', selBolge, selYas, bazStr)
+    const trKpisCmp  = cmpStr ? runtimeCalc.getKpisFromCube('', selBolge, selYas, cmpStr) : null
+    const trScore    = runtimeCalc.getScore('', selBolge, selYas, bazStr)
+    const trScoreCmp = cmpStr ? runtimeCalc.getScore('', selBolge, selYas, cmpStr) : null
 
     const segData = SEGMENTLER.map(seg => ({
       seg,
-      kpis: getKpisFromCube(seg, selBolge, selYas, bazStr),
-      kpisCmp: cmpStr ? getKpisFromCube(seg, selBolge, selYas, cmpStr) : null,
-      score: getScore(seg, selBolge, selYas, bazStr),
-      scoreCmp: cmpStr ? getScore(seg, selBolge, selYas, cmpStr) : null,
+      kpis: runtimeCalc.getKpisFromCube(seg, selBolge, selYas, bazStr),
+      kpisCmp: cmpStr ? runtimeCalc.getKpisFromCube(seg, selBolge, selYas, cmpStr) : null,
+      score: runtimeCalc.getScore(seg, selBolge, selYas, bazStr),
+      scoreCmp: cmpStr ? runtimeCalc.getScore(seg, selBolge, selYas, cmpStr) : null,
       markalar: getMarkaRanking(seg, selBolge, selYas, bazStr).slice(0, 5),
     }))
 
     const bolgeData = BOLGELER.slice(0, 8).map(b => ({
       bolge: b,
-      score: getRegionalScorePrecise('', b, selYas, bazStr),
-      scoreCmp: cmpStr ? getRegionalScorePrecise('', b, selYas, cmpStr) : null,
+      score: runtimeCalc.getRegionalScore('', b, selYas, bazStr),
+      scoreCmp: cmpStr ? runtimeCalc.getRegionalScore('', b, selYas, cmpStr) : null,
     }))
 
     const yasData = YAS_GRUPLARI.filter(y => y !== 'Tümü').map(y => ({
       yas: y,
-      score: getScore('', selBolge, y, bazStr),
-      kpis: getKpisFromCube('', selBolge, y, bazStr),
+      score: runtimeCalc.getScore('', selBolge, y, bazStr),
+      kpis: runtimeCalc.getKpisFromCube('', selBolge, y, bazStr),
     }))
 
     const katData = KATS.map(k => ({
@@ -208,7 +209,7 @@ export default function OzetRaporPage() {
       '. Bolgesel farkliliklari yorumla.'
 
     const p5 = 'Son donem SSH trend: ' +
-      trendDonemler.map(dt => { const sc = getScore('', selBolge, selYas, dt); return dt + ':' + (sc?.genel ?? 0) }).join(', ') +
+      trendDonemler.map(dt => { const sc = runtimeCalc.getScore('', selBolge, selYas, dt); return dt + ':' + (sc?.genel ?? 0) }).join(', ') +
       '. Donemesel trendi yorumla.'
 
     const p6 = cmpStr ? (bazStr + ' vs ' + cmpStr + ': Skor ' + trGCmp + '->' + trG +
@@ -397,7 +398,7 @@ export default function OzetRaporPage() {
                     </thead>
                     <tbody>
                       {d.tumMarkalar.slice(0,20).map((m: any, i: number) => {
-                        const segSc = getScore(m.segment, selBolge, selYas, bazStr)
+                        const segSc = runtimeCalc.getScore(m.segment, selBolge, selYas, bazStr)
                         const diff = m.cmpScore !== null ? m.score - m.cmpScore : null
                         return (
                           <tr key={m.marka} style={{ borderBottom:'1px solid var(--bd)' }}>
@@ -567,7 +568,7 @@ export default function OzetRaporPage() {
                 <ReportSectionHeader icon="📈" title={`Dönemsel Trend (${d.trendDonemler.join(' → ')})`} />
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
                   {KPI_META.slice(0,8).map((k, idx) => {
-                    const vals = d.trendDonemler.map((dt: string) => getKpisFromCube('', selBolge, selYas, dt)[idx]??0)
+                    const vals = d.trendDonemler.map((dt: string) => runtimeCalc.getKpisFromCube('', selBolge, selYas, dt)[idx]??0)
                     const lob = isLowerBetter(idx)
                     const first = vals[0], last = vals[vals.length-1]
                     const trend = first ? ((last-first)/Math.abs(first)*100) : 0
