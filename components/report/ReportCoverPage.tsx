@@ -56,7 +56,7 @@ export default function ReportCoverPage({ d, yorumlar, bazStr, cmpStr, runtimeCa
                       )}
                       <div style={{ borderLeft:'1px solid rgba(255,255,255,.12)', paddingLeft:28 }}>
                         <div style={{ fontSize:9, color:'#93c5fd', marginBottom:8, textTransform:'uppercase', letterSpacing:'.1em' }}>Kapsam</div>
-                        {[SEGMENTLER.length + ' Segment', KPI_META.length + ' KPI', BOLGELER.length + ' Bölge'].map(t => (
+                        {[d.segData.length + ' Segment', KPI_META.length + ' KPI', d.bolgeData.length + ' Bölge'].concat(d.permissionScope?.brandCount !== null && d.permissionScope?.brandCount !== undefined ? [d.permissionScope.brandCount + ' Marka'] : []).map(t => (
                           <div key={t} style={{ fontSize:11, color:'#cbd5e1', marginBottom:3 }}>· {t}</div>
                         ))}
                       </div>

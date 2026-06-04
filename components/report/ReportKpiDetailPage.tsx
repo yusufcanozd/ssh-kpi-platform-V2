@@ -30,7 +30,7 @@ export default function ReportKpiDetailPage({ d, yorumlar, bazStr, cmpStr, runti
                           <th style={thS}>Tüm TR</th>
                           {cmpStr && <th style={thS}>Önceki</th>}
                           {cmpStr && <th style={thS}>Δ</th>}
-                          {SEGMENTLER.map(seg => <th key={seg} style={{ ...thS, color:SEGMENT_HEX[seg] }}>{seg}</th>)}
+                          {d.segData.map((s: any) => <th key={s.seg} style={{ ...thS, color:SEGMENT_HEX[s.seg] }}>{s.seg}</th>)}
                         </tr>
                       </thead>
                       <tbody>

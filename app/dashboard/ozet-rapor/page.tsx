@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
+import { filterAllowedBrandNames } from '@/lib/auth/permissions'
 import Topbar from '@/components/layout/Topbar'
 import ReportSectionHeader from '@/components/report/ReportSectionHeader'
 import { buildReportCategories } from '@/components/report/ReportShared'
@@ -15,7 +16,7 @@ import ReportHighlightsPage from '@/components/report/ReportHighlightsPage'
 import {
   KPI_META, SEGMENTLER, SEGMENT_HEX, SEGMENT_BG,
   BOLGELER, YAS_GRUPLARI, DONEMLER, CATEGORY_OPTIONS,
-  fmtKpi, fmtSkor0, scoreColor, scoreBarWidth, getMarkaRanking, applyBrandPrivacyRule, createRuntimeCalculator,
+  fmtKpi, fmtSkor0, scoreColor, scoreBarWidth, getRawMarkaRanking, applyBrandPrivacyRule, createRuntimeCalculator,
   isLowerBetter, heatColor,
 } from '@/lib/kpi'
 import styles from './page.module.css'
@@ -94,21 +95,40 @@ function DonemSec2({ label, value, onChange }: {
 }
 
 export default function OzetRaporPage() {
-  const { selBolge, selYas, runtimeData, categoryColorOverrides } = useDashboardCtx()
+  const {
+    selBolge,
+    selYas,
+    runtimeData,
+    categoryColorOverrides,
+    hasDataRestriction,
+    allowedSegments,
+    allowedRegions,
+    allowedBrandNames,
+  } = useDashboardCtx()
   const runtimeCalc = useMemo(() => createRuntimeCalculator(runtimeData), [runtimeData])
   const KATS = useMemo(() => buildReportCategories(categoryColorOverrides), [categoryColorOverrides])
+  const reportSegments = useMemo(
+    () => allowedSegments.length > 0 ? allowedSegments : SEGMENTLER,
+    [allowedSegments]
+  )
+  const reportRegions = useMemo(
+    () => allowedRegions.length > 0 ? allowedRegions : BOLGELER,
+    [allowedRegions]
+  )
+  const brandRestricted = hasDataRestriction && allowedBrandNames.length > 0
 
-  // Marka sıralaması: aktif import varsa dinamik markaRows, yoksa statik; her iki halde de gizlilik maskelemesi uygulanır.
+  // Marka sıralaması: aktif import varsa dinamik markaRows, yoksa statik; her iki halde de
+  // önce kullanıcı marka kısıtı uygulanır, sonra gizlilik maskelemesi yapılır.
   function rankMarka(seg: string, bolge: string, yas: string, donem: string) {
     const dyn = runtimeData?.markaRows
-    if (dyn && dyn.length > 0) {
-      const raw = dyn
-        .filter(r => (!seg || r[1] === seg) && r[2] === bolge && r[3] === yas && r[4] === donem)
-        .map(r => ({ marka: r[0], segment: r[1], score: r[5] ?? 0 }))
-        .sort((a, b) => b.score - a.score || a.marka.localeCompare(b.marka, 'tr'))
-      return applyBrandPrivacyRule(raw)
-    }
-    return getMarkaRanking(seg, bolge, yas, donem)
+    const raw = dyn && dyn.length > 0
+      ? dyn
+          .filter(r => (!seg || r[1] === seg) && r[2] === bolge && r[3] === yas && r[4] === donem)
+          .map(r => ({ marka: r[0], segment: r[1], score: r[5] ?? 0 }))
+          .sort((a, b) => b.score - a.score || a.marka.localeCompare(b.marka, 'tr'))
+      : getRawMarkaRanking(seg, bolge, yas, donem)
+
+    return applyBrandPrivacyRule(filterAllowedBrandNames(raw, allowedBrandNames, brandRestricted))
   }
 
   const sonYil = TUM_YILLAR[TUM_YILLAR.length - 1] || 2024
@@ -140,7 +160,7 @@ export default function OzetRaporPage() {
     const trScore    = runtimeCalc.getScore('', selBolge, selYas, bazStr)
     const trScoreCmp = cmpStr ? runtimeCalc.getScore('', selBolge, selYas, cmpStr) : null
 
-    const segData = SEGMENTLER.map(seg => ({
+    const segData = reportSegments.map(seg => ({
       seg,
       kpis: runtimeCalc.getKpisFromCube(seg, selBolge, selYas, bazStr),
       kpisCmp: cmpStr ? runtimeCalc.getKpisFromCube(seg, selBolge, selYas, cmpStr) : null,
@@ -149,7 +169,7 @@ export default function OzetRaporPage() {
       markalar: rankMarka(seg, selBolge, selYas, bazStr).slice(0, 5),
     }))
 
-    const bolgeData = BOLGELER.slice(0, 8).map(b => ({
+    const bolgeData = reportRegions.slice(0, 8).map(b => ({
       bolge: b,
       score: runtimeCalc.getRegionalScore('', b, selYas, bazStr),
       scoreCmp: cmpStr ? runtimeCalc.getRegionalScore('', b, selYas, cmpStr) : null,
@@ -178,7 +198,7 @@ export default function OzetRaporPage() {
       return { ...k, i, curr, prev, pct: Math.round(pct * 10) / 10 }
     }).filter(Boolean)
 
-    const tumMarkalar = SEGMENTLER.flatMap(seg =>
+    const tumMarkalar = reportSegments.flatMap(seg =>
       rankMarka(seg, selBolge, selYas, bazStr).map(m => ({
         ...m,
         cmpScore: cmpStr ? (rankMarka(seg, selBolge, selYas, cmpStr).find(x => x.marka === m.marka)?.score ?? null) : null,
@@ -187,7 +207,25 @@ export default function OzetRaporPage() {
 
     const trendDonemler = Q_LIST.slice(-6)
 
-    setRapor({ trKpis, trKpisCmp, trScore, trScoreCmp, segData, bolgeData, yasData, katData, kayiplar, tumMarkalar, trendDonemler })
+    setRapor({
+      trKpis,
+      trKpisCmp,
+      trScore,
+      trScoreCmp,
+      segData,
+      bolgeData,
+      yasData,
+      katData,
+      kayiplar,
+      tumMarkalar,
+      trendDonemler,
+      permissionScope: {
+        restricted: hasDataRestriction,
+        segments: reportSegments,
+        regions: reportRegions,
+        brandCount: brandRestricted ? allowedBrandNames.length : null,
+      },
+    })
     setProgress(30)
 
     const trG = trScore?.genel ?? 0
@@ -196,11 +234,11 @@ export default function OzetRaporPage() {
 
     const p1 = 'Turkiye SSH sektoru ' + bazStr + ' donemi skor: ' + trG +
       (delta !== null ? ', onceki doneme gore ' + (delta >= 0 ? '+' : '') + delta + ' puan.' : '.') +
-      ' Segmentler: ' + segData.map(s => s.seg + ':' + (s.score?.genel ?? 0)).join(', ') +
+      ' Segmentler: ' + (segData.length ? segData.map(s => s.seg + ':' + (s.score?.genel ?? 0)).join(', ') : 'yetkili segment yok') +
       '. 3-4 cumle editorial yorum yap.'
 
     const p2 = 'SSH marka siralamasi ' + bazStr + ': ' +
-      tumMarkalar.slice(0, 6).map((m, i) => (i+1) + '.' + m.marka + '(' + m.segment + ') ' + m.score + 'p').join('; ') +
+      (tumMarkalar.length ? tumMarkalar.slice(0, 6).map((m, i) => (i+1) + '.' + m.marka + '(' + m.segment + ') ' + m.score + 'p').join('; ') : 'yetkili marka yok') +
       '. Marka dinamiklerini yorumla.'
 
     const p3 = 'KPI analizi ' + bazStr + ': ' +
@@ -208,7 +246,7 @@ export default function OzetRaporPage() {
       '. KPI performansini yorumla.'
 
     const p4 = 'Bolgesel SSH skorlari ' + bazStr + ': ' +
-      bolgeData.slice(0, 5).map(b => (b.bolge || 'TR') + ':' + (b.score?.genel ?? 0)).join(', ') +
+      (bolgeData.length ? bolgeData.slice(0, 5).map(b => (b.bolge || 'TR') + ':' + (b.score?.genel ?? 0)).join(', ') : 'yetkili bolge yok') +
       '. Bolgesel farkliliklari yorumla.'
 
     const p5 = 'Son donem SSH trend: ' +

@@ -74,7 +74,7 @@ export default function ReportRegionPage({ d, yorumlar, bazStr, cmpStr, runtimeC
 
                 <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px' }}>
                   <ReportSectionHeader icon="🔷" title="Segment Analizi" />
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(' + SEGMENTLER.length + ',1fr)', gap:12 }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(' + Math.max(d.segData.length, 1) + ',1fr)', gap:12 }}>
                     {d.segData.map((s: any) => (
                       <div key={s.seg} style={{ background:SEGMENT_BG[s.seg], border:'1px solid ' + SEGMENT_HEX[s.seg] + '55', borderRadius:10, padding:'12px 14px' }}>
                         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10, paddingBottom:8, borderBottom:'1px solid ' + SEGMENT_HEX[s.seg] + '33' }}>
