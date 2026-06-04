@@ -7,6 +7,7 @@ import ReportSectionHeader from '@/components/report/ReportSectionHeader'
 import { YorumBlok, KATS, thS, tdS } from '@/components/report/ReportShared'
 
 interface Props {
+  kats?: Array<{ key: string; label: string; color: string }>
   d: any
   yorumlar: Record<string, string>
   bazStr: string
@@ -16,7 +17,7 @@ interface Props {
   selYas: string
 }
 
-export default function ReportBrandPage({ d, yorumlar, bazStr, cmpStr, runtimeCalc, selBolge, selYas }: Props) {
+export default function ReportBrandPage({ d, yorumlar, bazStr, cmpStr, runtimeCalc, selBolge, selYas, kats = KATS }: Props) {
   return (
               <div className="rapor-sayfa">
                 <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px' }}>
@@ -31,7 +32,7 @@ export default function ReportBrandPage({ d, yorumlar, bazStr, cmpStr, runtimeCa
                           <th style={thS}>Skor</th>
                           {cmpStr && <th style={thS}>Önceki</th>}
                           {cmpStr && <th style={thS}>Δ</th>}
-                          {KATS.map(k => <th key={k.key} style={{ ...thS, color:k.color }}>{k.label}</th>)}
+                          {kats.map(k => <th key={k.key} style={{ ...thS, color:k.color }}>{k.label}</th>)}
                         </tr>
                       </thead>
                       <tbody>
@@ -46,7 +47,7 @@ export default function ReportBrandPage({ d, yorumlar, bazStr, cmpStr, runtimeCa
                               <td style={{ ...tdS, fontFamily:'var(--font-dm-mono)', fontWeight:700, color:m.score>=100?'#10b981':m.score>=90?'#f59e0b':'#ef4444' }}>{m.score}</td>
                               {cmpStr && <td style={{ ...tdS, fontFamily:'var(--font-dm-mono)', color:'var(--tx3)', fontSize:9 }}>{m.cmpScore??'—'}</td>}
                               {cmpStr && <td style={tdS}>{diff!==null?<span style={{ fontSize:9, fontWeight:700, color:diff>=0?'#10b981':'#ef4444' }}>{diff>=0?'▲ +':'▼ '}{diff}</span>:'—'}</td>}
-                              {KATS.map(k => {
+                              {kats.map(k => {
                                 const v = segSc ? (segSc as any)[k.key]??0 : 0
                                 return <td key={k.key} style={{ ...tdS, textAlign:'center', fontSize:9, color:v>=100?'#10b981':v>=90?'#f59e0b':'#ef4444' }}>{v}</td>
                               })}

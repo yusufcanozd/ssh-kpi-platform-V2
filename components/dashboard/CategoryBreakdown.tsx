@@ -1,5 +1,6 @@
 'use client'
 
+import { CategoryScoreMethodology } from '@/components/dashboard/MethodologyTooltip'
 import { CATEGORY_OPTIONS, scoreColor, scoreBarWidth, type SegmentScore } from '@/lib/kpi'
 
 export type CategoryBreakdownItem = {
@@ -10,9 +11,9 @@ export type CategoryBreakdownItem = {
   bg?: string
 }
 
-const CATEGORIES = CATEGORY_OPTIONS
+type CategoryMeta = typeof CATEGORY_OPTIONS[number] & { color: string; bg?: string }
 
-function CategoryBox({ item }: { item: CategoryBreakdownItem }) {
+function CategoryBox({ item, categories }: { item: CategoryBreakdownItem; categories: CategoryMeta[] }) {
   if (!item.score) {
     return (
       <div style={{ background: item.bg || 'var(--surf2)', border: `1px solid ${item.color}22`, borderRadius: 10, padding: '12px 14px' }}>
@@ -26,9 +27,10 @@ function CategoryBox({ item }: { item: CategoryBreakdownItem }) {
     <div style={{ background: item.bg || 'var(--surf2)', border: `1px solid ${item.color}33`, borderRadius: 10, padding: '12px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
         <span style={{ fontSize: 10, fontWeight: 700, color: item.color }}>{item.label} — Kategori Kırılımı</span>
+        <CategoryScoreMethodology align="right" />
       </div>
 
-      {CATEGORIES.map((cat) => {
+      {categories.map((cat) => {
         const val = item.score?.[cat.key] ?? 0
         return (
           <div key={cat.key} style={{ marginBottom: 7 }}>
@@ -54,11 +56,12 @@ function CategoryBox({ item }: { item: CategoryBreakdownItem }) {
   )
 }
 
-export default function CategoryBreakdown({ items }: { items: CategoryBreakdownItem[] }) {
+export default function CategoryBreakdown({ items, categories }: { items: CategoryBreakdownItem[]; categories?: CategoryMeta[] }) {
+  const resolvedCategories = categories ?? CATEGORY_OPTIONS.map(category => ({ ...category, bg: `${category.color}18` }))
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 14 }}>
       {items.map((item) => (
-        <CategoryBox key={item.key} item={item} />
+        <CategoryBox key={item.key} item={item} categories={resolvedCategories} />
       ))}
     </div>
   )

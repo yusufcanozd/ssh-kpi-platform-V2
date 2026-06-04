@@ -7,6 +7,7 @@ import ReportSectionHeader from '@/components/report/ReportSectionHeader'
 import { YorumBlok, KATS, thS, tdS } from '@/components/report/ReportShared'
 
 interface Props {
+  kats?: Array<{ key: string; label: string; color: string }>
   d: any
   yorumlar: Record<string, string>
   bazStr: string
@@ -16,7 +17,7 @@ interface Props {
   selYas: string
 }
 
-export default function ReportTrendPage({ d, yorumlar, bazStr, cmpStr, runtimeCalc, selBolge, selYas }: Props) {
+export default function ReportTrendPage({ d, yorumlar, bazStr, cmpStr, runtimeCalc, selBolge, selYas, kats = KATS }: Props) {
   return (
               <div className="rapor-sayfa">
                 <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px' }}>

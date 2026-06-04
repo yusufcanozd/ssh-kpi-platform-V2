@@ -7,6 +7,7 @@ import ReportSectionHeader from '@/components/report/ReportSectionHeader'
 import { YorumBlok, KATS, thS, tdS } from '@/components/report/ReportShared'
 
 interface Props {
+  kats?: Array<{ key: string; label: string; color: string }>
   d: any
   yorumlar: Record<string, string>
   bazStr: string
@@ -16,7 +17,7 @@ interface Props {
   selYas: string
 }
 
-export default function ReportComparisonPage({ d, yorumlar, bazStr, cmpStr, runtimeCalc, selBolge, selYas }: Props) {
+export default function ReportComparisonPage({ d, yorumlar, bazStr, cmpStr, runtimeCalc, selBolge, selYas, kats = KATS }: Props) {
   return (
                 <div className="rapor-sayfa">
                   <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px' }}>
@@ -46,7 +47,7 @@ export default function ReportComparisonPage({ d, yorumlar, bazStr, cmpStr, runt
                             <th style={{ ...thS, textAlign:'center' }}>{bazStr}</th>
                             <th style={{ ...thS, textAlign:'center' }}>{cmpStr}</th>
                             <th style={{ ...thS, textAlign:'center' }}>Δ</th>
-                            {KATS.map(k => <th key={k.key} style={{ ...thS, color:k.color, textAlign:'center' }}>{k.label}</th>)}
+                            {kats.map(k => <th key={k.key} style={{ ...thS, color:k.color, textAlign:'center' }}>{k.label}</th>)}
                           </tr>
                         </thead>
                         <tbody>
@@ -58,7 +59,7 @@ export default function ReportComparisonPage({ d, yorumlar, bazStr, cmpStr, runt
                                 <td style={{ ...tdS, textAlign:'center', fontFamily:'var(--font-dm-mono)', fontWeight:700, color:(s.score?.genel??0)>=100?'#10b981':(s.score?.genel??0)>=90?'#f59e0b':'#ef4444' }}>{s.score?.genel??'—'}</td>
                                 <td style={{ ...tdS, textAlign:'center', fontFamily:'var(--font-dm-mono)', color:'var(--tx3)' }}>{s.scoreCmp?.genel??'—'}</td>
                                 <td style={{ ...tdS, textAlign:'center' }}>{diff!==null?<span style={{ fontSize:9, fontWeight:700, color:diff>=0?'#10b981':'#ef4444' }}>{diff>=0?'▲ +':'▼ '}{diff}</span>:'—'}</td>
-                                {KATS.map(k => {
+                                {kats.map(k => {
                                   const v = s.score?(s.score as any)[k.key]??0:0
                                   const vc = s.scoreCmp?(s.scoreCmp as any)[k.key]??0:null
                                   const dv = vc!==null?v-vc:null

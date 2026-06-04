@@ -7,6 +7,7 @@ import ReportSectionHeader from '@/components/report/ReportSectionHeader'
 import { YorumBlok, KATS, thS, tdS } from '@/components/report/ReportShared'
 
 interface Props {
+  kats?: Array<{ key: string; label: string; color: string }>
   d: any
   yorumlar: Record<string, string>
   bazStr: string
@@ -16,7 +17,7 @@ interface Props {
   selYas: string
 }
 
-export default function ReportCoverPage({ d, yorumlar, bazStr, cmpStr, runtimeCalc, selBolge, selYas }: Props) {
+export default function ReportCoverPage({ d, yorumlar, bazStr, cmpStr, runtimeCalc, selBolge, selYas, kats = KATS }: Props) {
   return (
               <div className="rapor-sayfa">
                 <div style={{ background:'linear-gradient(135deg,#0f1c2e,#1a3353,#0d2240)', borderRadius:12, padding:'32px 36px', color:'#fff', position:'relative', overflow:'hidden' }}>
@@ -64,7 +65,7 @@ export default function ReportCoverPage({ d, yorumlar, bazStr, cmpStr, runtimeCa
                   </div>
                 </div>
 
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(' + KATS.length + ',1fr)', gap:10 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(' + kats.length + ',1fr)', gap:10 }}>
                   {d.katData.map((k: any) => {
                     const delta = k.cmpVal !== null ? k.trVal - k.cmpVal : null
                     return (

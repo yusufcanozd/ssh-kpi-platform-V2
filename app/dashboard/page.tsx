@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react'
 import { useDashboardCtx } from './DashboardClient'
-import CategoryColorSettings from '@/components/dashboard/CategoryColorSettings'
 import Topbar from '@/components/layout/Topbar'
 import {
   SEGMENTLER,
@@ -12,6 +11,8 @@ import {
 } from '@/lib/kpi'
 import { Bar, Line } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend, Filler } from 'chart.js'
+import { GeneralScoreMethodology, CategoryScoreMethodology } from '@/components/dashboard/MethodologyTooltip'
+import { applyCategoryColorOverrides } from '@/lib/kpi/category-colors'
 import ScoreSummaryCards, { type SegmentScoreCardItem } from '@/components/dashboard/ScoreSummaryCards'
 import CategoryBreakdown, { type CategoryBreakdownItem } from '@/components/dashboard/CategoryBreakdown'
 import RegionScoreGrid from '@/components/dashboard/RegionScoreGrid'
@@ -23,11 +24,12 @@ export default function DashboardPage() {
   const {
     selSeg, selBolge, selYas, selDonem, selCmpDonem,
     runtimeData, runtimeLoading, dataSourceLabel, isDynamicDataSource,
-    allowedSegments, allowedRegions,
+    allowedSegments, allowedRegions, categoryColorOverrides,
   } = useDashboardCtx()
 
   const runtimeCalculator = useMemo(() => createRuntimeCalculator(runtimeData), [runtimeData])
   const dashboardSegments = allowedSegments.length > 0 ? allowedSegments : SEGMENTLER
+  const categoryOptions = useMemo(() => applyCategoryColorOverrides(CATEGORY_OPTIONS, categoryColorOverrides), [categoryColorOverrides])
 
   // Baz dönem skorları — her segment için
   const segScores = useMemo(() =>
@@ -87,7 +89,6 @@ export default function DashboardPage() {
 
   return (
     <div className={styles.wrap}>
-      <CategoryColorSettings />
       <Topbar title="SSH KPI Rekabet Skorkartı" subtitle={filterLabel}
         pills={[
           {label: runtimeLoading ? '● Veri yükleniyor' : isDynamicDataSource ? '● Dinamik data' : '● Fallback data', variant: isDynamicDataSource ? 'green' : 'amber'},
@@ -120,13 +121,13 @@ export default function DashboardPage() {
         />
 
         {/* ── 2. Satır: Kategori kırılım detayları ── */}
-        <CategoryBreakdown items={categoryBreakdownItems} />
+        <CategoryBreakdown items={categoryBreakdownItems} categories={categoryOptions} />
 
         <div className={styles.twoCol}>
           {/* Segment skor bar grafik */}
           <div className={styles.card}>
             <div className={styles.cardHd}>
-              <h3 style={{display:'inline-flex',alignItems:'center',gap:6}}>Segment Skor Karşılaştırması</h3>
+              <h3 style={{display:'inline-flex',alignItems:'center',gap:6}}>Segment Skor Karşılaştırması <GeneralScoreMethodology align="left" /></h3>
               <span className={styles.hint}>
                 {selDonem||'Tüm Dönem'}{selCmpDonem?` vs ${selCmpDonem}`:''}
               </span>
@@ -166,6 +167,7 @@ export default function DashboardPage() {
               trBaz={trBaz} trCmp={trCmp}
               selDonem={selDonem} selCmpDonem={selCmpDonem}
               selBolge={selBolge} selYas={selYas}
+              categories={categoryOptions}
             />
           </div>
 
@@ -275,13 +277,14 @@ export default function DashboardPage() {
 // ── Kategori Skor Karşılaştırması ────────────────────────────
 // Her kategori için merkezi CATEGORY_OPTIONS metadata'sı kullanılır
 // segment + TR skorları — baz ve cmp dönem ortalama çizgileriyle
-function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, selBolge, selYas }:{
+function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, selBolge, selYas, categories }:{
   visibleSegs: {seg:string; baz:SegmentScore|null; cmp:SegmentScore|null}[]
   trBaz: SegmentScore|null; trCmp: SegmentScore|null
   selDonem: string; selCmpDonem: string
   selBolge: string; selYas: string
+  categories: Array<typeof CATEGORY_OPTIONS[number] & { color: string; bg?: string }>
 }) {
-  const KATS = CATEGORY_OPTIONS
+  const KATS = categories
 
   // Segment renkleri hex (Chart.js canvas)
   const segHexMap: Record<string,string> = {Mass:'#60a5fa',Premium:'#c084fc',EV:'#34d399'}
@@ -336,7 +339,7 @@ function KategoriSkorChart({ visibleSegs, trBaz, trCmp, selDonem, selCmpDonem, s
     <div style={{borderTop:'1px solid var(--bd)',marginTop:14,paddingTop:12}}>
       {/* Başlık */}
       <div style={{fontSize:10,fontWeight:600,color:'var(--tx3)',marginBottom:10}}>
-        <span style={{display:'inline-flex',alignItems:'center',gap:6}}>Kategori Skor Karşılaştırması</span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:6}}>Kategori Skor Karşılaştırması <CategoryScoreMethodology align="left" /></span>
       </div>
 
       {/* 5 kategori için grouped bar grid */}

@@ -10,43 +10,26 @@ import {
   kpiScoreColor, kpiScoreBg, scoreBarWidth, fmtSkor1, fmtSkor0
 } from '@/lib/kpi'
 import { Bar } from 'react-chartjs-2'
+import { applyCategoryColorOverrides } from '@/lib/kpi/category-colors'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
 import styles from './page.module.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
-const KATS = [
-  { key: 'genel', label: 'Genel' },
-  ...CATEGORY_OPTIONS.map(cat => ({ key: cat.key, label: cat.label })),
-] as const
 
 function pct(a: number, b: number | null): number | null {
-  if (b === null) return null
-  if (b === 0) return a === 0 ? 0 : null
+  if (!b) return null
   return Math.round((a - b) / Math.abs(b) * 1000) / 10
-}
-
-function pctText(chg: number): string {
-  if (chg > 0) return `▲ +${chg}%`
-  if (chg < 0) return `▼ ${chg}%`
-  return '%0'
-}
-
-function CompareLine({ value, chg, colorValue }: { value: string; chg: number | null; colorValue?: number }) {
-  return (
-    <div style={{display:'flex', justifyContent:'center', alignItems:'baseline', gap:4, marginTop:3, fontSize:9, lineHeight:1.1, whiteSpace:'nowrap'}}>
-      <span style={{color:'var(--tx3)'}}>{value}</span>
-      {chg !== null && <span style={{fontWeight:800, color:chgColor(colorValue ?? chg)}}>{pctText(chg)}</span>}
-    </div>
-  )
 }
 
 function ScoreCell({ baz, cmp, large }: { baz: number; cmp: number | null; large?: boolean }) {
   const chg = pct(baz, cmp)
+  const clr = chgColor(chg ?? 0)
   return (
     <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center', background:scoreBg(baz)}}>
       <div style={{fontFamily:'var(--font-dm-mono)', fontSize:large?14:12, fontWeight:800, color:scoreColor(baz), lineHeight:1}}>{fmtSkor0(baz)}</div>
-      {cmp!==null && <CompareLine value={fmtSkor0(cmp)} chg={chg} colorValue={chg ?? 0}/>}
+      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtSkor0(cmp)}</div>}
+      {chg!==null && <div style={{fontSize:8, fontWeight:700, color:clr, marginTop:1}}>{chg>=0?'+':''}{chg}%</div>}
     </td>
   )
 }
@@ -60,7 +43,8 @@ function KpiCell({ baz, cmp, fmt, ref, lob, active }: {
     <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center',
       background: hc.bg, outline: active ? `2px solid ${hc.color}55` : 'none', outlineOffset:-1}}>
       <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:hc.color, lineHeight:1}}>{fmtKpi(baz, fmt)}</div>
-      {cmp!==null && <CompareLine value={fmtKpi(cmp, fmt)} chg={chg} colorValue={chg!==null && lob ? -chg : chg ?? 0}/>}
+      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtKpi(cmp, fmt)}</div>}
+      {chg!==null && <div style={{fontSize:7, fontWeight:700, marginTop:1, color:chgColor(lob?-chg:chg)}}>{chg>=0?'+':''}{chg}%</div>}
     </td>
   )
 }
@@ -71,14 +55,14 @@ function KpiScoreCell({ baz, cmp, active }: { baz: number; cmp: number | null; a
     <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center',
       background: kpiScoreBg(baz), outline: active ? `2px solid ${kpiScoreColor(baz)}55` : 'none', outlineOffset:-1}}>
       <div style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:800, color:kpiScoreColor(baz), lineHeight:1}}>{fmtSkor0(baz)}</div>
-      {cmp!==null && <CompareLine value={fmtSkor0(cmp)} chg={chg} colorValue={chg ?? 0}/>}
+      {cmp!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtSkor0(cmp)}</div>}
+      {chg!==null && <div style={{fontSize:8, fontWeight:700, marginTop:1, color:chgColor(chg)}}>{chg>=0?'+':''}{chg}%</div>}
     </td>
   )
 }
 
 function SkorSutun({ bazG, cmpG, bazRank, cmpRank }: { bazG:number; cmpG:number|null; bazRank:number; cmpRank:number|null }) {
   const rankDiff = cmpRank !== null ? bazRank - cmpRank : null
-  const scoreChg = pct(bazG, cmpG)
   const sc = scoreColor(bazG)
   return (
     <td style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', position:'sticky', right:0, background:'var(--surf)', minWidth:80}}>
@@ -88,11 +72,10 @@ function SkorSutun({ bazG, cmpG, bazRank, cmpRank }: { bazG:number; cmpG:number|
         </div>
         <div style={{textAlign:'right'}}>
           <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:sc}}>{fmtSkor0(bazG)}</div>
-          {cmpG!==null && (
-            <div style={{display:'flex', justifyContent:'flex-end', alignItems:'baseline', gap:4, marginTop:3, fontSize:8, lineHeight:1.1, whiteSpace:'nowrap'}}>
-              <span style={{color:'var(--tx3)'}}>{fmtSkor0(cmpG)}</span>
-              {scoreChg!==null && <span style={{fontWeight:800, color:chgColor(scoreChg)}}>{pctText(scoreChg)}</span>}
-              {rankDiff!==null && <span style={{fontWeight:800, color:rankDiff>0?'#10b981':rankDiff<0?'#f87171':'var(--tx3)'}}>({rankDiff>0?`+${rankDiff}`:rankDiff<0?rankDiff:'-'})</span>}
+          {cmpG!==null && <div style={{fontSize:8, color:'var(--tx3)'}}>{fmtSkor0(cmpG)}</div>}
+          {rankDiff!==null && (
+            <div style={{fontSize:8, fontWeight:700, color:rankDiff>0?'#10b981':rankDiff<0?'#f87171':'var(--tx3)'}}>
+              {rankDiff>0?`+${rankDiff}`:rankDiff<0?rankDiff:'-'}
             </div>
           )}
         </div>
@@ -102,11 +85,16 @@ function SkorSutun({ bazG, cmpG, bazRank, cmpRank }: { bazG:number; cmpG:number|
 }
 
 export default function BolgelerPage() {
-  const { selSeg, selBolge, selYas, selDonem, selCmpDonem, allowedRegions, runtimeData } = useDashboardCtx()
+  const { selSeg, selBolge, selYas, selDonem, selCmpDonem, allowedRegions, runtimeData, categoryColorOverrides } = useDashboardCtx()
   const [selKpi, setSelKpi] = useState(3)
   const [selKat, setSelKat] = useState('genel')
   const [mode, setMode]     = useState<'katSkor'|'kpiSkor'|'kpiDeger'>('katSkor')
   const runtimeCalc = useMemo(() => createRuntimeCalculator(runtimeData), [runtimeData])
+  const categoryOptions = useMemo(() => applyCategoryColorOverrides(CATEGORY_OPTIONS, categoryColorOverrides), [categoryColorOverrides])
+  const KATS = useMemo(() => [
+    { key: 'genel', label: 'Genel', color: 'var(--blue)' },
+    ...categoryOptions.map(cat => ({ key: cat.key, label: cat.label, color: cat.color })),
+  ], [categoryOptions])
 
   const bolgeList = selBolge ? [selBolge] : allowedRegions
   const meta = KPI_META[selKpi]
@@ -201,8 +189,8 @@ export default function BolgelerPage() {
                   {mode==='katSkor' && KATS.map(k=>(
                     <th key={k.key} onClick={()=>setSelKat(k.key)}
                       style={{...thC, cursor:'pointer', minWidth:80,
-                        color:selKat===k.key?'var(--blue)':'var(--tx3)',
-                        background:selKat===k.key?'rgba(59,130,246,.06)':'var(--surf2)'}}>
+                        color:selKat===k.key?k.color:'var(--tx3)',
+                        background:selKat===k.key?`${k.color}12`:'var(--surf2)'}}>
                       {k.label}{selKat===k.key?' ↓':''}
                     </th>
                   ))}
@@ -247,14 +235,15 @@ export default function BolgelerPage() {
                       <td key={i} style={{padding:'6px 8px', borderBottom:'2px solid var(--bd2)', textAlign:'center',
                         background:hc.bg, outline:selKpi===i?'2px solid #fbbf2466':'none', outlineOffset:-1}}>
                         <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, color:hc.color}}>{fmtKpi(v, KPI_META[i].fmt)}</div>
-                        {cv!==null && <CompareLine value={fmtKpi(cv, KPI_META[i].fmt)} chg={chg} colorValue={chg!==null && isLowerBetter(i) ? -chg : chg ?? 0}/>}
+                        {cv!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtKpi(cv, KPI_META[i].fmt)}</div>}
+                        {chg!==null && <div style={{fontSize:7, fontWeight:700, marginTop:1, color:chgColor(isLowerBetter(i)?-chg:chg)}}>{chg>=0?'+':''}{chg}%</div>}
                       </td>
                     )
                   })}
 
                   <td style={{padding:'6px 8px', borderBottom:'2px solid var(--bd2)', position:'sticky', right:0, background:'var(--surf)', textAlign:'center'}}>
                     <span style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:700, color:scoreColor(trScore?.genel||0)}}>{trScore ? fmtSkor0(trScore.genel) : '-'}</span>
-                    {trScoreCmp && <CompareLine value={fmtSkor0(trScoreCmp.genel)} chg={pct(trScore?.genel || 0, trScoreCmp.genel)} colorValue={pct(trScore?.genel || 0, trScoreCmp.genel) ?? 0}/>}
+                    {trScoreCmp && <div style={{fontSize:9, color:'var(--tx3)'}}>{fmtSkor0(trScoreCmp.genel)}</div>}
                   </td>
                 </tr>
 
@@ -280,7 +269,10 @@ export default function BolgelerPage() {
                           style={{padding:'6px 8px', borderBottom:'1px solid var(--bd)', textAlign:'center', cursor:'pointer',
                             background:kpiScoreBg(v), outline:selKpi===i?`2px solid ${kpiScoreColor(v)}55`:'none', outlineOffset:-1}}>
                           <div style={{fontFamily:'var(--font-dm-mono)', fontSize:12, fontWeight:800, color:kpiScoreColor(v), lineHeight:1}}>{fmtSkor1(v)}</div>
-                          {b.kpiScoresCmp && <CompareLine value={fmtSkor1(b.kpiScoresCmp[i])} chg={pct(v,b.kpiScoresCmp[i])} colorValue={pct(v,b.kpiScoresCmp[i]) ?? 0}/>}
+                          {b.kpiScoresCmp && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtSkor1(b.kpiScoresCmp[i])}</div>}
+                          {b.kpiScoresCmp && pct(v,b.kpiScoresCmp[i])!==null && (
+                            <div style={{fontSize:7, fontWeight:700, marginTop:1, color:chgColor(pct(v,b.kpiScoresCmp[i])!)}}>{pct(v,b.kpiScoresCmp[i])!>=0?'+':''}{pct(v,b.kpiScoresCmp[i])}%</div>
+                          )}
                         </td>
                       ))}
 
@@ -297,7 +289,10 @@ export default function BolgelerPage() {
                             <div style={{fontFamily:'var(--font-dm-mono)', fontSize:11, fontWeight:700, lineHeight:1, color:hc.color}}>
                               {fmtKpi(v, KPI_META[i].fmt)}
                             </div>
-                            {cv!==null && <CompareLine value={fmtKpi(cv, KPI_META[i].fmt)} chg={chg} colorValue={chg!==null && isLowerBetter(i) ? -chg : chg ?? 0}/>}
+                            {cv!==null && <div style={{fontSize:9, color:'var(--tx3)', marginTop:1}}>{fmtKpi(cv, KPI_META[i].fmt)}</div>}
+                            {chg!==null && (
+                              <div style={{fontSize:7, fontWeight:700, marginTop:1, color:chgColor(isLowerBetter(i)?-chg:chg)}}>{chg>=0?'+':''}{chg}%</div>
+                            )}
                           </td>
                         )
                       })}

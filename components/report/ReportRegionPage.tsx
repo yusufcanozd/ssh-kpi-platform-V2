@@ -7,6 +7,7 @@ import ReportSectionHeader from '@/components/report/ReportSectionHeader'
 import { YorumBlok, KATS, thS, tdS } from '@/components/report/ReportShared'
 
 interface Props {
+  kats?: Array<{ key: string; label: string; color: string }>
   d: any
   yorumlar: Record<string, string>
   bazStr: string
@@ -16,7 +17,7 @@ interface Props {
   selYas: string
 }
 
-export default function ReportRegionPage({ d, yorumlar, bazStr, cmpStr, runtimeCalc, selBolge, selYas }: Props) {
+export default function ReportRegionPage({ d, yorumlar, bazStr, cmpStr, runtimeCalc, selBolge, selYas, kats = KATS }: Props) {
   return (
               <div className="rapor-sayfa">
                 <div style={{ background:'var(--surf)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px' }}>
@@ -55,7 +56,7 @@ export default function ReportRegionPage({ d, yorumlar, bazStr, cmpStr, runtimeC
                               <span style={{ background:sc>=100?'#d1fae5':sc>=90?'#fef3c7':'#fee2e2', color:sc>=100?'#10b981':sc>=90?'#f59e0b':'#ef4444', borderRadius:6, padding:'2px 8px', fontSize:11, fontWeight:800, fontFamily:'var(--font-dm-mono)' }}>{sc}</span>
                             </div>
                             <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:4 }}>
-                              {KATS.map(k => {
+                              {kats.map(k => {
                                 const v = y.score ? (y.score as any)[k.key]??0 : 0
                                 return <div key={k.key} style={{ textAlign:'center' }}>
                                   <div style={{ fontSize:7, color:'var(--tx3)', marginBottom:2 }}>{k.label}</div>
@@ -89,7 +90,7 @@ export default function ReportRegionPage({ d, yorumlar, bazStr, cmpStr, runtimeC
                             </span>
                           </div>
                         </div>
-                        {KATS.map(k => {
+                        {kats.map(k => {
                           const v = s.score ? (s.score as any)[k.key]??0 : 0
                           const vc = s.scoreCmp ? (s.scoreCmp as any)[k.key]??0 : null
                           const dv = vc !== null ? v - vc : null

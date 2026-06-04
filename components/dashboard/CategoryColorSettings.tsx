@@ -1,66 +1,48 @@
 'use client'
 
-import { useState } from 'react'
 import { CATEGORY_OPTIONS } from '@/lib/kpi'
-import { resetUserCategoryColor, saveUserCategoryColor } from '@/lib/kpi/category-colors'
-import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
+import { DEFAULT_CATEGORY_COLORS, resolveCategoryColor, type CategoryColorOverrides } from '@/lib/kpi/category-colors'
 
-export default function CategoryColorSettings() {
-  const { categoryColors, refreshCategoryColors } = useDashboardCtx()
-  const [busyKey, setBusyKey] = useState<string | null>(null)
-  const [error, setError] = useState('')
-
-  async function handleColor(key: string, color: string) {
-    setBusyKey(key)
-    setError('')
-    try {
-      await saveUserCategoryColor(key, color)
-      refreshCategoryColors()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Renk kaydedilemedi.')
-    } finally {
-      setBusyKey(null)
-    }
-  }
-
-  async function handleReset(key: string) {
-    setBusyKey(key)
-    setError('')
-    try {
-      await resetUserCategoryColor(key)
-      refreshCategoryColors()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sıfırlanamadı.')
-    } finally {
-      setBusyKey(null)
-    }
-  }
-
+export default function CategoryColorSettings({
+  overrides,
+  loading,
+  error,
+  onChange,
+  onReset,
+}: {
+  overrides: CategoryColorOverrides
+  loading: boolean
+  error: string
+  onChange: (categoryKey: string, color: string) => void
+  onReset: (categoryKey: string) => void
+}) {
   return (
-    <details style={{ background: 'var(--surf)', border: '1px solid var(--bd)', borderRadius: 8, padding: '6px 12px', marginBottom: 10 }}>
-      <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--tx2)', userSelect: 'none' }}>
-        Kişisel Kategori Renkleri
-      </summary>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, paddingTop: 10 }}>
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--bd2)' }}>
+      <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 7 }}>
+        Kategori renkleri
+      </div>
+      {loading && <div style={{ fontSize: 9, color: 'var(--tx3)', marginBottom: 6 }}>Renkler yükleniyor…</div>}
+      {error && <div style={{ fontSize: 9, color: '#f59e0b', marginBottom: 6 }}>{error}</div>}
+      <div style={{ display: 'grid', gap: 5 }}>
         {CATEGORY_OPTIONS.map(category => {
-          const current = categoryColors[category.key] ?? category.color
-          const isBusy = busyKey === category.key
+          const current = resolveCategoryColor(category.key, overrides)
+          const isCustom = Boolean(overrides[category.key])
           return (
-            <div key={category.key} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surf2)', border: '1px solid var(--bd)', borderRadius: 6, padding: '4px 8px' }}>
-              <span style={{ width: 12, height: 12, borderRadius: 3, background: current }} />
-              <span style={{ fontSize: 11, color: 'var(--tx2)' }}>{category.label}</span>
+            <div key={category.key} style={{ display: 'grid', gridTemplateColumns: '20px 1fr auto', gap: 6, alignItems: 'center', fontSize: 9, color: 'var(--tx2)' }}>
               <input
+                aria-label={`${category.shortLabel} renk seçimi`}
                 type="color"
                 value={current}
-                disabled={isBusy}
-                onChange={event => handleColor(category.key, event.target.value)}
-                style={{ width: 26, height: 22, border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                onChange={event => onChange(category.key, event.target.value)}
+                style={{ width: 20, height: 20, padding: 0, border: '0', background: 'transparent', cursor: 'pointer' }}
               />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{category.shortLabel}</span>
               <button
                 type="button"
-                onClick={() => handleReset(category.key)}
-                disabled={isBusy}
-                style={{ fontSize: 9, color: 'var(--tx3)', background: 'transparent', border: '1px solid var(--bd)', borderRadius: 4, padding: '2px 6px', cursor: 'pointer' }}
+                onClick={() => onReset(category.key)}
+                disabled={!isCustom}
+                style={{ border: '1px solid var(--bd2)', background: isCustom ? 'var(--surf2)' : 'transparent', color: isCustom ? 'var(--tx2)' : 'var(--tx3)', borderRadius: 5, fontSize: 8, padding: '2px 5px', cursor: isCustom ? 'pointer' : 'default', opacity: isCustom ? 1 : 0.5 }}
+                title={`Varsayılan: ${DEFAULT_CATEGORY_COLORS[category.key]}`}
               >
                 Sıfırla
               </button>
@@ -68,7 +50,6 @@ export default function CategoryColorSettings() {
           )
         })}
       </div>
-      {error && <div style={{ fontSize: 11, color: '#ef4444', paddingTop: 6 }}>{error}</div>}
-    </details>
+    </div>
   )
 }

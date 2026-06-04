@@ -1,12 +1,18 @@
 'use client'
 
-import { useState, createContext, useContext, useEffect, useMemo, useCallback } from 'react'
-import { type CategoryColorMap, defaultCategoryColors, resolveCategoryColors, loadUserCategoryColors } from '@/lib/kpi/category-colors'
+import { useState, createContext, useContext, useEffect, useMemo } from 'react'
 import Sidebar from '@/components/layout/Sidebar'
+import CategoryColorSettings from '@/components/dashboard/CategoryColorSettings'
 import { BOLGELER, SEGMENTLER, YAS_GRUPLARI, DONEMLER, YAS_COLORS, YAS_STATS, getActiveKpiDataSource, getStaticRuntimeData } from '@/lib/kpi'
 import type { KpiRuntimeData } from '@/lib/kpi'
 import { useAuth } from '@/context/AuthContext'
 import { createDefaultPermissionDraft } from '@/types/permissions'
+import {
+  deleteUserCategoryColorOverride,
+  fetchUserCategoryColorOverrides,
+  saveUserCategoryColorOverride,
+  type CategoryColorOverrides,
+} from '@/lib/kpi/category-colors'
 import type { UserPermissionDraft } from '@/types/permissions'
 import {
   fetchAllowedBrandNamesByIds,
@@ -33,10 +39,13 @@ export interface DashboardCtx {
   runtimeData: KpiRuntimeData
   runtimeLoading: boolean
   runtimeError: string
+  categoryColorOverrides: CategoryColorOverrides
+  categoryColorsLoading: boolean
+  categoryColorsError: string
+  setCategoryColorOverride: (categoryKey: string, color: string) => void
+  resetCategoryColorOverride: (categoryKey: string) => void
   dataSourceLabel: string
   isDynamicDataSource: boolean
-  categoryColors: CategoryColorMap
-  refreshCategoryColors: () => void
 }
 
 export const DashboardContext = createContext<DashboardCtx>({
@@ -54,10 +63,13 @@ export const DashboardContext = createContext<DashboardCtx>({
   runtimeData: getStaticRuntimeData(),
   runtimeLoading: false,
   runtimeError: '',
+  categoryColorOverrides: {},
+  categoryColorsLoading: false,
+  categoryColorsError: '',
+  setCategoryColorOverride: () => {},
+  resetCategoryColorOverride: () => {},
   dataSourceLabel: 'Statik JSON fallback',
   isDynamicDataSource: false,
-  categoryColors: defaultCategoryColors(),
-  refreshCategoryColors: () => {},
 })
 export const useDashboardCtx = () => useContext(DashboardContext)
 
@@ -76,12 +88,9 @@ export default function DashboardClient({ children }: { children: React.ReactNod
   const [runtimeData, setRuntimeData] = useState<KpiRuntimeData>(() => getStaticRuntimeData())
   const [runtimeLoading, setRuntimeLoading] = useState(false)
   const [runtimeError, setRuntimeError] = useState('')
-  const [categoryColors, setCategoryColors] = useState<CategoryColorMap>(() => defaultCategoryColors())
-
-  const refreshCategoryColors = useCallback(() => {
-    loadUserCategoryColors().then(overrides => setCategoryColors(resolveCategoryColors(overrides)))
-  }, [])
-  useEffect(() => { refreshCategoryColors() }, [refreshCategoryColors])
+  const [categoryColorOverrides, setCategoryColorOverrides] = useState<CategoryColorOverrides>({})
+  const [categoryColorsLoading, setCategoryColorsLoading] = useState(false)
+  const [categoryColorsError, setCategoryColorsError] = useState('')
 
 
 
@@ -112,6 +121,57 @@ export default function DashboardClient({ children }: { children: React.ReactNod
       mounted = false
     }
   }, [])
+
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadCategoryColors() {
+      if (authLoading) return
+      if (!profile?.id) {
+        if (!mounted) return
+        setCategoryColorOverrides({})
+        setCategoryColorsError('')
+        setCategoryColorsLoading(false)
+        return
+      }
+
+      setCategoryColorsLoading(true)
+      const result = await fetchUserCategoryColorOverrides(profile.id)
+      if (!mounted) return
+      setCategoryColorOverrides(result.colors)
+      setCategoryColorsError(result.error ?? '')
+      setCategoryColorsLoading(false)
+    }
+
+    loadCategoryColors()
+
+    return () => {
+      mounted = false
+    }
+  }, [authLoading, profile?.id])
+
+  function setCategoryColorOverride(categoryKey: string, color: string) {
+    if (!profile?.id) return
+    setCategoryColorOverrides(current => ({ ...current, [categoryKey]: color }))
+    saveUserCategoryColorOverride(profile.id, categoryKey, color).then(result => {
+      if (result.error) setCategoryColorsError(result.error)
+      else setCategoryColorsError('')
+    })
+  }
+
+  function resetCategoryColorOverride(categoryKey: string) {
+    if (!profile?.id) return
+    setCategoryColorOverrides(current => {
+      const next = { ...current }
+      delete next[categoryKey]
+      return next
+    })
+    deleteUserCategoryColorOverride(profile.id, categoryKey).then(result => {
+      if (result.error) setCategoryColorsError(result.error)
+      else setCategoryColorsError('')
+    })
+  }
 
   useEffect(() => {
     let mounted = true
@@ -319,6 +379,13 @@ export default function DashboardClient({ children }: { children: React.ReactNod
           Marka kısıtı: {allowedBrandNames.length} marka.
         </div>
       )}
+      <CategoryColorSettings
+        overrides={categoryColorOverrides}
+        loading={categoryColorsLoading}
+        error={categoryColorsError}
+        onChange={setCategoryColorOverride}
+        onReset={resetCategoryColorOverride}
+      />
       <div className={styles.filterSep}>📊 Yaş Dağılımı</div>
       {(['0-3','3-7','7+'] as const).map(yg=>(
         <div key={yg} onClick={()=>setYas(yg===selYas?'Tümü':yg)}
@@ -349,10 +416,13 @@ export default function DashboardClient({ children }: { children: React.ReactNod
       runtimeData,
       runtimeLoading,
       runtimeError,
+      categoryColorOverrides,
+      categoryColorsLoading,
+      categoryColorsError,
+      setCategoryColorOverride,
+      resetCategoryColorOverride,
       dataSourceLabel: runtimeData.source.label,
       isDynamicDataSource: runtimeData.source.isDynamic,
-      categoryColors,
-      refreshCategoryColors,
     }}>
       <div className={styles.shell}>
         <Sidebar variant="dashboard" filters={sidebarFilters} collapsed={collapsed} onToggle={()=>setCollapsed(v=>!v)}/>

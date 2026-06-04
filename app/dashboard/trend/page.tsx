@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import {
-  KPI_META, SEGMENTLER, CATEGORY_OPTIONS, CAT_COLORS,
+  KPI_META, SEGMENTLER, CATEGORY_OPTIONS,
   fmtKpi, DONEMLER,
   isLowerBetter, getSegmentColor,
   createRuntimeCalculator, getKpisForCategory,
@@ -15,6 +15,7 @@ import {
   LineElement, Tooltip, Legend,
 } from 'chart.js'
 import styles from './page.module.css'
+import { applyCategoryColorOverrides, resolveCategoryColor } from '@/lib/kpi/category-colors'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
 
@@ -37,6 +38,7 @@ const FY_DONEMLER    = DONEMLER.filter(d => donemTip(d) === 'FY').sort((a,b) => 
 const TUM_YILLAR     = Array.from(new Set(DONEMLER.map(d => parseInt(d.split('-')[0])))).sort()
 
 const KATEGORILER = CATEGORY_OPTIONS
+
 const SERI_RENKLER = [
   '#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4',
   '#ec4899','#84cc16','#f97316','#a78bfa','#34d399','#fb923c',
@@ -162,6 +164,7 @@ function DonemSecici({
           const dis = altDisabled(a)
           return (
             <button key={a} disabled={dis} onClick={() => !dis && onChange({ ...value, alt:a })}
+              title={dis ? 'Bu dönem için veri mevcut değil' : undefined}
               style={{ padding:'2px 6px', borderRadius:3, fontSize:9,
                 cursor: dis ? 'not-allowed' : 'pointer',
                 border:`1px solid ${altSec===a?'var(--blue)':dis?'var(--bd)':'var(--bd)'}`,
@@ -337,7 +340,7 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
     <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
       {/* Başlık + kilit butonu */}
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <button onClick={onLockToggle} aria-label={locked ? 'Kilidi aç' : 'Kilitle'}
+        <button onClick={onLockToggle} title={locked ? 'Kilidi aç' : 'Kilitle'}
           style={{ display:'flex', alignItems:'center', justifyContent:'center',
             width:22, height:22, borderRadius:6, cursor:'pointer',
             border:`1px solid ${locked ? '#c9d4e0' : '#a8c4e8'}`,
@@ -417,8 +420,9 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
 
 // ── Ana Sayfa ─────────────────────────────────────────────────────────────────
 export default function TrendPage() {
-  const { selBolge, selYas, runtimeData, allowedSegments } = useDashboardCtx()
+  const { selBolge, selYas, runtimeData, allowedSegments, categoryColorOverrides } = useDashboardCtx()
   const runtimeCalc = useMemo(() => createRuntimeCalculator(runtimeData), [runtimeData])
+  const KATEGORILER = useMemo(() => applyCategoryColorOverrides(CATEGORY_OPTIONS, categoryColorOverrides), [categoryColorOverrides])
   const segmentOptions = runtimeData.dimensions.segments.length > 0 ? runtimeData.dimensions.segments : SEGMENTLER
   const filteredSegmentOptions = allowedSegments.length > 0 ? segmentOptions.filter(seg => allowedSegments.includes(seg)) : segmentOptions
   const ilkYil = TUM_YILLAR[0] ?? 2024
@@ -590,7 +594,7 @@ export default function TrendPage() {
                     Bu kategoriye bağlı KPI bulunamadı.
                   </div>
                 ) : filteredKpis.map(k => (
-                  <SelectChip key={k.i} label={k.ad} color={CAT_COLORS[k.kat]||'#8496b0'}
+                  <SelectChip key={k.i} label={k.ad} color={resolveCategoryColor(k.kat, categoryColorOverrides)}
                     active={bSnap.pendingKpis.some(p=>p.kpiIdx===k.i)}
                     draggable={false}
                     onClick={() => toggleKpi(k.i, k.ad)} />

@@ -1,72 +1,108 @@
+import { CATEGORY_OPTIONS, CAT_COLORS } from '@/lib/kpi/config'
 import { createClient } from '@/lib/supabase/client'
-import { CATEGORY_OPTIONS } from './config'
 
-export type CategoryColorMap = Record<string, string>
+export type CategoryColorOverrides = Record<string, string>
 
-// Statik varsayılan kategori renkleri (CATEGORY_OPTIONS).
-export function defaultCategoryColors(): CategoryColorMap {
-  const map: CategoryColorMap = {}
-  CATEGORY_OPTIONS.forEach(category => { map[category.key] = category.color })
-  return map
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/
+
+export const DEFAULT_CATEGORY_COLORS: CategoryColorOverrides = Object.fromEntries(
+  CATEGORY_OPTIONS.map(category => [category.key, category.color || CAT_COLORS[category.label] || '#64748b']),
+)
+
+export function normalizeCategoryColor(color: string | null | undefined): string | null {
+  const value = String(color ?? '').trim()
+  return HEX_COLOR_RE.test(value) ? value.toLowerCase() : null
 }
 
-// Varsayılanların üzerine kullanıcı override'larını uygular.
-export function resolveCategoryColors(overrides: CategoryColorMap | null | undefined): CategoryColorMap {
-  return { ...defaultCategoryColors(), ...(overrides ?? {}) }
+export function resolveCategoryColor(
+  categoryKeyOrName: string,
+  overrides: CategoryColorOverrides = {},
+): string {
+  const byKey = CATEGORY_OPTIONS.find(category => category.key === categoryKeyOrName)
+  const byName = CATEGORY_OPTIONS.find(category => category.label === categoryKeyOrName || category.shortLabel === categoryKeyOrName)
+  const key = byKey?.key ?? byName?.key ?? categoryKeyOrName
+  return normalizeCategoryColor(overrides[key])
+    ?? DEFAULT_CATEGORY_COLORS[key]
+    ?? CAT_COLORS[categoryKeyOrName]
+    ?? '#64748b'
 }
 
-// Geçerli kullanıcının kategori rengi override'larını okur (yoksa boş; hata güvenli).
-export async function loadUserCategoryColors(): Promise<CategoryColorMap> {
+export function resolveCategoryBg(
+  categoryKeyOrName: string,
+  overrides: CategoryColorOverrides = {},
+  alpha = '18',
+): string {
+  return `${resolveCategoryColor(categoryKeyOrName, overrides)}${alpha}`
+}
+
+export function applyCategoryColorOverrides<
+  T extends { key: string; color?: string; label?: string; shortLabel?: string },
+>(
+  categories: readonly T[],
+  overrides: CategoryColorOverrides = {},
+): Array<T & { color: string; bg: string }> {
+  return categories.map(category => {
+    const color = resolveCategoryColor(category.key, overrides)
+    return { ...category, color, bg: `${color}18` }
+  })
+}
+
+export async function fetchUserCategoryColorOverrides(userId: string): Promise<{ colors: CategoryColorOverrides; error?: string }> {
   try {
     const supabase = createClient()
-    const { data: userResponse } = await supabase.auth.getUser()
-    const userId = userResponse.user?.id
-    if (!userId) return {}
-
     const { data, error } = await supabase
       .from('user_category_colors')
       .select('category_key, color')
       .eq('user_id', userId)
 
-    if (error || !Array.isArray(data)) return {}
+    if (error) return { colors: {}, error: error.message }
 
-    const map: CategoryColorMap = {}
-    data.forEach(row => {
-      const record = row as { category_key?: string | null; color?: string | null }
-      if (record.category_key && record.color) map[record.category_key] = record.color
-    })
-    return map
-  } catch {
-    return {}
+    const colors: CategoryColorOverrides = {}
+    for (const row of (data ?? []) as Array<{ category_key?: string | null; color?: string | null }>) {
+      const key = String(row.category_key ?? '').trim()
+      const color = normalizeCategoryColor(row.color)
+      if (key && color) colors[key] = color
+    }
+    return { colors }
+  } catch (error) {
+    return { colors: {}, error: error instanceof Error ? error.message : 'Kategori renkleri okunamadı.' }
   }
 }
 
-export async function saveUserCategoryColor(categoryKey: string, color: string): Promise<void> {
-  const supabase = createClient()
-  const { data: userResponse, error: userError } = await supabase.auth.getUser()
-  if (userError) throw new Error(userError.message)
-  const userId = userResponse.user?.id
-  if (!userId) throw new Error('Giriş yapılmış kullanıcı bulunamadı.')
+export async function saveUserCategoryColorOverride(
+  userId: string,
+  categoryKey: string,
+  color: string,
+): Promise<{ error?: string }> {
+  const normalized = normalizeCategoryColor(color)
+  if (!normalized) return { error: 'Geçerli bir HEX renk seçin.' }
 
-  const { error } = await supabase
-    .from('user_category_colors')
-    .upsert({ user_id: userId, category_key: categoryKey, color }, { onConflict: 'user_id,category_key' })
+  try {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('user_category_colors')
+      .upsert({ user_id: userId, category_key: categoryKey, color: normalized }, { onConflict: 'user_id,category_key' })
 
-  if (error) throw new Error(error.message)
+    return error ? { error: error.message } : {}
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Kategori rengi kaydedilemedi.' }
+  }
 }
 
-export async function resetUserCategoryColor(categoryKey: string): Promise<void> {
-  const supabase = createClient()
-  const { data: userResponse, error: userError } = await supabase.auth.getUser()
-  if (userError) throw new Error(userError.message)
-  const userId = userResponse.user?.id
-  if (!userId) throw new Error('Giriş yapılmış kullanıcı bulunamadı.')
+export async function deleteUserCategoryColorOverride(
+  userId: string,
+  categoryKey: string,
+): Promise<{ error?: string }> {
+  try {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('user_category_colors')
+      .delete()
+      .eq('user_id', userId)
+      .eq('category_key', categoryKey)
 
-  const { error } = await supabase
-    .from('user_category_colors')
-    .delete()
-    .eq('user_id', userId)
-    .eq('category_key', categoryKey)
-
-  if (error) throw new Error(error.message)
+    return error ? { error: error.message } : {}
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Kategori rengi sıfırlanamadı.' }
+  }
 }

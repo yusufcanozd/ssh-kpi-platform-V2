@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
 import Topbar from '@/components/layout/Topbar'
 import ReportSectionHeader from '@/components/report/ReportSectionHeader'
-import { KATS } from '@/components/report/ReportShared'
+import { buildReportCategories } from '@/components/report/ReportShared'
 import ReportCoverPage from '@/components/report/ReportCoverPage'
 import ReportBrandPage from '@/components/report/ReportBrandPage'
 import ReportKpiDetailPage from '@/components/report/ReportKpiDetailPage'
@@ -94,8 +94,9 @@ function DonemSec2({ label, value, onChange }: {
 }
 
 export default function OzetRaporPage() {
-  const { selBolge, selYas, runtimeData } = useDashboardCtx()
+  const { selBolge, selYas, runtimeData, categoryColorOverrides } = useDashboardCtx()
   const runtimeCalc = useMemo(() => createRuntimeCalculator(runtimeData), [runtimeData])
+  const KATS = useMemo(() => buildReportCategories(categoryColorOverrides), [categoryColorOverrides])
 
   // Marka sıralaması: aktif import varsa dinamik markaRows, yoksa statik; her iki halde de gizlilik maskelemesi uygulanır.
   function rankMarka(seg: string, bolge: string, yas: string, donem: string) {
@@ -322,21 +323,21 @@ export default function OzetRaporPage() {
           <div id="rapor-print-wrapper">
           <div id="rapor-icerik">
 
-            <ReportCoverPage d={d} yorumlar={yorumlar} bazStr={bazStr} cmpStr={cmpStr} runtimeCalc={runtimeCalc} selBolge={selBolge} selYas={selYas} />
+            <ReportCoverPage kats={KATS} d={d} yorumlar={yorumlar} bazStr={bazStr} cmpStr={cmpStr} runtimeCalc={runtimeCalc} selBolge={selBolge} selYas={selYas} />
 
-            <ReportBrandPage d={d} yorumlar={yorumlar} bazStr={bazStr} cmpStr={cmpStr} runtimeCalc={runtimeCalc} selBolge={selBolge} selYas={selYas} />
+            <ReportBrandPage kats={KATS} d={d} yorumlar={yorumlar} bazStr={bazStr} cmpStr={cmpStr} runtimeCalc={runtimeCalc} selBolge={selBolge} selYas={selYas} />
 
-            <ReportKpiDetailPage d={d} yorumlar={yorumlar} bazStr={bazStr} cmpStr={cmpStr} runtimeCalc={runtimeCalc} selBolge={selBolge} selYas={selYas} />
+            <ReportKpiDetailPage kats={KATS} d={d} yorumlar={yorumlar} bazStr={bazStr} cmpStr={cmpStr} runtimeCalc={runtimeCalc} selBolge={selBolge} selYas={selYas} />
 
-            <ReportRegionPage d={d} yorumlar={yorumlar} bazStr={bazStr} cmpStr={cmpStr} runtimeCalc={runtimeCalc} selBolge={selBolge} selYas={selYas} />
+            <ReportRegionPage kats={KATS} d={d} yorumlar={yorumlar} bazStr={bazStr} cmpStr={cmpStr} runtimeCalc={runtimeCalc} selBolge={selBolge} selYas={selYas} />
 
-            <ReportTrendPage d={d} yorumlar={yorumlar} bazStr={bazStr} cmpStr={cmpStr} runtimeCalc={runtimeCalc} selBolge={selBolge} selYas={selYas} />
+            <ReportTrendPage kats={KATS} d={d} yorumlar={yorumlar} bazStr={bazStr} cmpStr={cmpStr} runtimeCalc={runtimeCalc} selBolge={selBolge} selYas={selYas} />
 
             {cmpStr && (
-              <ReportComparisonPage d={d} yorumlar={yorumlar} bazStr={bazStr} cmpStr={cmpStr} runtimeCalc={runtimeCalc} selBolge={selBolge} selYas={selYas} />
+              <ReportComparisonPage kats={KATS} d={d} yorumlar={yorumlar} bazStr={bazStr} cmpStr={cmpStr} runtimeCalc={runtimeCalc} selBolge={selBolge} selYas={selYas} />
             )}
 
-            <ReportHighlightsPage d={d} yorumlar={yorumlar} bazStr={bazStr} cmpStr={cmpStr} runtimeCalc={runtimeCalc} selBolge={selBolge} selYas={selYas} />
+            <ReportHighlightsPage kats={KATS} d={d} yorumlar={yorumlar} bazStr={bazStr} cmpStr={cmpStr} runtimeCalc={runtimeCalc} selBolge={selBolge} selYas={selYas} />
 
           </div>
           </div>
