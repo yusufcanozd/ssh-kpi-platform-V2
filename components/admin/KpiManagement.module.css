@@ -124,6 +124,17 @@
   border: 1px solid rgba(239, 68, 68, .30);
 }
 
+
+.listSearch {
+  padding: 0 18px 14px;
+}
+
+.emptyCell {
+  color: var(--tx3);
+  text-align: center;
+  padding: 22px 14px;
+}
+
 .tableWrap {
   overflow: auto;
   border-top: 1px solid var(--bd);
@@ -278,63 +289,4 @@
   border: 1px solid rgba(255,255,255,.35);
   margin-right: 7px;
   vertical-align: -2px;
-}
-
-.hiddenInput {
-  display: none;
-}
-
-.importBody {
-  border-top: 1px solid var(--bd);
-  padding: 14px 18px 18px;
-  display: grid;
-  gap: 12px;
-}
-
-.importPreview {
-  display: grid;
-  gap: 10px;
-}
-
-.previewHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  color: var(--tx);
-  font-size: 13px;
-}
-
-.previewHeader span {
-  color: var(--tx3);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.warningBox,
-.successBox {
-  padding: 10px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.warningBox {
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, .35);
-  background: rgba(245, 158, 11, .10);
-}
-
-.successBox {
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, .32);
-  background: rgba(16, 185, 129, .10);
-}
-
-.rowError {
-  margin-top: 4px;
-  color: #fca5a5;
-  font-size: 11px;
-  line-height: 1.4;
 }

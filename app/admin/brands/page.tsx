@@ -54,6 +54,7 @@ export default function BrandsAdminPage() {
   const [auditNote, setAuditNote] = useState('')
   const [dbError, setDbError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     if (!loading && !isSuperAdmin) router.replace('/dashboard')
@@ -71,6 +72,13 @@ export default function BrandsAdminPage() {
   }, [supabase])
 
   const validationErrors = useMemo(() => validateBrand(draft, brands, selectedId ?? undefined), [draft, brands, selectedId])
+  const filteredBrands = useMemo(() => {
+    const needle = searchQuery.trim().toLocaleLowerCase('tr-TR')
+    if (!needle) return brands
+
+    return brands.filter(brand => [brand.name, brand.code, brand.segment]
+      .some(value => (value ?? '').toLocaleLowerCase('tr-TR').includes(needle)))
+  }, [brands, searchQuery])
   const activeCount = brands.filter(brand => brand.isActive).length
   const visibleCount = brands.filter(brand => brand.isActive && !brand.isHidden).length
   const privacyMasking = visibleCount >= 1 && visibleCount <= 3
@@ -193,7 +201,10 @@ export default function BrandsAdminPage() {
               <div className={styles.toolbar}>
                 <div>
                   <h2 className={styles.toolbarTitle}>Marka Listesi</h2>
-                  <div className={styles.toolbarHint}>{brands.length} marka · {activeCount} aktif · {visibleCount} görünür</div>
+                  <div className={styles.toolbarHint}>
+                    {brands.length} marka · {activeCount} aktif · {visibleCount} görünür
+                    {searchQuery.trim() && ` · ${filteredBrands.length} sonuç`}
+                  </div>
                 </div>
                 <div className={styles.actions}>
                   {source === 'fallback' && (
@@ -201,6 +212,16 @@ export default function BrandsAdminPage() {
                   )}
                   <button type="button" className={styles.secondaryButton} onClick={resetForm}>Yeni marka</button>
                 </div>
+              </div>
+              <div className={styles.listSearch}>
+                <input
+                  className={styles.input}
+                  type="search"
+                  value={searchQuery}
+                  onChange={event => setSearchQuery(event.target.value)}
+                  placeholder="Marka adı, kod veya segment ara..."
+                  aria-label="Marka adı, kod veya segment ara"
+                />
               </div>
               <div className={styles.tableWrap}>
                 <table className={styles.table}>
@@ -215,7 +236,7 @@ export default function BrandsAdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {brands.map(brand => (
+                    {filteredBrands.map(brand => (
                       <tr key={brand.id}>
                         <td><strong>{brand.code}</strong></td>
                         <td>
@@ -242,6 +263,11 @@ export default function BrandsAdminPage() {
                         </td>
                       </tr>
                     ))}
+                    {filteredBrands.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className={styles.emptyCell}>Arama kriterine uygun marka bulunamadı.</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
