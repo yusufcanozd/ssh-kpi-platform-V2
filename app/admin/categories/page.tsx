@@ -212,72 +212,22 @@ export default function CategoriesAdminPage() {
             {warning && <div className={styles.noticeText}>{warning}</div>}
           </section>
 
-          <div className={styles.grid}>
-            <section className={styles.card}>
-              <div className={styles.toolbar}>
-                <div>
-                  <h2 className={styles.toolbarTitle}>Kategori Listesi</h2>
-                  <div className={styles.toolbarHint}>{categories.length} kategori · {activeCount} aktif · KPI bağlantıları dinamik tanımdan okunur</div>
-                </div>
-                <div className={styles.actions}>
-                  <button type="button" className={styles.secondaryButton} onClick={resetForm}>Yeni kategori</button>
-                </div>
-              </div>
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>Sıra</th>
-                      <th>Kategori</th>
-                      <th>Kısa ad</th>
-                      <th>Renk</th>
-                      <th>KPI</th>
-                      <th>Durum</th>
-                      <th>İşlem</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {categories.map(category => (
-                      <tr key={category.id}>
-                        <td><strong>{category.sortOrder}</strong></td>
-                        <td>
-                          <div>{category.name}</div>
-                          <div className={`${styles.muted} ${styles.small}`}>{category.key} · <span className={styles.sourceBadge}>{category.source}</span></div>
-                        </td>
-                        <td>{category.shortName}</td>
-                        <td><span className={styles.colorDot} style={{ background: category.color }} />{category.color}</td>
-                        <td>{kpiCountByCategory.get(category.key) ?? 0}</td>
-                        <td>
-                          <span className={`${styles.status} ${category.isActive ? styles.statusActive : styles.statusPassive}`}>
-                            {category.isActive ? 'Aktif' : 'Pasif'}
-                          </span>
-                        </td>
-                        <td>
-                          <div className={styles.actions}>
-                            <button type="button" className={styles.secondaryButton} onClick={() => editCategory(category)}>Düzenle</button>
-                            <button type="button" className={styles.dangerButton} onClick={() => toggleActive(category)} disabled={saving}>{category.isActive ? 'Pasifleştir' : 'Aktifleştir'}</button>
-                            <button type="button" className={styles.dangerButton} onClick={() => removeCategory(category)} disabled={saving} title="Kalıcı sil">Sil</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <aside className={styles.card}>
-              <form className={styles.form} onSubmit={event => { event.preventDefault(); saveDraft() }}>
+          <section className={`${styles.card} ${styles.formCard}`}>
+            <form className={styles.form} onSubmit={event => { event.preventDefault(); saveDraft() }}>
+              <div className={styles.formHeader}>
                 <div>
                   <h2 className={styles.formTitle}>{selectedId ? 'Kategori Düzenle' : 'Yeni Kategori Ekle'}</h2>
-                  <div className={styles.formHint}>Kalıcı silme açıktır; dashboard ve geçmiş rapor bütünlüğü için emin değilseniz pasifleştirme kullanın.</div>
+                  <div className={styles.formHint}>Kaydet/Güncelle Supabase’e yazılır. Silme kalıcıdır; emin değilseniz pasifleştirme kullanın.</div>
                 </div>
+                <button type="button" className={styles.secondaryButton} onClick={resetForm}>Yeni kategori</button>
+              </div>
 
-                {validationErrors.length > 0 && (
-                  <div className={styles.errors}>{validationErrors.map(error => <div key={error}>{error}</div>)}</div>
-                )}
-                {dbError && <div className={styles.errors}>{dbError}</div>}
+              {validationErrors.length > 0 && (
+                <div className={styles.errors}>{validationErrors.map(error => <div key={error}>{error}</div>)}</div>
+              )}
+              {dbError && <div className={styles.errors}>{dbError}</div>}
 
+              <div className={styles.formGrid}>
                 <div className={styles.field}>
                   <label>Ad</label>
                   <input className={styles.input} value={draft.name} onChange={event => updateName(event.target.value)} placeholder="Kategori adı" />
@@ -314,16 +264,69 @@ export default function CategoriesAdminPage() {
                   <input type="checkbox" checked={draft.isActive} onChange={event => setDraft({ ...draft, isActive: event.target.checked })} />
                   Aktif kategori
                 </label>
+              </div>
 
-                <div className={styles.actions}>
-                  <button type="submit" className={styles.button} disabled={validationErrors.length > 0 || saving}>{saving ? 'Kaydediliyor…' : (selectedId ? 'Güncelle' : 'Ekle')}</button>
-                  <button type="button" className={styles.secondaryButton} onClick={resetForm}>Temizle</button>
-                </div>
+              <div className={styles.actions}>
+                <button type="submit" className={styles.button} disabled={validationErrors.length > 0 || saving}>{saving ? 'Kaydediliyor…' : (selectedId ? 'Güncelle' : 'Ekle')}</button>
+                <button type="button" className={styles.secondaryButton} onClick={resetForm}>Temizle</button>
+              </div>
 
-                {auditNote && <div className={styles.formHint}>{auditNote}</div>}
-              </form>
-            </aside>
-          </div>
+              {auditNote && <div className={styles.formHint}>{auditNote}</div>}
+            </form>
+          </section>
+
+          <section className={styles.card}>
+            <div className={styles.toolbar}>
+              <div>
+                <h2 className={styles.toolbarTitle}>Kategori Listesi</h2>
+                <div className={styles.toolbarHint}>{categories.length} kategori · {activeCount} aktif · KPI bağlantıları dinamik tanımdan okunur</div>
+              </div>
+            </div>
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Sıra</th>
+                    <th>Kategori</th>
+                    <th>Kısa ad</th>
+                    <th>Renk</th>
+                    <th>KPI</th>
+                    <th>Durum</th>
+                    <th>İşlem</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categories.map(category => (
+                    <tr key={category.id}>
+                      <td><strong>{category.sortOrder}</strong></td>
+                      <td>
+                        <div className={styles.kpiNameLine}>
+                          <span>{category.name}</span>
+                          <span className={styles.shortName}>{category.key}</span>
+                          <span className={styles.sourceBadge}>{category.source}</span>
+                        </div>
+                      </td>
+                      <td>{category.shortName}</td>
+                      <td><span className={styles.colorDot} style={{ background: category.color }} />{category.color}</td>
+                      <td>{kpiCountByCategory.get(category.key) ?? 0}</td>
+                      <td>
+                        <span className={`${styles.status} ${category.isActive ? styles.statusActive : styles.statusPassive}`}>
+                          {category.isActive ? 'Aktif' : 'Pasif'}
+                        </span>
+                      </td>
+                      <td>
+                        <div className={styles.actions}>
+                          <button type="button" className={styles.secondaryButton} onClick={() => editCategory(category)}>Düzenle</button>
+                          <button type="button" className={styles.dangerButton} onClick={() => toggleActive(category)} disabled={saving}>{category.isActive ? 'Pasifleştir' : 'Aktifleştir'}</button>
+                          <button type="button" className={styles.dangerButton} onClick={() => removeCategory(category)} disabled={saving} title="Kalıcı sil">Sil</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
       </div>
     </div>
