@@ -4,11 +4,14 @@ const nextConfig = {
   images: {
     domains: ['fonts.googleapis.com'],
   },
-  // @sparticuz/chromium + puppeteer-core'u Next bundle'indan haric tut.
-  // Aksi halde Next, chromium'un "bin" klasorunu tasiyip bozuyor ve
-  // sunucu PDF route'u "input directory ... does not exist" hatasi veriyor.
   experimental: {
+    // Next bundle'indan haric tut (chromium "bin" klasoru tasinmasin).
     serverComponentsExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
+    // Haric tutulan paketler otomatik izlenmez; chromium dosyalarini
+    // report-pdf serverless fonksiyonuna acikca dahil et.
+    outputFileTracingIncludes: {
+      '/api/report-pdf': ['./node_modules/@sparticuz/chromium/**/*'],
+    },
   },
   // JSON import desteği (kpi_data.json için)
   webpack: (config) => {
