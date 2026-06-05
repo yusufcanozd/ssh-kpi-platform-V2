@@ -400,6 +400,32 @@ export default function OzetRaporPage() {
                   </div>
                 </div>
               )}
+              {d && (
+                <button onClick={async () => {
+                  try {
+                    const res = await fetch('/api/report-pdf', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ periodLabel: bazStr }),
+                    })
+                    if (!res.ok) { alert('PDF hatası: ' + (await res.text())); return }
+                    const blob = await res.blob()
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = 'ssh-rapor-proof.pdf'
+                    document.body.appendChild(a)
+                    a.click()
+                    a.remove()
+                    URL.revokeObjectURL(url)
+                  } catch (err) {
+                    alert('PDF hatası: ' + (err instanceof Error ? err.message : 'bilinmeyen'))
+                  }
+                }}
+                  style={{ padding:'8px 16px', borderRadius:8, fontSize:11, fontWeight:600, cursor:'pointer', border:'1px solid var(--bd)', background:'var(--surf)', color:'var(--tx2)' }}>
+                  PDF (sunucu) – test
+                </button>
+              )}
               <button onClick={handleOlustur} disabled={generating}
                 style={{ padding:'8px 22px', borderRadius:8, fontSize:11, fontWeight:700,
                   cursor:generating ? 'wait' : 'pointer', border:'none',
