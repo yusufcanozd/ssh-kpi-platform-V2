@@ -7,14 +7,28 @@ type ProfileAccessRow = {
   is_active?: boolean | null
 }
 
-function isAdminUsersPath(path: string) {
+const SUPERADMIN_HOME_PATH = '/admin'
+const ADMIN_HOME_PATH = '/admin/user-permissions'
+const DASHBOARD_HOME_PATH = '/dashboard'
+const LOGIN_PATH = '/login'
+
+function isLegacyAdminUsersPath(path: string) {
   return path === '/admin/users' || path.startsWith('/admin/users/')
 }
 
+function isAdminManagementPath(path: string) {
+  return (
+    path === ADMIN_HOME_PATH ||
+    path.startsWith(`${ADMIN_HOME_PATH}/`) ||
+    path === '/admin/permissions' ||
+    path.startsWith('/admin/permissions/')
+  )
+}
+
 function getPostLoginPath(role?: string | null) {
-  if (role === 'superadmin') return '/admin'
-  if (role === 'admin') return '/admin/users'
-  return '/dashboard'
+  if (isSuperAdminRole(role)) return SUPERADMIN_HOME_PATH
+  if (role === 'admin') return ADMIN_HOME_PATH
+  return DASHBOARD_HOME_PATH
 }
 
 export async function middleware(request: NextRequest) {
@@ -40,8 +54,8 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const path = request.nextUrl.pathname
 
-  if (!user && path !== '/login') {
-    return NextResponse.redirect(new URL('/login', request.url))
+  if (!user && path !== LOGIN_PATH) {
+    return NextResponse.redirect(new URL(LOGIN_PATH, request.url))
   }
 
   let profile: ProfileAccessRow | null = null
@@ -55,24 +69,28 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && !profile?.is_active) {
-    if (path === '/login') return NextResponse.next({ request })
+    if (path === LOGIN_PATH) return NextResponse.next({ request })
     const redirectResponse = NextResponse.redirect(new URL('/login?inactive=1', request.url))
     redirectResponse.cookies.delete('sb-access-token')
     redirectResponse.cookies.delete('sb-refresh-token')
     return redirectResponse
   }
 
-  if (user && path === '/login') {
+  if (user && path === LOGIN_PATH) {
     return NextResponse.redirect(new URL(getPostLoginPath(profile?.role), request.url))
   }
 
   if (user && path.startsWith('/admin')) {
     if (!isAdminRole(profile?.role)) {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return NextResponse.redirect(new URL(DASHBOARD_HOME_PATH, request.url))
     }
 
-    if (!isSuperAdminRole(profile?.role) && !isAdminUsersPath(path)) {
-      return NextResponse.redirect(new URL('/admin/users', request.url))
+    if (isLegacyAdminUsersPath(path)) {
+      return NextResponse.redirect(new URL(ADMIN_HOME_PATH, request.url))
+    }
+
+    if (!isSuperAdminRole(profile?.role) && !isAdminManagementPath(path)) {
+      return NextResponse.redirect(new URL(ADMIN_HOME_PATH, request.url))
     }
   }
 
