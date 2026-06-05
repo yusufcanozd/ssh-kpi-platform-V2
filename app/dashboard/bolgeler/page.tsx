@@ -96,7 +96,7 @@ export default function BolgelerPage() {
     ...categoryOptions.map(cat => ({ key: cat.key, label: cat.label, color: cat.color })),
   ], [categoryOptions])
 
-  const bolgeList = selBolge ? [selBolge] : allowedRegions
+  const bolgeList = useMemo(() => selBolge ? [selBolge] : allowedRegions, [selBolge, allowedRegions])
   const meta = KPI_META[selKpi]
   const lob  = isLowerBetter(selKpi)
   const unit = kpiUnit(meta.fmt)
