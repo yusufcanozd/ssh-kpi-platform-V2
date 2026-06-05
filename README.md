@@ -193,3 +193,8 @@ Ayrıca login, logout, admin kullanıcı yönetimi, AI yorum üretimi ve marka g
 - Veri setinde varyans üretmeyen KPI'lar coverage dışında bırakılır. Mevcut veri setinde KPI 2 bu kapsamdadır.
 - Kullanıcı rolleri: `superadmin`, `admin`, `analyst`, `viewer`.
 - Marka skorları hazır genel skor kaynağından gelir; marka bazlı kategori/KPI kırılımı bulunmamaktadır.
+
+
+## Environment Variables
+
+CI build adimi dummy Supabase env degerleriyle calisir; production degerleri Vercel Environment Variables icinde tutulur.

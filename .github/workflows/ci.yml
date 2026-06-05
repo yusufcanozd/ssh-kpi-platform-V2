@@ -29,4 +29,8 @@ jobs:
         run: npm run lint
 
       - name: Build
+        env:
+          # CI icin dummy Supabase degerleri. Gercek prod degerleri Vercel Environment Variables icinde tutulur.
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key
         run: npm run build
