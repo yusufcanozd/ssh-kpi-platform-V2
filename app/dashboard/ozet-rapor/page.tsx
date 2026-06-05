@@ -488,28 +488,33 @@ export default function OzetRaporPage() {
             width: 100%;
           }
 
-          /* Her rapor bolumu yeni A4 sayfada baslar */
+          /* AKIS: bolumler arka arkaya akar ve sayfayi doldurur.
+             Her bolum AYRI sayfaya ZORLANMAZ -> bos/yarim sayfa olmaz. */
+          #rapor-icerik { display: block; }
           .rapor-sayfa {
-            page-break-after: always;
-            break-after: page;
-            margin-bottom: 0 !important;
-          }
-          .rapor-sayfa:last-child {
-            page-break-after: auto;
-            break-after: auto;
-          }
-
-          /* Ogeler sayfa ortasindan kesilmesin */
-          .rapor-sayfa > * {
-            page-break-inside: avoid;
+            margin: 0 0 12px 0 !important;
+            gap: 12px;
             break-inside: avoid;
+            page-break-inside: avoid;
+            break-after: auto;
+            page-break-after: auto;
           }
-          /* Uzun tablolar duzgun bolunsun, baslik satiri her sayfada tekrarlasin */
+          /* Sadece kapak kendi tam sayfasinda kalir (dergi kapagi gibi) */
+          #rapor-icerik > .rapor-sayfa:first-child {
+            break-after: page;
+            page-break-after: always;
+          }
+          .rapor-sayfa:last-child { margin-bottom: 0 !important; }
+
+          /* Bir bolum (uzun tablo) tek sayfaya sigmiyorsa duzgun bolunur,
+             baslik satiri devam sayfasinda tekrar eder */
           table { break-inside: auto; }
           thead { display: table-header-group; }
           tfoot { display: table-footer-group; }
-          tr { page-break-inside: avoid; break-inside: avoid; }
-          img, svg, canvas { break-inside: avoid; }
+          tr, img, svg, canvas {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
           h1, h2, h3, h4 { break-after: avoid; }
           p, li { orphans: 3; widows: 3; }
 
