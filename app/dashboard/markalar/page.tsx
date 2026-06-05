@@ -245,22 +245,20 @@ export default function MarkalarsPage() {
           <button onClick={function() { setTab('kategori') }} style={{ padding: '6px 18px', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: '1px solid ' + (tab === 'kategori' ? 'var(--blue)' : 'var(--bd)'), background: tab === 'kategori' ? 'rgba(59,130,246,.12)' : 'var(--surf)', color: tab === 'kategori' ? 'var(--blue)' : 'var(--tx2)' }}>Kategori Bazli</button>
         </div>
 
-        <div style={{
-          background: 'var(--surf)',
-          border: '1px solid var(--bd)',
-          borderRadius: 10,
-          padding: '10px 14px',
-          marginBottom: 16,
-          fontSize: 10,
-          color: 'var(--tx3)',
-          lineHeight: 1.55,
-        }}>
-          <strong style={{ color: 'var(--tx2)' }}>Marka skoru notu:</strong> Marka sıralaması <code>marka_scores.json</code> içindeki hazır genel marka skorunu kullanır.
-          Bu veri kaynağında marka bazlı kategori/KPI kırılımı bulunmadığı için tablodaki kategori ve KPI sütunları, markanın segment referans skorlarıyla açıklama amaçlı gösterilir.
-          {brandPrivacy.isMasked && (
-            <span> Rekabet hassasiyeti nedeniyle 3 veya daha az marka bulunan kırılımlarda marka adları gizlenir.</span>
-          )}
-        </div>
+        {brandPrivacy.isMasked && (
+          <div style={{
+            background: 'var(--surf)',
+            border: '1px solid var(--bd)',
+            borderRadius: 10,
+            padding: '10px 14px',
+            marginBottom: 16,
+            fontSize: 10,
+            color: 'var(--tx3)',
+            lineHeight: 1.55,
+          }}>
+            <strong style={{ color: 'var(--tx2)' }}>Not:</strong> Rekabet hassasiyeti nedeniyle 3 veya daha az markalı kırılımlarda marka adları gizlenir.
+          </div>
+        )}
 
         {tab === 'kpi' && (
           <div>

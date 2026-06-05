@@ -374,15 +374,11 @@ export default function KpiSettingsAdminPage() {
       />
       <div className={styles.content}>
         <div className={styles.inner}>
-          <section className={styles.notice}>
-            <div className={styles.noticeTitle}>Metodoloji uyarısı</div>
-            <div className={styles.noticeText}>
-              Bu ayarlar skor metodolojisini etkiler. Kaydet/Pasifleştir
-              işlemleri Supabase’e yazılır ve audit_logs’a düşer; dinamik skor
-              motoru (Prompt 9) henüz değiştirilmez.
-            </div>
-            {warning && <div className={styles.noticeText}>{warning}</div>}
-          </section>
+          {warning && (
+            <section className={styles.notice}>
+              <div className={styles.noticeText}>{warning}</div>
+            </section>
+          )}
 
           <section className={`${styles.card} ${styles.formCard}`}>
             <form
@@ -397,11 +393,6 @@ export default function KpiSettingsAdminPage() {
                   <h2 className={styles.formTitle}>
                     {selectedId ? "KPI Düzenle" : "Yeni KPI Ekle"}
                   </h2>
-                  <div className={styles.formHint}>
-                    Kaydet/Güncelle işlemleri Supabase’e yazılır. Silme
-                    kalıcıdır; metodoloji geçmişi için emin değilseniz
-                    Pasifleştir kullanın.
-                  </div>
                 </div>
                 <button
                   type="button"
@@ -605,8 +596,7 @@ export default function KpiSettingsAdminPage() {
               <div>
                 <h2 className={styles.toolbarTitle}>Excel ile Toplu KPI</h2>
                 <div className={styles.toolbarHint}>
-                  .xlsx/.xls dosyasında kpi_no, ad, kısa ad, kategori, yön ve aktif kolonlarını önizleyip geçerli satırları Supabase’e yazın.
-                </div>
+                  Kolonlar: kpi_no, ad, kısa ad, kategori, yön, aktif.</div>
               </div>
               <div className={styles.actions}>
                 <input

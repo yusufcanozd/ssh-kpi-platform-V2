@@ -449,15 +449,11 @@ export default function CategoriesAdminPage() {
       />
       <div className={styles.content}>
         <div className={styles.inner}>
-          <section className={styles.notice}>
-            <div className={styles.noticeTitle}>Metodoloji uyarısı</div>
-            <div className={styles.noticeText}>
-              Kategori değişiklikleri skor metodolojisini ve executive rapor
-              yorumunu etkiler. Kaydet/Pasifleştir/Sil Supabase’e yazılır; silme
-              kalıcıdır ve bağlı KPI varsa engellenebilir.
-            </div>
-            {warning && <div className={styles.noticeText}>{warning}</div>}
-          </section>
+          {warning && (
+            <section className={styles.notice}>
+              <div className={styles.noticeText}>{warning}</div>
+            </section>
+          )}
 
           <section className={styles.card}>
             <div className={styles.toolbar}>
@@ -466,9 +462,7 @@ export default function CategoriesAdminPage() {
                   Excel ile Toplu Kategori
                 </h2>
                 <div className={styles.toolbarHint}>
-                  key/ad/renk/ağırlık kolonları okunur · toplam ağırlık uyarı
-                  amaçlıdır · export sadece super-admin
-                </div>
+                  Kolonlar: key, ad, renk, ağırlık · export super-admin.</div>
               </div>
               <div className={styles.actions}>
                 <input
@@ -703,10 +697,6 @@ export default function CategoriesAdminPage() {
                   <h2 className={styles.formTitle}>
                     {selectedId ? "Kategori Düzenle" : "Yeni Kategori Ekle"}
                   </h2>
-                  <div className={styles.formHint}>
-                    Kalıcı silme açıktır; dashboard ve geçmiş rapor bütünlüğü
-                    için emin değilseniz pasifleştirme kullanın.
-                  </div>
                 </div>
 
                 {validationErrors.length > 0 && (

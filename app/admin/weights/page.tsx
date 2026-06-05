@@ -211,12 +211,6 @@ export default function WeightsAdminPage() {
       />
       <div className={styles.content}>
         <div className={styles.inner}>
-          <section className={styles.notice}>
-            <div className={styles.noticeTitle}>Metodoloji uyarısı</div>
-            <div className={styles.noticeText}>
-              Ağırlıklar genel ve kategori skorlarını doğrudan etkiler. Toplam 100 olmadan kayıt yapılamaz. Aktif versiyon: <strong>{activeVersion?.name ?? '—'}</strong>.
-            </div>
-          </section>
 
           <div className={styles.grid}>
             <section className={styles.card}>
@@ -286,7 +280,6 @@ export default function WeightsAdminPage() {
                 <div className={styles.historyHeader}>
                   <div>
                     <h3 className={styles.historyTitle}>Metodoloji Versiyon Geçmişi</h3>
-                    <div className={styles.formHint}>Audit log üzerinden en yeni değişiklikler üstte listelenir.</div>
                   </div>
                   <button type="button" className={styles.secondaryButton} onClick={refreshHistory} disabled={historyLoading || source !== 'supabase'}>
                     {historyLoading ? 'Yükleniyor…' : 'Yenile'}
@@ -321,7 +314,6 @@ export default function WeightsAdminPage() {
               <div className={styles.toolbar}>
                 <div>
                   <h2 className={styles.toolbarTitle}>Metodoloji Versiyonları</h2>
-                  <div className={styles.toolbarHint}>Aktif tek versiyon dashboard skorunu belirler.</div>
                 </div>
               </div>
               <div className={styles.tableWrap}>
@@ -355,7 +347,6 @@ export default function WeightsAdminPage() {
               <form className={styles.form} onSubmit={event => { event.preventDefault(); createVersion() }}>
                 <div>
                   <h2 className={styles.formTitle}>Yeni Versiyon</h2>
-                  <div className={styles.formHint}>Yeni versiyon mevcut ağırlık dağılımını kaydeder.</div>
                 </div>
 
                 <div className={styles.field}>

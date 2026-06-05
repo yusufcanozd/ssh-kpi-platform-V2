@@ -151,13 +151,11 @@ export default function SegmentsAdminPage() {
       />
       <div className={styles.content}>
         <div className={styles.inner}>
-          <section className={styles.notice}>
-            <div className={styles.noticeTitle}>Segment yonetimi</div>
-            <div className={styles.noticeText}>
-              Buradaki aktif segmentler marka formundaki segment seceneklerini belirler. Yeni segment ekleyince marka ekraninda otomatik secilebilir olur.
-            </div>
-            {warning && <div className={styles.noticeText}>{warning}</div>}
-          </section>
+          {warning && (
+            <section className={styles.notice}>
+              <div className={styles.noticeText}>{warning}</div>
+            </section>
+          )}
 
           <div className={styles.grid}>
             <section className={styles.card}>
@@ -215,7 +213,6 @@ export default function SegmentsAdminPage() {
               <form className={styles.form} onSubmit={event => { event.preventDefault(); saveDraft() }}>
                 <div>
                   <h2 className={styles.formTitle}>{selectedId ? 'Segment Duzenle' : 'Yeni Segment Ekle'}</h2>
-                  <div className={styles.formHint}>Kaydet islemi Supabase segments tablosuna yazilir.</div>
                 </div>
 
                 {validationErrors.length > 0 && (

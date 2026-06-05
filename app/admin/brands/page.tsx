@@ -188,13 +188,12 @@ export default function BrandsAdminPage() {
       />
       <div className={styles.content}>
         <div className={styles.inner}>
-          <section className={styles.notice}>
-            <div className={styles.noticeTitle}>Gizlilik kuralı (rule of 3)</div>
-            <div className={styles.noticeText}>
-              Görünür (aktif ve gizli olmayan) marka sayısı 1-3 ise dashboard maskeleme uygular. Şu an görünür marka: <strong>{visibleCount}</strong>{privacyMasking ? ' — maskeleme aktif.' : '.'} Kalıcı silme açıktır; emin değilseniz pasifleştirme veya gizleme kullanın.
-            </div>
-            {warning && <div className={styles.noticeText}>{warning}</div>}
-          </section>
+          {(privacyMasking || warning) && (
+            <section className={styles.notice}>
+              {privacyMasking && <div className={styles.noticeText}>Gizlilik maskelemesi aktif — görünür marka ≤ 3.</div>}
+              {warning && <div className={styles.noticeText}>{warning}</div>}
+            </section>
+          )}
 
           <div className={styles.grid}>
             <section className={styles.card}>
@@ -277,7 +276,6 @@ export default function BrandsAdminPage() {
               <form className={styles.form} onSubmit={event => { event.preventDefault(); saveDraft() }}>
                 <div>
                   <h2 className={styles.formTitle}>{selectedId ? 'Marka Düzenle' : 'Yeni Marka Ekle'}</h2>
-                  <div className={styles.formHint}>Kaydet işlemi Supabase brands tablosuna yazılır. Gizli markalar dashboard’da maskelenir; Sil işlemi kalıcıdır ve audit_logs&apos;a yazılır.</div>
                 </div>
 
                 {validationErrors.length > 0 && (
