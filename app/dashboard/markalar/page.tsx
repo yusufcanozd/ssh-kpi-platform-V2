@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
 import { useDashboardCtx } from '@/app/dashboard/DashboardClient'
@@ -60,7 +60,7 @@ export default function MarkalarsPage() {
 
   const brandRestricted = hasDataRestriction && allowedBrandNames.length > 0
 
-  function getDynamicOrStaticRawRanking(donem: string) {
+  const getDynamicOrStaticRawRanking = useCallback(function(donem: string) {
     const dyn = runtimeData?.markaRows
     if (dyn && dyn.length > 0) {
       return dyn
@@ -69,16 +69,16 @@ export default function MarkalarsPage() {
         .sort((a, b) => b.score - a.score || a.marka.localeCompare(b.marka, 'tr'))
     }
     return getRawMarkaRanking(selSeg, selBolge, selYas, donem)
-  }
+  }, [runtimeData, selSeg, selBolge, selYas])
 
-  function getPermissionFilteredRawRanking(donem: string) {
+  const getPermissionFilteredRawRanking = useCallback(function(donem: string) {
     const rawRows = getDynamicOrStaticRawRanking(donem)
     return filterAllowedBrandNames(rawRows, allowedBrandNames, brandRestricted)
-  }
+  }, [getDynamicOrStaticRawRanking, allowedBrandNames, brandRestricted])
 
-  function getPermissionFilteredRanking(donem: string): Array<{ marka: string; originalMarka?: string; segment: string; score: number }> {
+  const getPermissionFilteredRanking = useCallback(function(donem: string): Array<{ marka: string; originalMarka?: string; segment: string; score: number }> {
     return applyBrandPrivacyRule(getPermissionFilteredRawRanking(donem)) as Array<{ marka: string; originalMarka?: string; segment: string; score: number }>
-  }
+  }, [getPermissionFilteredRawRanking])
 
   function getBrandIdentity(row: { marka: string; originalMarka?: string }) {
     return row.originalMarka ?? row.marka
@@ -87,7 +87,7 @@ export default function MarkalarsPage() {
   const brandPrivacy = useMemo(function() {
     const rawCount = getPermissionFilteredRawRanking(selDonem).length
     return getBrandPrivacyInfo(rawCount)
-  }, [selDonem, selSeg, selBolge, selYas, allowedBrandNames, brandRestricted, runtimeData])
+  }, [selDonem, getPermissionFilteredRawRanking])
 
   const markalar = useMemo(function() {
     const ranked    = getPermissionFilteredRanking(selDonem)
@@ -111,7 +111,7 @@ export default function MarkalarsPage() {
       const bv = b.bazSkorlar[sortKpi] ?? 0
       return isLowerBetter(sortKpi) ? av - bv : bv - av
     })
-  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, sortKpi, allowedBrandNames, brandRestricted, runtimeCalc])
+  }, [selBolge, selYas, selDonem, selCmpDonem, sortKpi, runtimeCalc, getPermissionFilteredRanking])
 
   const katMarkalar = useMemo(function() {
     const ranked    = getPermissionFilteredRanking(selDonem)
@@ -135,7 +135,7 @@ export default function MarkalarsPage() {
       const bv = b.katSkor ? (b.katSkor as any)[katSortKey] ?? 0 : 0
       return bv - av
     })
-  }, [selSeg, selBolge, selYas, selDonem, selCmpDonem, katSortKey, allowedBrandNames, brandRestricted, runtimeCalc])
+  }, [selBolge, selYas, selDonem, selCmpDonem, katSortKey, runtimeCalc, getPermissionFilteredRanking])
 
   function makeBarData(labels: string[], vals: number[], cmpVals: number[] | null, label: string) {
     const colors = vals.map(function(v) { return kpiScoreColor(v) })

@@ -334,7 +334,7 @@ function GrafikPaneli({ idx, bolge, yas, bRef, dragPayload, seriler, setSeriler,
         x:{ grid:{display:false}, ticks:{color:'#8496b0',font:{size:9},maxRotation:45,autoSkip:false} },
       },
     }
-  }, [chartData, seriler, aktifDonemler, bolge, yas, dualAxis])
+  }, [seriler, aktifDonemler, bolge, yas, dualAxis, runtimeCalc])
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
