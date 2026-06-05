@@ -450,6 +450,11 @@ export default function OzetRaporPage() {
 
             <ReportHighlightsPage kats={KATS} d={d} yorumlar={yorumlar} bazStr={bazStr} cmpStr={cmpStr} runtimeCalc={runtimeCalc} selBolge={selBolge} selYas={selYas} />
 
+            <div className="rapor-print-footer" aria-hidden="true">
+              <span className="pf-left">SSH Rekabet Analizi · Satış Sonrası Hizmet KPI Raporu</span>
+              <span className="pf-right">Baz {bazStr}{cmpStr ? ` · Karş. ${cmpStr}` : ''}</span>
+            </div>
+
           </div>
           </div>
         )}
@@ -462,14 +467,17 @@ export default function OzetRaporPage() {
           gap: 14px;
           margin-bottom: 32px;
         }
+        .rapor-print-footer { display: none; }
 
         @media print {
           @page {
             size: A4;
-            margin: 10mm 12mm;
+            margin: 12mm 12mm 16mm 12mm;
           }
 
-          /* Sadece rapor görünür */
+          html, body { background: #fff !important; }
+
+          /* Sadece rapor gorunur */
           body * { visibility: hidden !important; }
           #rapor-print-wrapper,
           #rapor-print-wrapper * { visibility: visible !important; }
@@ -480,21 +488,48 @@ export default function OzetRaporPage() {
             width: 100%;
           }
 
-          /* Sayfa kırılımı */
+          /* Her rapor bolumu yeni A4 sayfada baslar */
           .rapor-sayfa {
             page-break-after: always;
             break-after: page;
             margin-bottom: 0 !important;
-            /* Boşlukları önle — min-height kaldırıldı */
           }
           .rapor-sayfa:last-child {
             page-break-after: auto;
             break-after: auto;
           }
+
+          /* Ogeler sayfa ortasindan kesilmesin */
           .rapor-sayfa > * {
             page-break-inside: avoid;
             break-inside: avoid;
           }
+          /* Uzun tablolar duzgun bolunsun, baslik satiri her sayfada tekrarlasin */
+          table { break-inside: auto; }
+          thead { display: table-header-group; }
+          tfoot { display: table-footer-group; }
+          tr { page-break-inside: avoid; break-inside: avoid; }
+          img, svg, canvas { break-inside: avoid; }
+          h1, h2, h3, h4 { break-after: avoid; }
+          p, li { orphans: 3; widows: 3; }
+
+          /* Her fiziksel sayfada tekrarlayan altbilgi */
+          .rapor-print-footer {
+            display: block !important;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 10mm;
+            line-height: 10mm;
+            padding: 0 2mm;
+            border-top: 1px solid #d6dde6;
+            font-size: 8px;
+            color: #64748b;
+            background: #fff;
+          }
+          .rapor-print-footer .pf-left { float: left; font-weight: 700; }
+          .rapor-print-footer .pf-right { float: right; font-family: var(--font-dm-mono, monospace); }
 
           /* Renkleri koru */
           * {
